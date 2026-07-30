@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using NexusAI.Domain.Common.Identifiers;
 
-namespace NexusAI.Application.Workspaces.Commands.CreateWorkspace
-{
-    internal class CreateWorkspaceResult
-    {
-    }
-}
+namespace NexusAI.Application.Workspaces.Commands.CreateWorkspace;
+
+public sealed record CreateWorkspaceResult(
+    WorkspaceId WorkspaceId,
+    string Name);

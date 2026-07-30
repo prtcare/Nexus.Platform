@@ -3,8 +3,8 @@
     <Project Path="src/NexusAI.Application/NexusAI.Application.csproj" Id="a987fb7a-1e4d-45c4-b60c-ba9152c2c4be" />
   </Folder>
   <Folder Name="/Clients/" />
-  <Folder Name="/Domains/">
-    <Project Path="src/NexusAI.Domains/NexusAI.Domains.csproj" />
+  <Folder Name="/Domain/">
+    <Project Path="src/NexusAI.Domain/NexusAI.Domain.csproj" />
   </Folder>
   <Folder Name="/Foundation/">
     <Project Path="src/NexusAI.Foundation/NexusAI.Foundation.csproj" />

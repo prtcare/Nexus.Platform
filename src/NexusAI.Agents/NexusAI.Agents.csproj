@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NexusAI.Core\NexusAI.Core.csproj" />
-    <ProjectReference Include="..\NexusAI.Domains\NexusAI.Domains.csproj" />
+    <ProjectReference Include="..\NexusAI.Domain\NexusAI.Domain.csproj" />
     <ProjectReference Include="..\NexusAI.Foundation\NexusAI.Foundation.csproj" />
     <ProjectReference Include="..\NexusAI.Infrastructure\NexusAI.Infrastructure.csproj" />
   </ItemGroup>
