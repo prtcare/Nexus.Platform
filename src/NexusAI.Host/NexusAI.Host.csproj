@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NexusAI.Agents\NexusAI.Agents.csproj" />
+    <ProjectReference Include="..\NexusAI.Application\NexusAI.Application.csproj" />
+    <ProjectReference Include="..\NexusAI.Core\NexusAI.Core.csproj" />
+    <ProjectReference Include="..\NexusAI.Domains\NexusAI.Domains.csproj" />
+    <ProjectReference Include="..\NexusAI.Foundation\NexusAI.Foundation.csproj" />
+    <ProjectReference Include="..\NexusAI.Infrastructure\NexusAI.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Configuration\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
+  </ItemGroup>
+
+</Project>

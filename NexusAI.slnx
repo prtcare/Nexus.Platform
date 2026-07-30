@@ -1,0 +1,23 @@
+<Solution>
+  <Folder Name="/Application/">
+    <Project Path="src/NexusAI.Application/NexusAI.Application.csproj" Id="a987fb7a-1e4d-45c4-b60c-ba9152c2c4be" />
+  </Folder>
+  <Folder Name="/Clients/" />
+  <Folder Name="/Domains/">
+    <Project Path="src/NexusAI.Domains/NexusAI.Domains.csproj" />
+  </Folder>
+  <Folder Name="/Foundation/">
+    <Project Path="src/NexusAI.Foundation/NexusAI.Foundation.csproj" />
+  </Folder>
+  <Folder Name="/Hosts/">
+    <Project Path="src/NexusAI.Host/NexusAI.Host.csproj" />
+  </Folder>
+  <Folder Name="/Infrastructure/">
+    <Project Path="src/NexusAI.Infrastructure/NexusAI.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/Platform/">
+    <Project Path="src/NexusAI.Agents/NexusAI.Agents.csproj" />
+    <Project Path="src/NexusAI.Core/NexusAI.Core.csproj" />
+  </Folder>
+  <Folder Name="/Tests/" />
+</Solution>
