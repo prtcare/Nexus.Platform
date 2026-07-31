@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NexusAI.Application.Session.Commands;
 using NexusAI.Application.WorkItem;
 using NexusAI.Domain.Conversation;
+using NexusAI.Domain.Knowledge;
 using NexusAI.Domain.Project;
 using NexusAI.Domain.Session;
 using NexusAI.Domain.WorkItem;
@@ -58,6 +59,14 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IRepositoryMapper<Session, SessionEntity>, SessionMapper>();
         services.AddScoped<CreateSessionHandler>();
         services.AddScoped<ISessionRepository, SessionDataverseRepository>();
+        services.AddSingleton<
+    IRepositoryMapper<Knowledge, KnowledgeEntity>,
+    KnowledgeMapper>();
+
+        services.AddScoped<
+            IKnowledgeRepository,
+            KnowledgeDataverseRepository>();
+
 
         return services;
     }

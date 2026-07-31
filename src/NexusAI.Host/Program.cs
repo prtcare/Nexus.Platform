@@ -4,18 +4,21 @@ using Microsoft.Extensions.Hosting;
 using NexusAI.Agents.Developer;
 using NexusAI.Application.Conversations.Commands.CreateConversation;
 using NexusAI.Application.DependencyInjection;
+using NexusAI.Application.Knowledge.Commands;
 using NexusAI.Application.Projects.Commands.CreateProject;
 using NexusAI.Application.Session.Commands;
 using NexusAI.Application.WorkItem;
 using NexusAI.Application.Workspaces.Commands.CreateWorkspace;
 using NexusAI.Core.Agents;
 using NexusAI.Domain.Conversation;
+using NexusAI.Domain.Knowledge;
 using NexusAI.Domain.Project;
 using NexusAI.Domain.Session;
 using NexusAI.Domain.WorkItem;
 using NexusAI.Domain.Workspace;
 using NexusAI.Host.Extensions;
 using NexusAI.Infrastructure.DependencyInjection;
+
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -143,7 +146,33 @@ Console.WriteLine($"Found : {session is not null}");
 Console.WriteLine($"Status : {session?.Status}");
 Console.WriteLine($"Conversation Id : {session?.ConversationId}");
 
+var knowledgeHandler =
+    scope.ServiceProvider.GetRequiredService<CreateKnowledgeHandler>();
 
+var knowledgeResult =
+    await knowledgeHandler.HandleAsync(
+        new CreateKnowledgeCommand(
+            workspace.Id,
+            "Architecture ADR",
+            "Established reusable generic Dataverse repository infrastructure.",
+            KnowledgeSource.Document));
+
+Console.WriteLine();
+Console.WriteLine("Knowledge Created");
+Console.WriteLine($"Id : {knowledgeResult.KnowledgeId}");
+
+var knowledgeRepository =
+    scope.ServiceProvider.GetRequiredService<IKnowledgeRepository>();
+
+var knowledge =
+    await knowledgeRepository.GetAsync(knowledgeResult.KnowledgeId);
+
+Console.WriteLine();
+Console.WriteLine("Knowledge Repository Verification");
+Console.WriteLine($"Found : {knowledge is not null}");
+Console.WriteLine($"Title : {knowledge?.Title}");
+Console.WriteLine($"Source : {knowledge?.Source}");
+Console.WriteLine($"Workspace Id : {knowledge?.WorkspaceId}");
 
 
 
