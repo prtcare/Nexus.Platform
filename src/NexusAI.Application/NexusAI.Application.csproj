@@ -16,7 +16,6 @@
     <Folder Include="Conversations\" />
     <Folder Include="Knowledge\" />
     <Folder Include="Agents\" />
-    <Folder Include="Projects\" />
   </ItemGroup>
 
 </Project>

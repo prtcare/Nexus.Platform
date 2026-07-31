@@ -8,6 +8,8 @@ using NexusAI.Infrastructure.Dataverse.Configuration;
 using NexusAI.Infrastructure.Dataverse.Entities;
 using NexusAI.Infrastructure.Dataverse.Mapping;
 using NexusAI.Infrastructure.Dataverse.Repositories;
+using NexusAI.Domain.Project;
+
 
 namespace NexusAI.Infrastructure.DependencyInjection;
 
@@ -29,6 +31,13 @@ public static class ServiceCollectionExtensions
             WorkspaceMapper>();
 
         services.AddScoped<IWorkspaceRepository, WorkspaceDataverseRepository>();
+        services.AddSingleton<
+    IRepositoryMapper<Project, ProjectEntity>,
+    ProjectMapper>();
+
+        services.AddScoped<IProjectRepository, ProjectDataverseRepository>();
+
+
 
         return services;
     }
