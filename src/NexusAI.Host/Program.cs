@@ -5,10 +5,12 @@ using NexusAI.Agents.Developer;
 using NexusAI.Application.Conversations.Commands.CreateConversation;
 using NexusAI.Application.DependencyInjection;
 using NexusAI.Application.Projects.Commands.CreateProject;
+using NexusAI.Application.WorkItem;
 using NexusAI.Application.Workspaces.Commands.CreateWorkspace;
 using NexusAI.Core.Agents;
 using NexusAI.Domain.Conversation;
 using NexusAI.Domain.Project;
+using NexusAI.Domain.WorkItem;
 using NexusAI.Domain.Workspace;
 using NexusAI.Host.Extensions;
 using NexusAI.Infrastructure.DependencyInjection;
@@ -102,6 +104,19 @@ Console.WriteLine("Project Repository Verification");
 Console.WriteLine($"Found : {project is not null}");
 Console.WriteLine($"Name  : {project?.Name}");
 Console.WriteLine($"Workspace Id : {project?.WorkspaceId}");
+
+
+var workItemHandler = scope.ServiceProvider.GetRequiredService<CreateWorkItemHandler>();
+
+var workItemResult = await workItemHandler.HandleAsync(
+    new CreateWorkItemCommand(
+        project.Id,
+        "Implement Repository Pattern",
+        WorkItemType.Task));
+
+Console.WriteLine();
+Console.WriteLine("WorkItem Created");
+Console.WriteLine($"Id    : {workItemResult.WorkItemId}");
 
 await runtime.RunAsync(
     agent,

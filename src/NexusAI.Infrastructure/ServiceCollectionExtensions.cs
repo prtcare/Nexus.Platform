@@ -2,14 +2,17 @@
 using Microsoft.Extensions.DependencyInjection;
 using NexusAI.Domain.Conversation;
 using NexusAI.Domain.Project;
+using NexusAI.Domain.WorkItem;
 using NexusAI.Domain.Workspace;
 using NexusAI.Infrastructure.Dataverse;
 using NexusAI.Infrastructure.Dataverse.Clients;
 using NexusAI.Infrastructure.Dataverse.Common;
 using NexusAI.Infrastructure.Dataverse.Configuration;
 using NexusAI.Infrastructure.Dataverse.Entities;
+using NexusAI.Infrastructure.Dataverse.Mappers;
 using NexusAI.Infrastructure.Dataverse.Mapping;
 using NexusAI.Infrastructure.Dataverse.Repositories;
+using NexusAI.Application.WorkItem;
 
 
 namespace NexusAI.Infrastructure.DependencyInjection;
@@ -46,6 +49,10 @@ public static class ServiceCollectionExtensions
             IConversationRepository,
             ConversationDataverseRepository>();
 
+        services.AddSingleton<IRepositoryMapper<WorkItem, WorkItemEntity>, WorkItemMapper>();
+
+        services.AddScoped<IWorkItemRepository, WorkItemDataverseRepository>();
+        services.AddScoped<CreateWorkItemHandler>();
 
         return services;
     }

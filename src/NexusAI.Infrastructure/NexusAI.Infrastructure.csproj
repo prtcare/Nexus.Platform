@@ -11,6 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\NexusAI.Application\NexusAI.Application.csproj" />
     <ProjectReference Include="..\NexusAI.Core\NexusAI.Core.csproj" />
     <ProjectReference Include="..\NexusAI.Domain\NexusAI.Domain.csproj" />
     <ProjectReference Include="..\NexusAI.Foundation\NexusAI.Foundation.csproj" />

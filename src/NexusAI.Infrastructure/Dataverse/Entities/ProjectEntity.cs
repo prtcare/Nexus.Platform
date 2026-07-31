@@ -8,5 +8,5 @@ public sealed class ProjectEntity : DataverseEntity
 
     public int Status { get; set; }
 
-    public DateTimeOffset CreatedAt { get; set; }
+    
 }
