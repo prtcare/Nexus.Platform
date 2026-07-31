@@ -1,12 +1,16 @@
 ﻿using NexusAI.Domain.Common.Identifiers;
 using NexusAI.Domain.Workspace;
+using NexusAI.Infrastructure.Dataverse.Clients;
 
 namespace NexusAI.Infrastructure.Dataverse.Repositories;
 
 public sealed class WorkspaceDataverseRepository : IWorkspaceRepository
 {
-    public WorkspaceDataverseRepository()
+    private readonly IDataverseClient _client;
+
+    public WorkspaceDataverseRepository(IDataverseClient client)
     {
+        _client = client;
     }
 
     public Task AddAsync(
