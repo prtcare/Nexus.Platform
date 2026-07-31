@@ -6,7 +6,6 @@ using NexusAI.Application.Workspaces.Commands.CreateWorkspace;
 using NexusAI.Core.Agents;
 using NexusAI.Domain.Workspace;
 using NexusAI.Host.Extensions;
-using NexusAI.Domain.Workspace;
 using NexusAI.Infrastructure.DependencyInjection;
 
 var builder = Host.CreateApplicationBuilder(args);
