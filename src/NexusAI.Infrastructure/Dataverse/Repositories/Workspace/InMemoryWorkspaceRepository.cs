@@ -2,7 +2,7 @@
 using NexusAI.Domain.Workspace;
 using WorkspaceEntity = NexusAI.Domain.Workspace.Workspace;
 
-namespace NexusAI.Infrastructure.Repositories.Workspace;
+namespace NexusAI.Infrastructure.Dataverse.Repositories.Workspace;
 
 public sealed class InMemoryWorkspaceRepository
     : IWorkspaceRepository

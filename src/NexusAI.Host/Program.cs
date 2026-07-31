@@ -5,11 +5,13 @@ using NexusAI.Agents.Developer;
 using NexusAI.Application.Conversations.Commands.CreateConversation;
 using NexusAI.Application.DependencyInjection;
 using NexusAI.Application.Projects.Commands.CreateProject;
+using NexusAI.Application.Session.Commands;
 using NexusAI.Application.WorkItem;
 using NexusAI.Application.Workspaces.Commands.CreateWorkspace;
 using NexusAI.Core.Agents;
 using NexusAI.Domain.Conversation;
 using NexusAI.Domain.Project;
+using NexusAI.Domain.Session;
 using NexusAI.Domain.WorkItem;
 using NexusAI.Domain.Workspace;
 using NexusAI.Host.Extensions;
@@ -117,6 +119,35 @@ var workItemResult = await workItemHandler.HandleAsync(
 Console.WriteLine();
 Console.WriteLine("WorkItem Created");
 Console.WriteLine($"Id    : {workItemResult.WorkItemId}");
+
+var sessionHandler =
+    scope.ServiceProvider.GetRequiredService<CreateSessionHandler>();
+
+var sessionResult =
+    await sessionHandler.HandleAsync(
+        new CreateSessionCommand(conversation!.Id));
+
+Console.WriteLine();
+Console.WriteLine("Session Created");
+Console.WriteLine($"Id : {sessionResult.SessionId}");
+
+var sessionRepository =
+    scope.ServiceProvider.GetRequiredService<ISessionRepository>();
+
+var session =
+    await sessionRepository.GetAsync(sessionResult.SessionId);
+
+Console.WriteLine();
+Console.WriteLine("Session Repository Verification");
+Console.WriteLine($"Found : {session is not null}");
+Console.WriteLine($"Status : {session?.Status}");
+Console.WriteLine($"Conversation Id : {session?.ConversationId}");
+
+
+
+
+
+
 
 await runtime.RunAsync(
     agent,
