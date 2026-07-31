@@ -1,7 +1,9 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using NexusAI.Application.Artifact.Commands;
 using NexusAI.Application.Session.Commands;
 using NexusAI.Application.WorkItem;
+using NexusAI.Domain.Artifact;
 using NexusAI.Domain.Branch;
 using NexusAI.Domain.Conversation;
 using NexusAI.Domain.Knowledge;
@@ -75,6 +77,14 @@ public static class ServiceCollectionExtensions
             IBranchRepository,
             BranchDataverseRepository>();
 
+        services.AddSingleton<
+    IRepositoryMapper<Artifact, ArtifactEntity>,
+    ArtifactMapper>();
+
+        services.AddScoped<
+            IArtifactRepository,
+            ArtifactDataverseRepository>();
+        services.AddScoped<CreateArtifactHandler>();
 
 
         return services;

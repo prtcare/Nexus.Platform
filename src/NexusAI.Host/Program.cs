@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NexusAI.Agents.Developer;
+using NexusAI.Application.Artifact.Commands;
 using NexusAI.Application.Branch.Commands;
 using NexusAI.Application.Conversations.Commands.CreateConversation;
 using NexusAI.Application.DependencyInjection;
@@ -11,6 +12,7 @@ using NexusAI.Application.Session.Commands;
 using NexusAI.Application.WorkItem;
 using NexusAI.Application.Workspaces.Commands.CreateWorkspace;
 using NexusAI.Core.Agents;
+using NexusAI.Domain.Artifact;
 using NexusAI.Domain.Branch;
 using NexusAI.Domain.Conversation;
 using NexusAI.Domain.Knowledge;
@@ -202,7 +204,33 @@ Console.WriteLine($"Name : {branch?.Name}");
 Console.WriteLine($"Status : {branch?.Status}");
 Console.WriteLine($"Conversation Id : {branch?.ConversationId}");
 
+var artifactHandler =
+    scope.ServiceProvider.GetRequiredService<CreateArtifactHandler>();
 
+var artifactResult =
+    await artifactHandler.HandleAsync(
+        new CreateArtifactCommand(
+            workItemResult.WorkItemId,
+            "ImplementationPlan.md",
+            ArtifactType.Document,
+            "# Repository Pattern"));
+
+Console.WriteLine();
+Console.WriteLine("Artifact Created");
+Console.WriteLine($"Id : {artifactResult.ArtifactId}");
+
+var artifactRepository =
+    scope.ServiceProvider.GetRequiredService<IArtifactRepository>();
+
+var artifact =
+    await artifactRepository.GetAsync(artifactResult.ArtifactId);
+
+Console.WriteLine();
+Console.WriteLine("Artifact Repository Verification");
+Console.WriteLine($"Found : {artifact is not null}");
+Console.WriteLine($"Name : {artifact?.Name}");
+Console.WriteLine($"Type : {artifact?.Type}");
+Console.WriteLine($"WorkItem Id : {artifact?.WorkItemId}");
 
 await runtime.RunAsync(
     agent,
