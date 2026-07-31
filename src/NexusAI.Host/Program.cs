@@ -2,10 +2,12 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NexusAI.Agents.Developer;
+using NexusAI.Application.Conversations.Commands.CreateConversation;
 using NexusAI.Application.DependencyInjection;
 using NexusAI.Application.Projects.Commands.CreateProject;
 using NexusAI.Application.Workspaces.Commands.CreateWorkspace;
 using NexusAI.Core.Agents;
+using NexusAI.Domain.Conversation;
 using NexusAI.Domain.Project;
 using NexusAI.Domain.Workspace;
 using NexusAI.Host.Extensions;
@@ -63,6 +65,32 @@ Console.WriteLine();
 var runtime = app.Services.GetRequiredService<IAgentRuntime>();
 var agent = app.Services.GetRequiredService<DeveloperAgent>();
 
+var conversationHandler = scope.ServiceProvider
+    .GetRequiredService<CreateConversationHandler>();
+
+var conversationResult =
+    await conversationHandler.HandleAsync(
+        new CreateConversationCommand(
+            projectResult.ProjectId,
+            "Architecture Discussion"),
+        CancellationToken.None);
+
+Console.WriteLine();
+Console.WriteLine("Conversation Created");
+Console.WriteLine($"Id   : {conversationResult.ConversationId}");
+Console.WriteLine($"Title: {conversationResult.Title}");
+
+var conversationRepository = scope.ServiceProvider
+    .GetRequiredService<IConversationRepository>();
+
+var conversation = await conversationRepository.GetAsync(
+    conversationResult.ConversationId);
+
+Console.WriteLine();
+Console.WriteLine("Conversation Repository Verification");
+Console.WriteLine($"Found      : {conversation is not null}");
+Console.WriteLine($"Title      : {conversation?.Title}");
+Console.WriteLine($"Project Id : {conversation?.ProjectId}");
 
 var projectRepository = scope.ServiceProvider
     .GetRequiredService<IProjectRepository>();
