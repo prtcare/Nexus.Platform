@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using NexusAI.Application.Session.Commands;
 using NexusAI.Application.WorkItem;
+using NexusAI.Domain.Branch;
 using NexusAI.Domain.Conversation;
 using NexusAI.Domain.Knowledge;
 using NexusAI.Domain.Project;
@@ -66,6 +67,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<
             IKnowledgeRepository,
             KnowledgeDataverseRepository>();
+        services.AddSingleton<
+    IRepositoryMapper<Branch, BranchEntity>,
+    BranchMapper>();
+
+        services.AddScoped<
+            IBranchRepository,
+            BranchDataverseRepository>();
+
 
 
         return services;

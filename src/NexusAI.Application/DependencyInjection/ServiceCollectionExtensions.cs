@@ -2,6 +2,7 @@
 using NexusAI.Application.Workspaces;
 namespace NexusAI.Application.DependencyInjection;
 
+using NexusAI.Application.Branch.Commands;
 using NexusAI.Application.Conversations.Commands.CreateConversation;
 using NexusAI.Application.Knowledge.Commands;
 using NexusAI.Application.Projects.Commands.CreateProject;
@@ -17,6 +18,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<CreateProjectHandler>();
         services.AddScoped<CreateConversationHandler>();
         services.AddScoped<CreateKnowledgeHandler>();
+        services.AddScoped<CreateBranchHandler>();
 
         return services;
     }

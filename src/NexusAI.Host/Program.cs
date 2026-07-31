@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NexusAI.Agents.Developer;
+using NexusAI.Application.Branch.Commands;
 using NexusAI.Application.Conversations.Commands.CreateConversation;
 using NexusAI.Application.DependencyInjection;
 using NexusAI.Application.Knowledge.Commands;
@@ -10,6 +11,7 @@ using NexusAI.Application.Session.Commands;
 using NexusAI.Application.WorkItem;
 using NexusAI.Application.Workspaces.Commands.CreateWorkspace;
 using NexusAI.Core.Agents;
+using NexusAI.Domain.Branch;
 using NexusAI.Domain.Conversation;
 using NexusAI.Domain.Knowledge;
 using NexusAI.Domain.Project;
@@ -174,7 +176,31 @@ Console.WriteLine($"Title : {knowledge?.Title}");
 Console.WriteLine($"Source : {knowledge?.Source}");
 Console.WriteLine($"Workspace Id : {knowledge?.WorkspaceId}");
 
+var branchHandler =
+    scope.ServiceProvider.GetRequiredService<CreateBranchHandler>();
 
+var branchResult =
+    await branchHandler.HandleAsync(
+        new CreateBranchCommand(
+            conversation.Id,
+            "Main"));
+
+Console.WriteLine();
+Console.WriteLine("Branch Created");
+Console.WriteLine($"Id : {branchResult.BranchId}");
+
+var branchRepository =
+    scope.ServiceProvider.GetRequiredService<IBranchRepository>();
+
+var branch =
+    await branchRepository.GetAsync(branchResult.BranchId);
+
+Console.WriteLine();
+Console.WriteLine("Branch Repository Verification");
+Console.WriteLine($"Found : {branch is not null}");
+Console.WriteLine($"Name : {branch?.Name}");
+Console.WriteLine($"Status : {branch?.Status}");
+Console.WriteLine($"Conversation Id : {branch?.ConversationId}");
 
 
 
