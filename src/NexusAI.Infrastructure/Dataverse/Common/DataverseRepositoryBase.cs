@@ -40,7 +40,21 @@ public abstract class DataverseRepositoryBase<TDomain, TEntity, TId>
             id,
             cancellationToken);
     }
+    protected async Task<TDomain?> RetrieveDomainAsync(
+    Guid id,
+    CancellationToken cancellationToken = default)
+    {
+        var entity = await Client.Context.RetrieveAsync<TEntity>(
+            id,
+            cancellationToken);
 
+        if (entity is null)
+        {
+            return default;
+        }
+
+        return Mapper.ToDomain(entity);
+    }
     protected async Task UpdateEntityAsync(
         TDomain domain,
         CancellationToken cancellationToken = default)

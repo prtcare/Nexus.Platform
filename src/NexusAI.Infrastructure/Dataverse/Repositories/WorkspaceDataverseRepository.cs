@@ -25,20 +25,11 @@ public sealed class WorkspaceDataverseRepository
         return CreateAsync(workspace, cancellationToken);
     }
 
-    public override async Task<Workspace?> GetAsync(
-        WorkspaceId id,
-        CancellationToken cancellationToken = default)
+    public override Task<Workspace?> GetAsync(
+    WorkspaceId id,
+    CancellationToken cancellationToken = default)
     {
-        var entity = await RetrieveAsync(
-            id.Value,
-            cancellationToken);
-
-        if (entity is null)
-        {
-            return null;
-        }
-
-        return Mapper.ToDomain(entity);
+        return RetrieveDomainAsync(id.Value, cancellationToken);
     }
 
     public override Task UpdateAsync(
