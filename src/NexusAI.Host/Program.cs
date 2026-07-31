@@ -8,8 +8,11 @@ using NexusAI.Application.Branch.Commands;
 using NexusAI.Application.Conversations.Commands.CreateConversation;
 using NexusAI.Application.DependencyInjection;
 using NexusAI.Application.Knowledge.Commands;
+using NexusAI.Application.Planning;
+using NexusAI.Application.Planning.Commands;
 using NexusAI.Application.Projects.Commands.CreateProject;
 using NexusAI.Application.Session.Commands;
+using NexusAI.Application.Snapshot.Commands;
 using NexusAI.Application.WorkItem;
 using NexusAI.Application.Workspaces.Commands.CreateWorkspace;
 using NexusAI.Core.Agents;
@@ -20,6 +23,7 @@ using NexusAI.Domain.Conversation;
 using NexusAI.Domain.Knowledge;
 using NexusAI.Domain.Project;
 using NexusAI.Domain.Session;
+using NexusAI.Domain.Snapshot;
 using NexusAI.Domain.WorkItem;
 using NexusAI.Domain.Workspace;
 using NexusAI.Host.Extensions;
@@ -261,6 +265,51 @@ Console.WriteLine($"Title : {adr?.Title}");
 Console.WriteLine($"Status : {adr?.Status}");
 Console.WriteLine($"Knowledge Id : {adr?.KnowledgeId}");
 
+
+var snapshotHandler =
+    scope.ServiceProvider.GetRequiredService<CreateSnapshotHandler>();
+
+var snapshotResult =
+    await snapshotHandler.HandleAsync(
+        new CreateSnapshotCommand(
+            branchResult.BranchId,
+            "Initial project snapshot"));
+
+Console.WriteLine();
+Console.WriteLine("Snapshot Created");
+Console.WriteLine($"Id : {snapshotResult.SnapshotId}");
+
+var snapshotRepository =
+    scope.ServiceProvider.GetRequiredService<ISnapshotRepository>();
+
+var snapshot =
+    await snapshotRepository.GetAsync(snapshotResult.SnapshotId);
+
+Console.WriteLine();
+Console.WriteLine("Snapshot Repository Verification");
+Console.WriteLine($"Found : {snapshot is not null}");
+Console.WriteLine($"Description : {snapshot?.Description}");
+Console.WriteLine($"Status : {snapshot?.Status}");
+Console.WriteLine($"Branch Id : {snapshot?.BranchId}");
+
+
+var planHandler =
+    scope.ServiceProvider.GetRequiredService<CreatePlanHandler>();
+
+var planResult =
+    await planHandler.HandleAsync(
+        new CreatePlanCommand(
+            projectResult.ProjectId,
+            "Build an AI-powered REST API"));
+
+Console.WriteLine();
+Console.WriteLine("Planner");
+Console.WriteLine("-------");
+
+foreach (var item in planResult.WorkItems)
+{
+    Console.WriteLine($"{item.Type} - {item.Title}");
+}
 
 
 

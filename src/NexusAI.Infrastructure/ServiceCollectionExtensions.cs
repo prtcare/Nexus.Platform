@@ -2,7 +2,10 @@
 using Microsoft.Extensions.DependencyInjection;
 using NexusAI.Application.Adr.Commands;
 using NexusAI.Application.Artifact.Commands;
+using NexusAI.Application.Planning;
+using NexusAI.Application.Planning.Commands;
 using NexusAI.Application.Session.Commands;
+using NexusAI.Application.Snapshot.Commands;
 using NexusAI.Application.WorkItem;
 using NexusAI.Domain.Adr;
 using NexusAI.Domain.Artifact;
@@ -11,6 +14,7 @@ using NexusAI.Domain.Conversation;
 using NexusAI.Domain.Knowledge;
 using NexusAI.Domain.Project;
 using NexusAI.Domain.Session;
+using NexusAI.Domain.Snapshot;
 using NexusAI.Domain.WorkItem;
 using NexusAI.Domain.Workspace;
 using NexusAI.Infrastructure.Dataverse;
@@ -91,6 +95,27 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IAdrRepository, AdrDataverseRepository>();
         services.AddScoped<CreateAdrHandler>();
+
+
+        services.AddSingleton<
+    IRepositoryMapper<Snapshot, SnapshotEntity>,
+    SnapshotMapper>();
+
+        services.AddScoped<
+            ISnapshotRepository,
+            SnapshotDataverseRepository>();
+        services.AddScoped<CreateSnapshotHandler>();
+
+        services.AddScoped<IPlanner, Planner>();
+
+        services.AddScoped<CreatePlanHandler>();
+        
+
+
+
+
+
+
 
 
         return services;
