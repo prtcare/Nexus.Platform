@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NexusAI.Agents.Developer;
+using NexusAI.Application.Adr.Commands;
 using NexusAI.Application.Artifact.Commands;
 using NexusAI.Application.Branch.Commands;
 using NexusAI.Application.Conversations.Commands.CreateConversation;
@@ -12,6 +13,7 @@ using NexusAI.Application.Session.Commands;
 using NexusAI.Application.WorkItem;
 using NexusAI.Application.Workspaces.Commands.CreateWorkspace;
 using NexusAI.Core.Agents;
+using NexusAI.Domain.Adr;
 using NexusAI.Domain.Artifact;
 using NexusAI.Domain.Branch;
 using NexusAI.Domain.Conversation;
@@ -231,6 +233,41 @@ Console.WriteLine($"Found : {artifact is not null}");
 Console.WriteLine($"Name : {artifact?.Name}");
 Console.WriteLine($"Type : {artifact?.Type}");
 Console.WriteLine($"WorkItem Id : {artifact?.WorkItemId}");
+
+var adrHandler =
+    scope.ServiceProvider.GetRequiredService<CreateAdrHandler>();
+
+var adrResult =
+    await adrHandler.HandleAsync(
+        new CreateAdrCommand(
+            knowledgeResult.KnowledgeId,
+            "Repository Pattern",
+            "Use a generic Dataverse repository base."));
+
+Console.WriteLine();
+Console.WriteLine("ADR Created");
+Console.WriteLine($"Id : {adrResult.AdrId}");
+
+var adrRepository =
+    scope.ServiceProvider.GetRequiredService<IAdrRepository>();
+
+var adr =
+    await adrRepository.GetAsync(adrResult.AdrId);
+
+Console.WriteLine();
+Console.WriteLine("ADR Repository Verification");
+Console.WriteLine($"Found : {adr is not null}");
+Console.WriteLine($"Title : {adr?.Title}");
+Console.WriteLine($"Status : {adr?.Status}");
+Console.WriteLine($"Knowledge Id : {adr?.KnowledgeId}");
+
+
+
+
+
+
+
+
 
 await runtime.RunAsync(
     agent,
