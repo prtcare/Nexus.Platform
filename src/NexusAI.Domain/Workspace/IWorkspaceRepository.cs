@@ -1,18 +1,10 @@
-﻿using NexusAI.Domain.Common.Identifiers;
+﻿using NexusAI.Domain.Common;
+using NexusAI.Domain.Common.Identifiers;
+using NexusAI.Infrastructure.Dataverse.Common;
 
 namespace NexusAI.Domain.Workspace;
 
 public interface IWorkspaceRepository
+    : IRepository<Workspace, WorkspaceId>
 {
-    Task AddAsync(
-        Workspace workspace,
-        CancellationToken cancellationToken = default);
-
-    Task<Workspace?> GetAsync(
-        WorkspaceId id,
-        CancellationToken cancellationToken = default);
-
-    Task UpdateAsync(
-        Workspace workspace,
-        CancellationToken cancellationToken = default);
 }

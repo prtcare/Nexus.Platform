@@ -2,7 +2,10 @@
 
 public sealed class DataverseClient : IDataverseClient
 {
-    public DataverseClient()
+    public DataverseClient(IDataverseContext context)
     {
+        Context = context;
     }
+
+    public IDataverseContext Context { get; }
 }

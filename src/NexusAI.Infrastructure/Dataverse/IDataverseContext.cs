@@ -2,10 +2,13 @@
 
 public interface IDataverseContext
 {
-    IQueryable<T> Set<T>() where T : class;
-
-    Task AddAsync<T>(
+    Task CreateAsync<T>(
         T entity,
+        CancellationToken cancellationToken = default)
+        where T : class;
+
+    Task<T?> RetrieveAsync<T>(
+        Guid id,
         CancellationToken cancellationToken = default)
         where T : class;
 

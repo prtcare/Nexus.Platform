@@ -1,12 +1,14 @@
 ﻿using NexusAI.Domain.Common.Identifiers;
 using NexusAI.Domain.Workspace;
+using NexusAI.Infrastructure.Dataverse.Common;
 using NexusAI.Infrastructure.Dataverse.Entities;
 
 namespace NexusAI.Infrastructure.Dataverse.Mapping;
 
-public static class WorkspaceMapper
+public sealed class WorkspaceMapper
+    : IRepositoryMapper<Workspace, WorkspaceEntity>
 {
-    public static WorkspaceEntity ToEntity(Workspace workspace)
+    public WorkspaceEntity ToEntity(Workspace workspace)
     {
         return new WorkspaceEntity
         {
@@ -17,7 +19,7 @@ public static class WorkspaceMapper
         };
     }
 
-    public static Workspace ToDomain(WorkspaceEntity entity)
+    public Workspace ToDomain(WorkspaceEntity entity)
     {
         return new Workspace(
             new WorkspaceId(entity.Id),

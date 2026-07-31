@@ -1,36 +1,50 @@
 ﻿using NexusAI.Domain.Common.Identifiers;
 using NexusAI.Domain.Workspace;
 using NexusAI.Infrastructure.Dataverse.Clients;
+using NexusAI.Infrastructure.Dataverse.Common;
+using NexusAI.Infrastructure.Dataverse.Entities;
+using NexusAI.Infrastructure.Dataverse.Mapping;
 
 namespace NexusAI.Infrastructure.Dataverse.Repositories;
 
-public sealed class WorkspaceDataverseRepository : IWorkspaceRepository
+public sealed class WorkspaceDataverseRepository
+    : DataverseRepositoryBase<Workspace, WorkspaceEntity, WorkspaceId>,
+      IWorkspaceRepository
 {
-    private readonly IDataverseClient _client;
-
-    public WorkspaceDataverseRepository(IDataverseClient client)
+    public WorkspaceDataverseRepository(
+        IDataverseClient client,
+        IRepositoryMapper<Workspace, WorkspaceEntity> mapper)
+        : base(client, mapper)
     {
-        _client = client;
     }
 
-    public Task AddAsync(
+    public override Task AddAsync(
         Workspace workspace,
         CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        return CreateAsync(workspace, cancellationToken);
     }
 
-    public Task<Workspace?> GetAsync(
+    public override async Task<Workspace?> GetAsync(
         WorkspaceId id,
         CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        var entity = await RetrieveAsync(
+            id.Value,
+            cancellationToken);
+
+        if (entity is null)
+        {
+            return null;
+        }
+
+        return Mapper.ToDomain(entity);
     }
 
-    public Task UpdateAsync(
+    public override Task UpdateAsync(
         Workspace workspace,
         CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        return UpdateEntityAsync(workspace, cancellationToken);
     }
 }

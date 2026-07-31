@@ -2,4 +2,5 @@
 
 public interface IDataverseClient
 {
+    IDataverseContext Context { get; }
 }
