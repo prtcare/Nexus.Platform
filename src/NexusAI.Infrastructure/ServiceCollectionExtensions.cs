@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NexusAI.Application.Adr.Commands;
 using NexusAI.Application.Artifact.Commands;
 using NexusAI.Application.Execution;
+using NexusAI.Application.Execution.Commands;
 using NexusAI.Application.Planning;
 using NexusAI.Application.Planning.Commands;
 using NexusAI.Application.Session.Commands;
@@ -113,7 +114,7 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IExecutionEngine, ExecutionEngine>();
 
-
+        services.AddScoped<ExecutePlanHandler>();
 
 
 

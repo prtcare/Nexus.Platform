@@ -7,6 +7,7 @@ using NexusAI.Application.Artifact.Commands;
 using NexusAI.Application.Branch.Commands;
 using NexusAI.Application.Conversations.Commands.CreateConversation;
 using NexusAI.Application.DependencyInjection;
+using NexusAI.Application.Execution.Commands;
 using NexusAI.Application.Knowledge.Commands;
 using NexusAI.Application.Planning;
 using NexusAI.Application.Planning.Commands;
@@ -28,6 +29,7 @@ using NexusAI.Domain.WorkItem;
 using NexusAI.Domain.Workspace;
 using NexusAI.Host.Extensions;
 using NexusAI.Infrastructure.DependencyInjection;
+
 
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -312,7 +314,19 @@ foreach (var item in planResult.WorkItems)
 }
 
 
+var executePlanHandler =
+    scope.ServiceProvider.GetRequiredService<ExecutePlanHandler>();
 
+var execution =
+    await executePlanHandler.HandleAsync(
+        new ExecutePlanCommand(
+            projectResult.ProjectId));
+
+Console.WriteLine();
+Console.WriteLine("Execution Result");
+Console.WriteLine("----------------");
+Console.WriteLine($"Success : {execution.Success}");
+Console.WriteLine($"Executed Work Items : {execution.ExecutedWorkItems}");
 
 
 

@@ -5,13 +5,15 @@ namespace NexusAI.Application.Execution;
 public sealed class ExecutionEngine : IExecutionEngine
 {
     public Task<ExecutionResult> ExecuteAsync(
-        ProjectId projectId,
-        CancellationToken cancellationToken = default)
+    ExecutionContext context,
+    CancellationToken cancellationToken = default)
     {
         Console.WriteLine();
         Console.WriteLine("Execution");
         Console.WriteLine("---------");
-        Console.WriteLine($"Executing project {projectId.Value}");
+
+        Console.WriteLine(
+            $"Executing project {context.ProjectId.Value}");
 
         var result = new ExecutionResult(
             Success: true,
