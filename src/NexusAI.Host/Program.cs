@@ -7,6 +7,7 @@ using NexusAI.Application.Artifact.Commands;
 using NexusAI.Application.Branch.Commands;
 using NexusAI.Application.Conversations.Commands.CreateConversation;
 using NexusAI.Application.DependencyInjection;
+using NexusAI.Application.Execution;
 using NexusAI.Application.Execution.Commands;
 using NexusAI.Application.Knowledge.Commands;
 using NexusAI.Application.Planning;
@@ -328,7 +329,8 @@ Console.WriteLine("----------------");
 Console.WriteLine($"Success : {execution.Success}");
 Console.WriteLine($"Executed Work Items : {execution.ExecutedWorkItems}");
 
-
+var engine =
+    scope.ServiceProvider.GetRequiredService<IExecutionEngine>();
 
 
 

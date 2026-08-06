@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NexusAI.Application.Adr.Commands;
+using NexusAI.Application.Agents;
 using NexusAI.Application.Artifact.Commands;
 using NexusAI.Application.Execution;
 using NexusAI.Application.Execution.Commands;
@@ -27,6 +28,7 @@ using NexusAI.Infrastructure.Dataverse.Entities;
 using NexusAI.Infrastructure.Dataverse.Mappers;
 using NexusAI.Infrastructure.Dataverse.Mapping;
 using NexusAI.Infrastructure.Dataverse.Repositories;
+using NexusAI.Infrastructure.Services;
 
 
 namespace NexusAI.Infrastructure.DependencyInjection;
@@ -116,8 +118,11 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<ExecutePlanHandler>();
 
+        services.AddScoped<IAgentDispatcher, AgentDispatcher>();
 
+        services.AddScoped<IAgent, DummyAgent>();
 
+        services.AddScoped<ExecutionEngine>();
 
 
         return services;

@@ -1,24 +1,31 @@
-﻿using NexusAI.Domain.Project;
+﻿using NexusAI.Application.Agents;
 
 namespace NexusAI.Application.Execution;
 
 public sealed class ExecutionEngine : IExecutionEngine
 {
-    public Task<ExecutionResult> ExecuteAsync(
-    ExecutionContext context,
-    CancellationToken cancellationToken = default)
+    private readonly IAgentDispatcher _dispatcher;
+
+    public ExecutionEngine(IAgentDispatcher dispatcher)
     {
-        Console.WriteLine();
-        Console.WriteLine("Execution");
-        Console.WriteLine("---------");
+        _dispatcher = dispatcher;
+    }
 
-        Console.WriteLine(
-            $"Executing project {context.ProjectId.Value}");
+    public async Task<ExecutionResult> ExecuteAsync(
+        ExecutionContext context,
+        CancellationToken cancellationToken = default)
+    {
+        var agentContext = new AgentContext(
+            context,
+            AgentType.Developer);
 
-        var result = new ExecutionResult(
-            Success: true,
-            ExecutedWorkItems: 0);
+        var agentResult =
+            await _dispatcher.DispatchAsync(
+                agentContext,
+                cancellationToken);
 
-        return Task.FromResult(result);
+        return new ExecutionResult(
+    agentResult.Success,
+    agentResult.Success ? 1 : 0);
     }
 }

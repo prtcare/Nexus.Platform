@@ -12,8 +12,4 @@
 	  <ProjectReference Include="..\NexusAI.Domain\NexusAI.Domain.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Agents\" />
-  </ItemGroup>
-
 </Project>
