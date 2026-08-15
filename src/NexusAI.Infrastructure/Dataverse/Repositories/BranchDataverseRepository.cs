@@ -1,4 +1,5 @@
 ﻿using NexusAI.Domain.Branch;
+using NexusAI.Domain.Conversation;
 using NexusAI.Infrastructure.Dataverse.Clients;
 using NexusAI.Infrastructure.Dataverse.Common;
 using NexusAI.Infrastructure.Dataverse.Entities;
@@ -6,7 +7,10 @@ using NexusAI.Infrastructure.Dataverse.Entities;
 namespace NexusAI.Infrastructure.Dataverse.Repositories;
 
 public sealed class BranchDataverseRepository
-    : DataverseRepositoryBase<Branch, BranchEntity, BranchId>,
+    : DataverseRepositoryBase<
+        Branch,
+        BranchEntity,
+        BranchId>,
       IBranchRepository
 {
     public BranchDataverseRepository(
@@ -20,20 +24,37 @@ public sealed class BranchDataverseRepository
         Branch branch,
         CancellationToken cancellationToken = default)
     {
-        return CreateAsync(branch, cancellationToken);
+        return CreateAsync(
+            branch,
+            cancellationToken);
     }
 
     public override Task<Branch?> GetAsync(
         BranchId id,
         CancellationToken cancellationToken = default)
     {
-        return RetrieveDomainAsync(id.Value, cancellationToken);
+        return RetrieveDomainAsync(
+            id.Value,
+            cancellationToken);
     }
 
     public override Task UpdateAsync(
         Branch branch,
         CancellationToken cancellationToken = default)
     {
-        return UpdateEntityAsync(branch, cancellationToken);
+        return UpdateEntityAsync(
+            branch,
+            cancellationToken);
+    }
+
+    public Task<IReadOnlyList<Branch>> ListByConversationAsync(
+        ConversationId conversationId,
+        CancellationToken cancellationToken = default)
+    {
+        return RetrieveMultipleDomainAsync(
+            entity =>
+                entity.ConversationId ==
+                conversationId.Value,
+            cancellationToken);
     }
 }

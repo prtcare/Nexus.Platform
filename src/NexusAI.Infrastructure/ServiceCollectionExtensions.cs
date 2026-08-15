@@ -4,6 +4,10 @@ using Microsoft.Extensions.Options;
 using Microsoft.PowerPlatform.Dataverse.Client;
 using NexusAI.Application.Adr.Commands;
 using NexusAI.Application.Artifact.Commands;
+using NexusAI.Application.Branch.Commands;
+using NexusAI.Application.Branch.Commands.UpdateBranch;
+using NexusAI.Application.Branch.Queries.GetBranch;
+using NexusAI.Application.Branch.Queries.ListBranches;
 using NexusAI.Application.Chat;
 using NexusAI.Application.Chat.Commands.SendChat;
 using NexusAI.Application.Chat.Prompting;
@@ -332,6 +336,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped<CreateKnowledgeHandler>();
         services.AddScoped<GetKnowledgeHandler>();
         services.AddScoped<ListKnowledgeHandler>();
+
+        // ============================================================
+        // ///BRANCH
+        // ============================================================
+
+        services.AddScoped<CreateBranchHandler>();
+        services.AddScoped<GetBranchHandler>();
+        services.AddScoped<ListBranchesHandler>();
+        services.AddScoped<UpdateBranchHandler>();
 
         // ============================================================
         // ///ARTIFACT APPLICATION

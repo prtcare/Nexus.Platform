@@ -9,12 +9,16 @@ public sealed class Branch : Entity<BranchId>
         BranchId id,
         ConversationId conversationId,
         string name,
+        string description,
         BranchStatus status,
         DateTimeOffset createdAt)
         : base(id)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
         ConversationId = conversationId;
-        Name = name;
+        Name = name.Trim();
+        Description = description?.Trim() ?? string.Empty;
         Status = status;
         CreatedAt = createdAt;
     }
@@ -23,13 +27,27 @@ public sealed class Branch : Entity<BranchId>
 
     public string Name { get; private set; }
 
+    public string Description { get; private set; }
+
     public BranchStatus Status { get; private set; }
 
     public DateTimeOffset CreatedAt { get; }
 
     public void Rename(string name)
     {
-        Name = name;
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        Name = name.Trim();
+    }
+
+    public void UpdateDescription(string description)
+    {
+        Description = description?.Trim() ?? string.Empty;
+    }
+
+    public void ChangeStatus(BranchStatus status)
+    {
+        Status = status;
     }
 
     public void Archive()

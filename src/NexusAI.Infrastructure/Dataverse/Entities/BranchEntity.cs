@@ -1,6 +1,4 @@
-﻿using NexusAI.Infrastructure.Dataverse.Entities;
-
-namespace NexusAI.Infrastructure.Dataverse.Entities;
+﻿namespace NexusAI.Infrastructure.Dataverse.Entities;
 
 public sealed class BranchEntity : DataverseEntity
 {
@@ -8,7 +6,7 @@ public sealed class BranchEntity : DataverseEntity
 
     public string Name { get; set; } = string.Empty;
 
-    public int Status { get; set; }
+    public string Description { get; set; } = string.Empty;
 
-    public DateTimeOffset CreatedAt { get; set; }
+    public int Status { get; set; }
 }

@@ -82,6 +82,11 @@ public sealed class DataverseContext : IDataverseContext, IDisposable
             .ToList();
     }
 
+    // ============================================================
+    // ///TO DATAVERSE ENTITY
+    // ============================================================
+
+
     private Entity ToDataverseEntity<T>(T source)
         where T : class
     {
@@ -97,11 +102,11 @@ public sealed class DataverseContext : IDataverseContext, IDisposable
 
             ConversationMessageEntity message => MapConversationMessage(message),
 
-            KnowledgeEntity knowledge =>
-        MapKnowledge(knowledge),
+            KnowledgeEntity knowledge => MapKnowledge(knowledge),
 
-            SnapshotEntity snapshot =>
-                MapSnapshot(snapshot),
+            SnapshotEntity snapshot => MapSnapshot(snapshot),
+
+            BranchEntity branch => MapBranch(branch),
 
             _ => throw new NotSupportedException(
                 $"Dataverse mapping is not supported for {typeof(T).Name}.")
@@ -323,6 +328,45 @@ public sealed class DataverseContext : IDataverseContext, IDisposable
         return entity;
     }
 
+    private static Entity MapBranch(
+    BranchEntity source)
+    {
+        if (source.ConversationId == Guid.Empty)
+        {
+            throw new InvalidOperationException(
+                "BranchEntity.ConversationId cannot be empty.");
+        }
+
+        return new Entity(
+            "du_t_015_branch",
+            source.Id)
+        {
+            ["du_branchname"] =
+                source.Name,
+
+            ["du_description"] =
+                source.Description,
+
+            ["du_branchstatus"] =
+                new OptionSetValue(source.Status),
+
+            ["du_conversation"] =
+                new EntityReference(
+                    "du_t_010_conversation",
+                    source.ConversationId)
+        };
+    }
+
+    // ============================================================
+    // ///TO DATAVERSE ENTITY
+    // ============================================================
+
+
+
+    // ============================================================
+    // ///FROM DATAVERSE ENTITY
+    // ============================================================
+
     private static T FromDataverseEntity<T>(Entity entity)
         where T : class
     {
@@ -537,9 +581,48 @@ public sealed class DataverseContext : IDataverseContext, IDisposable
         }
 
 
+
+        if (typeof(T) == typeof(BranchEntity))
+        {
+            var conversation =
+                entity.GetAttributeValue<EntityReference>(
+                    "du_conversation");
+
+            return (T)(object)new BranchEntity
+            {
+                Id = entity.Id,
+
+                ConversationId =
+                    conversation?.Id ?? Guid.Empty,
+
+                Name =
+                    entity.GetAttributeValue<string>(
+                        "du_branchname") ?? string.Empty,
+
+                Description =
+                    entity.GetAttributeValue<string>(
+                        "du_description") ?? string.Empty,
+
+                Status =
+                    entity.GetAttributeValue<OptionSetValue>(
+                        "du_branchstatus")?.Value ?? 0,
+
+                CreatedAt =
+                    entity.GetAttributeValue<DateTime>(
+                        "createdon")
+            };
+        }
+
         throw new NotSupportedException(
             $"Dataverse mapping is not supported for {typeof(T).Name}.");
     }
+
+
+    // ============================================================
+    // ///FROM DATAVERSE ENTITY
+    // ============================================================
+
+
 
     private static string GetLogicalName<T>()
         where T : class
@@ -565,6 +648,11 @@ public sealed class DataverseContext : IDataverseContext, IDisposable
         if (typeof(T) == typeof(SnapshotEntity))
         {
             return "du_t_016_snapshot";
+        }
+
+        if (typeof(T) == typeof(BranchEntity))
+        {
+            return "du_t_015_branch";
         }
 
 

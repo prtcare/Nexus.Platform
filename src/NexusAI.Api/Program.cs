@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi;
+using NexusAI.Api.Endpoints.Branches;
 using NexusAI.Api.Endpoints.Chat;
 using NexusAI.Api.Endpoints.Conversations;
 using NexusAI.Api.Endpoints.Knowledge;
@@ -53,5 +54,6 @@ app.MapKnowledgeEndpoints();
 app.MapWorkspaceEndpoints();
 app.MapConversationMessageEndpoints();
 app.MapSnapshotEndpoints();
+app.MapBranchEndpoints();
 
 app.Run();

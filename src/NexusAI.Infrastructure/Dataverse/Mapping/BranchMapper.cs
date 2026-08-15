@@ -8,6 +8,10 @@ namespace NexusAI.Infrastructure.Dataverse.Mapping;
 public sealed class BranchMapper
     : IRepositoryMapper<Branch, BranchEntity>
 {
+    private const int DataverseActive = 121930000;
+    private const int DataverseMerged = 121930001;
+    private const int DataverseArchived = 121930002;
+
     public BranchEntity ToEntity(Branch domain)
     {
         return new BranchEntity
@@ -15,7 +19,8 @@ public sealed class BranchMapper
             Id = domain.Id.Value,
             ConversationId = domain.ConversationId.Value,
             Name = domain.Name,
-            Status = (int)domain.Status,
+            Description = domain.Description,
+            Status = ToDataverseStatus(domain.Status),
             CreatedAt = domain.CreatedAt
         };
     }
@@ -26,7 +31,50 @@ public sealed class BranchMapper
             new BranchId(entity.Id),
             new ConversationId(entity.ConversationId),
             entity.Name,
-            (BranchStatus)entity.Status,
+            entity.Description,
+            FromDataverseStatus(entity.Status),
             entity.CreatedAt);
+    }
+
+    private static int ToDataverseStatus(
+        BranchStatus status)
+    {
+        return status switch
+        {
+            BranchStatus.Active =>
+                DataverseActive,
+
+            BranchStatus.Merged =>
+                DataverseMerged,
+
+            BranchStatus.Archived =>
+                DataverseArchived,
+
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(status),
+                status,
+                "Unsupported BranchStatus value.")
+        };
+    }
+
+    private static BranchStatus FromDataverseStatus(
+        int value)
+    {
+        return value switch
+        {
+            DataverseActive =>
+                BranchStatus.Active,
+
+            DataverseMerged =>
+                BranchStatus.Merged,
+
+            DataverseArchived =>
+                BranchStatus.Archived,
+
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(value),
+                value,
+                "Unsupported Dataverse BranchStatus value.")
+        };
     }
 }

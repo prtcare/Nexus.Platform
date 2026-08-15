@@ -249,7 +249,8 @@ var branchResult =
     await branchHandler.HandleAsync(
         new CreateBranchCommand(
             conversation.Id,
-            "Main"));
+            "Main",
+            "Primary branch for this conversation"));
 
 Console.WriteLine();
 Console.WriteLine("Branch Created");

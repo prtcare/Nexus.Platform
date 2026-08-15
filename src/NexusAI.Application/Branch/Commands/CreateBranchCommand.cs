@@ -4,4 +4,5 @@ namespace NexusAI.Application.Branch.Commands;
 
 public sealed record CreateBranchCommand(
     ConversationId ConversationId,
-    string Name);
+    string Name,
+    string Description);

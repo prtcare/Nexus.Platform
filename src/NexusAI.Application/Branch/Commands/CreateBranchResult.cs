@@ -3,4 +3,5 @@
 namespace NexusAI.Application.Branch.Commands;
 
 public sealed record CreateBranchResult(
-    BranchId BranchId);
+    BranchId BranchId,
+    string Name);
