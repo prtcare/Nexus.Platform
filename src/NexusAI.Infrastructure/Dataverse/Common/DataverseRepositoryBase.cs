@@ -77,4 +77,17 @@ public abstract class DataverseRepositoryBase<TDomain, TEntity, TId>
     public abstract Task UpdateAsync(
         TDomain domain,
         CancellationToken cancellationToken = default);
+
+    protected async Task<IReadOnlyList<TDomain>> RetrieveMultipleDomainAsync(
+    Func<TEntity, bool> predicate,
+    CancellationToken cancellationToken = default)
+    {
+        var entities = await Client.Context.RetrieveMultipleAsync(
+            predicate,
+            cancellationToken);
+
+        return entities
+            .Select(Mapper.ToDomain)
+            .ToList();
+    }
 }

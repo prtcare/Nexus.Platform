@@ -19,9 +19,13 @@ public sealed class CreateWorkspaceHandler
         CreateWorkspaceCommand command,
         CancellationToken cancellationToken)
     {
+        var workspaceId = new WorkspaceId(Guid.NewGuid());
+
         var workspace = new Workspace(
-            WorkspaceId.New(),
+            workspaceId,
             command.Name,
+            command.Owner,
+            command.Description,
             DateTimeOffset.UtcNow);
 
         await _repository.AddAsync(

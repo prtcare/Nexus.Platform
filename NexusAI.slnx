@@ -20,4 +20,5 @@
     <Project Path="src/NexusAI.Core/NexusAI.Core.csproj" />
   </Folder>
   <Folder Name="/Tests/" />
+  <Project Path="src/NexusAI.Api/NexusAI.Api.csproj" Id="25ffe519-d27c-4a14-acfc-d7cf8149501e" />
 </Solution>

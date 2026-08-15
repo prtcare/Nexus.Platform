@@ -1,8 +1,7 @@
 ﻿namespace NexusAI.Core.Agents;
 
-public sealed class AgentContext
-{
-    public required string ConversationId { get; init; }
-
-    public required string WorkspaceId { get; init; }
-}
+public sealed record AgentContext(
+    string ProjectId,
+    string ConversationId,
+    string WorkspaceId,
+    AgentType AgentType);

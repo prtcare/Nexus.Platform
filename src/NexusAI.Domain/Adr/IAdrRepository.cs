@@ -1,4 +1,4 @@
-﻿using NexusAI.Infrastructure.Dataverse.Common;
+﻿using NexusAI.Domain.Common;
 
 namespace NexusAI.Domain.Adr;
 

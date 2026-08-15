@@ -1,16 +1,16 @@
-﻿namespace NexusAI.Domain.Project;
+﻿using NexusAI.Domain.Common;
+using NexusAI.Domain.Common.Identifiers;
+
+namespace NexusAI.Domain.Project;
 
 public interface IProjectRepository
+    : IRepository<Project, ProjectId>
 {
-    Task AddAsync(
-        Project project,
-        CancellationToken cancellationToken = default);
-
-    Task<Project?> GetAsync(
+    Task<Project?> GetByIdAsync(
         ProjectId id,
         CancellationToken cancellationToken = default);
 
-    Task UpdateAsync(
-        Project project,
+    Task<IReadOnlyList<Project>> ListByWorkspaceAsync(
+        WorkspaceId workspaceId,
         CancellationToken cancellationToken = default);
 }

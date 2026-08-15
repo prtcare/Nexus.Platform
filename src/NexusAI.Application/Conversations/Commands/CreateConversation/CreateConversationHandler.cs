@@ -19,7 +19,11 @@ public sealed class CreateConversationHandler
         var conversation = new Conversation(
             new ConversationId(Guid.NewGuid()),
             command.ProjectId,
+            command.WorkspaceId,
             command.Title,
+            command.Description,
+            command.Type,
+            command.Visibility,
             DateTimeOffset.UtcNow);
 
         await _repository.AddAsync(

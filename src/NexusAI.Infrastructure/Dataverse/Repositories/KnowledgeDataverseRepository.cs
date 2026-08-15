@@ -1,4 +1,5 @@
-﻿using NexusAI.Domain.Knowledge;
+﻿using NexusAI.Domain.Common.Identifiers;
+using NexusAI.Domain.Knowledge;
 using NexusAI.Infrastructure.Dataverse.Clients;
 using NexusAI.Infrastructure.Dataverse.Common;
 using NexusAI.Infrastructure.Dataverse.Entities;
@@ -38,5 +39,14 @@ public sealed class KnowledgeDataverseRepository
         CancellationToken cancellationToken = default)
     {
         return UpdateEntityAsync(domain, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Knowledge>> ListByWorkspaceAsync(
+    WorkspaceId workspaceId,
+    CancellationToken cancellationToken = default)
+    {
+        return await RetrieveMultipleDomainAsync(
+            entity => entity.WorkspaceId == workspaceId.Value,
+            cancellationToken);
     }
 }

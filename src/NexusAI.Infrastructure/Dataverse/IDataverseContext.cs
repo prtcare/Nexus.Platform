@@ -1,4 +1,6 @@
-﻿namespace NexusAI.Infrastructure.Dataverse;
+﻿using NexusAI.Infrastructure.Dataverse.Entities;
+
+namespace NexusAI.Infrastructure.Dataverse;
 
 public interface IDataverseContext
 {
@@ -16,4 +18,9 @@ public interface IDataverseContext
         T entity,
         CancellationToken cancellationToken = default)
         where T : class;
+
+    Task<IReadOnlyList<TEntity>> RetrieveMultipleAsync<TEntity>(
+    Func<TEntity, bool> predicate,
+    CancellationToken cancellationToken = default)
+    where TEntity : DataverseEntity;
 }

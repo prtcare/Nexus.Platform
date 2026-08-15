@@ -1,0 +1,6 @@
+@NexusAI.Api_HostAddress = http://localhost:5095
+
+GET {{NexusAI.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,4 +1,4 @@
-﻿namespace NexusAI.Infrastructure.Dataverse.Common;
+﻿namespace NexusAI.Domain.Common;
 
 public interface IRepository<TDomain, TId>
 {

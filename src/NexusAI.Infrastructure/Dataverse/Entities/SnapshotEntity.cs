@@ -1,14 +1,12 @@
-﻿using NexusAI.Infrastructure.Dataverse.Entities;
-
-namespace NexusAI.Infrastructure.Dataverse.Entities;
+﻿namespace NexusAI.Infrastructure.Dataverse.Entities;
 
 public sealed class SnapshotEntity : DataverseEntity
 {
     public Guid BranchId { get; set; }
 
-    public string Description { get; set; } = string.Empty;
+    public Guid ConversationId { get; set; }
 
-    public int Status { get; set; }
+    public string Name { get; set; } = string.Empty;
 
-    public new DateTimeOffset CreatedAt { get; set; }
+    public string State { get; set; } = string.Empty;
 }

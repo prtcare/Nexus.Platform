@@ -4,7 +4,9 @@ public interface IAgent
 {
     AgentMetadata Metadata { get; }
 
-    Task RunAsync(
-        AgentContext context,
-        CancellationToken cancellationToken = default);
+
+Task<AgentResult> ExecuteAsync(
+    AgentContext context,
+    CancellationToken cancellationToken = default);
+
 }

@@ -1,0 +1,654 @@
+Persistence Model
+        ↓
+Dataverse Infrastructure
+        ↓
+Application
+        ↓
+API
+        ↓
+Dependency Injection
+        ↓
+Build
+        ↓
+Swagger/API Test
+        ↓
+Persistence Verification
+        ↓
+Documentation
+        ↓
+Git Commit
+        ↓
+Next Feature
+
+
+
+
+
+For this project, we should finish one feature completely before moving to the next one.
+
+That means for Conversation, we should not leave half of the layers unfinished and come back later. We will implement the complete vertical slice, test it, confirm the result, document it, and only then start the next feature.
+
+The important distinction is:
+
+We can build and test the Dataverse infrastructure against the current InMemoryDataverseContext first. Actual Microsoft Dataverse connectivity is a separate later infrastructure milestone.
+
+So your proposed direction is correct:
+
+Persistence Model
+        ↓
+Dataverse Infrastructure
+        ↓
+Application
+        ↓
+API
+        ↓
+Dependency Injection
+        ↓
+Build
+        ↓
+Swagger/API Test
+        ↓
+Persistence Verification
+        ↓
+Documentation
+        ↓
+Git Commit
+        ↓
+Next Feature
+🏗️ Actual development plan for NexusAI
+
+This is the development sequence I recommend we follow for the whole system.
+
+🟦 Phase 1 — Domain / Persistence Model
+
+For each entity:
+
+Domain entity
+Domain identifiers
+Enums
+Repository contract
+Business methods
+
+Example for Conversation:
+
+Conversation
+ConversationId
+ConversationStatus
+ConversationType
+ConversationVisibility
+IConversationRepository
+
+Then make sure the domain represents the actual intended persistence model.
+
+For Conversation, that means we need to settle:
+
+Id
+ProjectId
+WorkspaceId
+Title
+Description
+Type
+Visibility
+CreatedAt
+LastMessageOn
+Status
+
+✔️ No API work yet.
+
+✔️ No real Dataverse connection yet.
+
+✔️ Build after the domain is correct.
+
+🟩 Phase 2 — Dataverse Infrastructure
+
+Once the domain model is finalized:
+
+ConversationEntity
+ConversationMapper
+ConversationDataverseRepository
+
+The mapping must be complete:
+
+Domain
+   ↕
+Mapper
+   ↕
+Dataverse Entity
+
+For example:
+
+Conversation.ProjectId
+        ↕
+ConversationEntity.ProjectId
+
+and:
+
+Conversation.Type
+        ↕
+ConversationEntity.Type
+
+etc.
+
+Then test the repository using our current InMemoryDataverseContext.
+
+We verify:
+
+Create
+Retrieve
+Update
+List by Project
+
+before moving forward.
+
+🟨 Phase 3 — Application Layer
+
+Then build the use cases.
+
+For Conversation:
+
+Commands
+├── CreateConversation
+├── UpdateConversation
+└── ArchiveConversation
+
+Queries
+├── GetConversation
+└── ListConversations
+
+Each operation gets:
+
+Command/Query
+        ↓
+Handler
+        ↓
+Repository
+        ↓
+Domain
+
+And each handler is tested independently.
+
+For example:
+
+CreateConversationCommand
+        ↓
+CreateConversationHandler
+        ↓
+IConversationRepository
+        ↓
+Conversation
+🟧 Phase 4 — API Layer
+
+Only after Application is working:
+
+Request
+Endpoint
+Response
+
+For example:
+
+POST /api/conversations
+
+Then:
+
+GET /api/conversations/{id}
+
+Then:
+
+GET /api/projects/{projectId}/conversations
+
+Then update/archive endpoints as required.
+
+The API should be a thin layer.
+
+It should not contain Conversation business logic.
+
+🟪 Phase 5 — Dependency Injection
+
+Then wire everything:
+
+IConversationRepository
+        ↓
+ConversationDataverseRepository
+IRepositoryMapper<Conversation, ConversationEntity>
+        ↓
+ConversationMapper
+CreateConversationHandler
+GetConversationHandler
+ListConversationsHandler
+...
+
+We already have much of this in place, but we'll verify it against the final implementation rather than assuming it is correct.
+
+🟥 Phase 6 — Build Boundary
+
+Then:
+
+Build → Rebuild Solution
+
+Target:
+
+0 Errors
+
+Warnings can be dealt with separately unless they affect the current feature.
+
+We do not proceed to Swagger if the current feature has compiler errors.
+
+🟫 Phase 7 — API / Swagger Testing
+
+Once build succeeds:
+
+✔️ Create
+POST /api/conversations
+
+Verify:
+
+HTTP 200/201
+ConversationId returned
+Title returned
+✔️ Get
+GET /api/conversations/{id}
+
+Verify the exact conversation we just created.
+
+✔️ List
+GET /api/projects/{projectId}/conversations
+
+Verify the created conversation appears.
+
+✔️ Update
+
+Verify the changed values.
+
+✔️ Archive
+
+Verify:
+
+Status = Archived
+🔵 Phase 8 — Persistence Verification
+
+This is particularly important for our current architecture.
+
+At the moment:
+
+services.AddSingleton<IDataverseContext, InMemoryDataverseContext>();
+
+Therefore Swagger success means:
+
+API
+ ↓
+Application
+ ↓
+Repository
+ ↓
+InMemoryDataverseContext
+
+It does not mean:
+
+API
+ ↓
+Microsoft Dataverse
+
+So at this stage we verify the in-memory persistence.
+
+For example:
+
+POST Conversation
+       ↓
+Repository.CreateAsync()
+       ↓
+InMemoryDataverseContext
+       ↓
+GET Conversation
+       ↓
+same Conversation
+
+This proves our application/infrastructure architecture works.
+
+🌐 Phase 9 — Real Dataverse Integration
+
+This comes after the individual features have been developed and verified.
+
+Then we replace:
+
+InMemoryDataverseContext
+
+with the actual Dataverse implementation.
+
+That is where we verify:
+
+C# Entity
+      ↓
+Dataverse SDK/client
+      ↓
+Microsoft Dataverse
+      ↓
+T_010_Conversation
+
+Then we perform the real test:
+
+POST
+ ↓
+Dataverse row created
+ ↓
+Power Apps table confirms row
+ ↓
+GET retrieves same row
+
+This is the stage where your current observation:
+
+"Swagger returns the output but I don't see the posting in Dataverse"
+
+becomes relevant.
+
+Right now it is expected, because the application is still using InMemoryDataverseContext.
+
+📚 Phase 10 — Documentation
+
+After a feature is completely tested, we update the project documentation.
+
+For Conversation, documentation will record:
+
+Feature: Conversation
+
+Domain
+✔️
+
+Persistence Model
+✔️
+
+Repository
+✔️
+
+Dataverse Entity
+✔️
+
+Mapper
+✔️
+
+Application Commands
+✔️
+
+Application Queries
+✔️
+
+API
+✔️
+
+Swagger Tests
+✔️
+
+Persistence Test
+✔️
+
+Known Infrastructure State
+InMemoryDataverseContext
+
+Real Dataverse
+Pending global integration
+
+And, as you requested earlier, after the last documentation for the feature, I'll give you the current updated documentation state before we move on.
+
+🧱 Phase 11 — Git
+
+After the feature is clean:
+
+Build
+✔️
+
+Tests
+✔️
+
+Documentation
+✔️
+
+we create a Git commit.
+
+For Conversation, I recommend:
+
+feat(conversation): complete conversation vertical slice
+
+or, if we separate milestones:
+
+feat(conversation): add conversation domain model
+feat(conversation): add conversation persistence
+feat(conversation): add conversation application layer
+feat(conversation): add conversation api
+
+Since we're deliberately working feature-by-feature, I prefer one clean feature commit unless the work becomes large enough to justify multiple commits.
+
+🧩 The complete NexusAI roadmap
+
+So the actual architecture-development sequence becomes:
+
+                    NEXUSAI DEVELOPMENT
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Workspace         │ ✔️
+                 └───────────────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Project           │
+                 └───────────────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ WorkItem          │ ✔️
+                 └───────────────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Conversation      │ ◀── CURRENT
+                 └───────────────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ ConversationMsg   │
+                 └───────────────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Session           │
+                 └───────────────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Knowledge         │
+                 └───────────────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Memory            │
+                 └───────────────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Artifact          │
+                 └───────────────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ ADR               │
+                 └───────────────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Snapshot          │
+                 └───────────────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Branch            │
+                 └───────────────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Planning/Execution│
+                 └───────────────────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Chat / AI         │
+                 └───────────────────┘
+                           │
+                           ▼
+              ┌──────────────────────────┐
+              │ REAL DATAVERSE INTEGRATION│
+              └──────────────────────────┘
+🔥 And the rule for every feature
+
+From now on, we follow this exact loop:
+
+UNDERSTAND
+    ↓
+DOMAIN / PERSISTENCE MODEL
+    ↓
+BUILD
+    ↓
+DATAVERSE INFRASTRUCTURE
+    ↓
+BUILD
+    ↓
+APPLICATION
+    ↓
+BUILD
+    ↓
+API
+    ↓
+BUILD
+    ↓
+SWAGGER TEST
+    ↓
+PERSISTENCE TEST
+    ↓
+DOCUMENT
+    ↓
+GIT
+    ↓
+NEXT FEATURE
+
+We do not jump over a failed boundary.
+
+If Conversation persistence fails → fix Conversation persistence.
+
+If Application fails → fix Application.
+
+If API fails → fix API.
+
+If Swagger succeeds but the persistence check fails → investigate persistence.
+
+That will keep the solution extremely controlled and prevent the kind of cascading errors we encountered earlier when the Conversation constructor changed but callers had not yet been updated.
+
+🎯 Where we are right now
+Workspace        ✔️
+WorkItem         ✔️
+
+Conversation     🔨 CURRENT
+
+For Conversation, we're currently around:
+
+Domain
+  ↓
+Persistence / Entity / Mapper
+  ↓
+Repository
+  ↓
+Application
+  ↓
+API
+  ↓
+Testing
+
+
+
+
+01 Domain / Persistence Model
+02 Dataverse Entity
+03 Mapper
+04 Repository
+05 Application
+06 API
+07 Dependency Injection + Build
+08 API / Swagger Testing
+09 Persistence Verification
+10 Documentation
+11 Git Commit
+12 Final Feature Review
+
+
+ Repository
+                        │
+                        ▼
+                 IDataverseClient
+                        │
+                        ▼
+                 IDataverseContext
+                    /        \
+                   /          \
+                  ▼            ▼
+       InMemoryContext    DataverseContext
+                              │
+                              ▼
+                    Microsoft Dataverse
+
+
+🏗️ Current architecture
+
+Right now:
+
+WorkspaceRepository
+       ↓
+DataverseRepositoryBase
+       ↓
+IDataverseClient
+       ↓
+DataverseClient
+       ↓
+IDataverseContext
+       ↓
+InMemoryDataverseContext
+       ↓
+Dictionary<Type, IList<object>>
+
+Nothing below InMemoryDataverseContext talks to Microsoft Dataverse.
+
+We will change only this infrastructure.
+
+The desired architecture is:
+
+WorkspaceRepository
+WorkItemRepository
+ConversationRepository
+        │
+        ▼
+IDataverseClient
+        │
+        ▼
+DataverseClient
+        │
+        ▼
+IDataverseContext
+        │
+        ▼
+DataverseContext
+        │
+        ▼
+Microsoft.PowerPlatform.Dataverse.Client
+        │
+        ▼
+Microsoft Dataverse
+
+
+
+Some of those pieces already exist, but we're going to validate and complete them in that order, rather than assuming they are finished simply because the files exist.
+
+And importantly:
+
+Real Microsoft Dataverse connection
+                         ↓
+                    NOT YET
+
+That will be a deliberate later milestone covering the whole system, not something we need to force into Conversation right now.
+
+Confidence: 98% — this plan matches the architecture and development state you've shown. The only part we'll refine as we progress is the exact ordering of individual Conversation operations based on the existing solution conventions.

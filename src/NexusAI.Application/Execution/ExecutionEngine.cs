@@ -1,4 +1,4 @@
-﻿using NexusAI.Application.Agents;
+﻿using NexusAI.Core.Agents;
 
 namespace NexusAI.Application.Execution;
 
@@ -16,16 +16,17 @@ public sealed class ExecutionEngine : IExecutionEngine
         CancellationToken cancellationToken = default)
     {
         var agentContext = new AgentContext(
-            context,
+            context.ProjectId.ToString(),
+            string.Empty,
+            string.Empty,
             AgentType.Developer);
 
-        var agentResult =
-            await _dispatcher.DispatchAsync(
-                agentContext,
-                cancellationToken);
+        var agentResult = await _dispatcher.DispatchAsync(
+            agentContext,
+            cancellationToken);
 
         return new ExecutionResult(
-    agentResult.Success,
-    agentResult.Success ? 1 : 0);
+            agentResult.Success,
+            agentResult.Success ? 1 : 0);
     }
 }

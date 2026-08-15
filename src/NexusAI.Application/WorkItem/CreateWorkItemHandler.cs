@@ -22,7 +22,11 @@ public sealed class CreateWorkItemHandler
             command.Type,
             DateTimeOffset.UtcNow);
 
-        await _repository.AddAsync(workItem, cancellationToken);
+        workItem.UpdateDescription(command.Description);
+
+        await _repository.AddAsync(
+            workItem,
+            cancellationToken);
 
         return new CreateWorkItemResult(workItem.Id);
     }

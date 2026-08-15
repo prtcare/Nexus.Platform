@@ -2,5 +2,11 @@
 
 public interface IAgentRegistry
 {
-    IReadOnlyCollection<AgentMetadata> GetAgents();
+    IReadOnlyCollection<IAgent> GetAll();
+
+    IAgent GetAgent(AgentType type);
+
+    bool TryGetAgent(
+        AgentType type,
+        out IAgent? agent);
 }

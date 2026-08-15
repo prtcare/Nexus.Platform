@@ -36,7 +36,10 @@ public sealed class WorkItem
     {
         Description = description;
     }
-
+    public void ChangeType(WorkItemType type)
+    {
+        Type = type;
+    }
     public void ChangeStatus(WorkItemStatus status)
     {
         Status = status;

@@ -6,4 +6,5 @@ namespace NexusAI.Application.WorkItem;
 public sealed record CreateWorkItemCommand(
     ProjectId ProjectId,
     string Title,
+    string Description,
     WorkItemType Type);

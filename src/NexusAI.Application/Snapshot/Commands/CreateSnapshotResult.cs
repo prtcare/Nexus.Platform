@@ -3,4 +3,5 @@
 namespace NexusAI.Application.Snapshot.Commands;
 
 public sealed record CreateSnapshotResult(
-    SnapshotId SnapshotId);
+    SnapshotId SnapshotId,
+    string Name);

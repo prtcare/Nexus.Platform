@@ -1,4 +1,5 @@
 ﻿using NexusAI.Domain.Branch;
+using NexusAI.Domain.Conversation;
 using NexusAI.Domain.Snapshot;
 using NexusAI.Infrastructure.Dataverse.Common;
 using NexusAI.Infrastructure.Dataverse.Entities;
@@ -14,8 +15,9 @@ public sealed class SnapshotMapper
         {
             Id = domain.Id.Value,
             BranchId = domain.BranchId.Value,
-            Description = domain.Description,
-            Status = (int)domain.Status,
+            ConversationId = domain.ConversationId.Value,
+            Name = domain.Name,
+            State = domain.State,
             CreatedAt = domain.CreatedAt
         };
     }
@@ -25,8 +27,9 @@ public sealed class SnapshotMapper
         return new Snapshot(
             new SnapshotId(entity.Id),
             new BranchId(entity.BranchId),
-            entity.Description,
-            (SnapshotStatus)entity.Status,
+            new ConversationId(entity.ConversationId),
+            entity.Name,
+            entity.State,
             entity.CreatedAt);
     }
 }

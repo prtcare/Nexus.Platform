@@ -1,4 +1,6 @@
-﻿namespace NexusAI.Infrastructure.Dataverse;
+﻿using NexusAI.Infrastructure.Dataverse.Entities;
+
+namespace NexusAI.Infrastructure.Dataverse;
 
 public sealed class InMemoryDataverseContext : IDataverseContext
 {
@@ -42,6 +44,24 @@ public sealed class InMemoryDataverseContext : IDataverseContext
             });
 
         return Task.FromResult(entity);
+    }
+
+    public Task<IReadOnlyList<TEntity>> RetrieveMultipleAsync<TEntity>(
+    Func<TEntity, bool> predicate,
+    CancellationToken cancellationToken = default)
+    where TEntity : DataverseEntity
+    {
+        if (!_tables.TryGetValue(typeof(TEntity), out var table))
+        {
+            return Task.FromResult<IReadOnlyList<TEntity>>([]);
+        }
+
+        var result = table
+            .Cast<TEntity>()
+            .Where(predicate)
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<TEntity>>(result);
     }
 
     public Task UpdateAsync<T>(

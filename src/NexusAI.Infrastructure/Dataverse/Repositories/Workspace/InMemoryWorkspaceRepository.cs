@@ -7,30 +7,43 @@ namespace NexusAI.Infrastructure.Dataverse.Repositories.Workspace;
 public sealed class InMemoryWorkspaceRepository
     : IWorkspaceRepository
 {
-    private readonly Dictionary<WorkspaceId, WorkspaceEntity> _workspaces = new();
+    private readonly Dictionary<Guid, NexusAI.Domain.Workspace.Workspace> _workspaces = new();
 
     public Task AddAsync(
-        WorkspaceEntity workspace,
-        CancellationToken cancellationToken = default)
+    NexusAI.Domain.Workspace.Workspace workspace,
+    CancellationToken cancellationToken = default)
     {
-        _workspaces[workspace.Id] = workspace;
+        _workspaces[workspace.Id.Value] = workspace;
+
         return Task.CompletedTask;
     }
 
-    public Task<WorkspaceEntity?> GetAsync(
+    public Task<NexusAI.Domain.Workspace.Workspace?> GetAsync(
         WorkspaceId id,
         CancellationToken cancellationToken = default)
     {
-        _workspaces.TryGetValue(id, out var workspace);
+        _workspaces.TryGetValue(
+            id.Value,
+            out var workspace);
 
         return Task.FromResult(workspace);
     }
 
     public Task UpdateAsync(
-        WorkspaceEntity workspace,
+        NexusAI.Domain.Workspace.Workspace workspace,
         CancellationToken cancellationToken = default)
     {
-        _workspaces[workspace.Id] = workspace;
+        _workspaces[workspace.Id.Value] = workspace;
+
         return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<NexusAI.Domain.Workspace.Workspace>> ListAsync(
+        CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<NexusAI.Domain.Workspace.Workspace> result =
+            _workspaces.Values.ToList();
+
+        return Task.FromResult(result);
     }
 }

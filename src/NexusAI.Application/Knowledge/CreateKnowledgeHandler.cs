@@ -21,7 +21,7 @@ public sealed class CreateKnowledgeHandler
             command.WorkspaceId,
             command.Title,
             command.Content,
-            command.Source,
+            command.Type,
             DateTimeOffset.UtcNow);
 
         await _repository.AddAsync(

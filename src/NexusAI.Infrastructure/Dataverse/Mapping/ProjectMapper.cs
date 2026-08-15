@@ -8,6 +8,9 @@ namespace NexusAI.Infrastructure.Dataverse.Mapping;
 public sealed class ProjectMapper
     : IRepositoryMapper<Project, ProjectEntity>
 {
+    private const int DataverseActive = 121930001;
+    private const int DataverseArchived = 121930004;
+
     public ProjectEntity ToEntity(Project project)
     {
         return new ProjectEntity
@@ -15,17 +18,54 @@ public sealed class ProjectMapper
             Id = project.Id.Value,
             WorkspaceId = project.WorkspaceId.Value,
             Name = project.Name,
-            Status = (int)project.Status,
+            Status = ToDataverseStatus(project.Status),
             CreatedAt = project.CreatedAt
         };
     }
 
     public Project ToDomain(ProjectEntity entity)
     {
-        return new Project(
+        var project = new Project(
             new ProjectId(entity.Id),
             new WorkspaceId(entity.WorkspaceId),
             entity.Name,
             entity.CreatedAt);
+
+        var status = FromDataverseStatus(entity.Status);
+
+        if (status == ProjectStatus.Archived)
+        {
+            project.Archive();
+        }
+
+        return project;
+    }
+
+    private static int ToDataverseStatus(ProjectStatus status)
+    {
+        return status switch
+        {
+            ProjectStatus.Active => DataverseActive,
+            ProjectStatus.Archived => DataverseArchived,
+
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(status),
+                status,
+                "Unsupported ProjectStatus.")
+        };
+    }
+
+    private static ProjectStatus FromDataverseStatus(int value)
+    {
+        return value switch
+        {
+            DataverseActive => ProjectStatus.Active,
+            DataverseArchived => ProjectStatus.Archived,
+
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(value),
+                value,
+                "Unsupported Dataverse Project Status value.")
+        };
     }
 }

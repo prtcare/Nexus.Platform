@@ -1,9 +1,7 @@
 ﻿using NexusAI.Domain.Common.Identifiers;
-using NexusAI.Domain.Workspace;
 using NexusAI.Infrastructure.Dataverse.Clients;
 using NexusAI.Infrastructure.Dataverse.Common;
 using NexusAI.Infrastructure.Dataverse.Entities;
-using NexusAI.Infrastructure.Dataverse.Mapping;
 
 namespace NexusAI.Infrastructure.Dataverse.Repositories;
 
@@ -12,7 +10,7 @@ public sealed class WorkspaceDataverseRepository
         NexusAI.Domain.Workspace.Workspace,
         WorkspaceEntity,
         WorkspaceId>,
-      IWorkspaceRepository
+      NexusAI.Domain.Workspace.IWorkspaceRepository
 {
     public WorkspaceDataverseRepository(
         IDataverseClient client,
@@ -27,20 +25,34 @@ public sealed class WorkspaceDataverseRepository
         NexusAI.Domain.Workspace.Workspace workspace,
         CancellationToken cancellationToken = default)
     {
-        return CreateAsync(workspace, cancellationToken);
+        return CreateAsync(
+            workspace,
+            cancellationToken);
     }
 
     public override Task<NexusAI.Domain.Workspace.Workspace?> GetAsync(
         WorkspaceId id,
         CancellationToken cancellationToken = default)
     {
-        return RetrieveDomainAsync(id.Value, cancellationToken);
+        return RetrieveDomainAsync(
+            id.Value,
+            cancellationToken);
     }
 
     public override Task UpdateAsync(
         NexusAI.Domain.Workspace.Workspace workspace,
         CancellationToken cancellationToken = default)
     {
-        return UpdateEntityAsync(workspace, cancellationToken);
+        return UpdateEntityAsync(
+            workspace,
+            cancellationToken);
+    }
+
+    public Task<IReadOnlyList<NexusAI.Domain.Workspace.Workspace>> ListAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return RetrieveMultipleDomainAsync(
+            _ => true,
+            cancellationToken);
     }
 }

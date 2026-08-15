@@ -1,4 +1,5 @@
-﻿using NexusAI.Domain.Snapshot;
+﻿using NexusAI.Domain.Branch;
+using NexusAI.Domain.Snapshot;
 using NexusAI.Infrastructure.Dataverse.Clients;
 using NexusAI.Infrastructure.Dataverse.Common;
 using NexusAI.Infrastructure.Dataverse.Entities;
@@ -6,7 +7,10 @@ using NexusAI.Infrastructure.Dataverse.Entities;
 namespace NexusAI.Infrastructure.Dataverse.Repositories;
 
 public sealed class SnapshotDataverseRepository
-    : DataverseRepositoryBase<Snapshot, SnapshotEntity, SnapshotId>,
+    : DataverseRepositoryBase<
+        Snapshot,
+        SnapshotEntity,
+        SnapshotId>,
       ISnapshotRepository
 {
     public SnapshotDataverseRepository(
@@ -20,20 +24,35 @@ public sealed class SnapshotDataverseRepository
         Snapshot domain,
         CancellationToken cancellationToken = default)
     {
-        return CreateAsync(domain, cancellationToken);
+        return CreateAsync(
+            domain,
+            cancellationToken);
     }
 
     public override Task<Snapshot?> GetAsync(
         SnapshotId id,
         CancellationToken cancellationToken = default)
     {
-        return RetrieveDomainAsync(id.Value, cancellationToken);
+        return RetrieveDomainAsync(
+            id.Value,
+            cancellationToken);
     }
 
     public override Task UpdateAsync(
         Snapshot domain,
         CancellationToken cancellationToken = default)
     {
-        return UpdateEntityAsync(domain, cancellationToken);
+        return UpdateEntityAsync(
+            domain,
+            cancellationToken);
+    }
+
+    public Task<IReadOnlyList<Snapshot>> ListByBranchAsync(
+        BranchId branchId,
+        CancellationToken cancellationToken = default)
+    {
+        return RetrieveMultipleDomainAsync(
+            entity => entity.BranchId == branchId.Value,
+            cancellationToken);
     }
 }

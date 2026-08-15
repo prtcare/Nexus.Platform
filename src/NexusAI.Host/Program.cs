@@ -5,6 +5,8 @@ using NexusAI.Agents.Developer;
 using NexusAI.Application.Adr.Commands;
 using NexusAI.Application.Artifact.Commands;
 using NexusAI.Application.Branch.Commands;
+using NexusAI.Application.Chat;
+using NexusAI.Application.Chat.Commands.SendChat;
 using NexusAI.Application.Conversations.Commands.CreateConversation;
 using NexusAI.Application.DependencyInjection;
 using NexusAI.Application.Execution;
@@ -13,6 +15,7 @@ using NexusAI.Application.Knowledge.Commands;
 using NexusAI.Application.Planning;
 using NexusAI.Application.Planning.Commands;
 using NexusAI.Application.Projects.Commands.CreateProject;
+using NexusAI.Application.Providers;
 using NexusAI.Application.Session.Commands;
 using NexusAI.Application.Snapshot.Commands;
 using NexusAI.Application.WorkItem;
@@ -30,30 +33,70 @@ using NexusAI.Domain.WorkItem;
 using NexusAI.Domain.Workspace;
 using NexusAI.Host.Extensions;
 using NexusAI.Infrastructure.DependencyInjection;
+using NexusAI.Domain.Common.Identifiers;
 
 
 
 var builder = Host.CreateApplicationBuilder(args);
+
+builder.Configuration.AddJsonFile(
+    Path.Combine(
+        AppContext.BaseDirectory,
+        "appsettings.json"),
+    optional: false,
+    reloadOnChange: false);
 
 builder.Services.AddNexusAI();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddSingleton<DeveloperAgent>();
 
+builder.Services.AddSingleton<IAgent>(
+    serviceProvider =>
+        serviceProvider.GetRequiredService<DeveloperAgent>());
 var app = builder.Build();
 using var scope = app.Services.CreateScope();
+
+var agentRegistry =
+    scope.ServiceProvider.GetRequiredService<IAgentRegistry>();
+
+var registeredAgents = agentRegistry.GetAll();
+
+Console.WriteLine();
+Console.WriteLine("Agent Registry");
+Console.WriteLine("--------------");
+
+foreach (var registeredAgent in registeredAgents)
+{
+    Console.WriteLine(
+        $"{registeredAgent.Metadata.Id} - " +
+        $"{registeredAgent.Metadata.Name}");
+}
+
+var developerAgent =
+    agentRegistry.GetAgent(AgentType.Developer);
+
+Console.WriteLine();
+Console.WriteLine(
+    $"Developer Agent Resolved: " +
+    $"{developerAgent.Metadata.Name}");
 
 var handler = scope.ServiceProvider
     .GetRequiredService<CreateWorkspaceHandler>();
 
 var result = await handler.HandleAsync(
-    new CreateWorkspaceCommand("Default Workspace"),
+    new CreateWorkspaceCommand(
+        "Default Workspace",
+        "Default Owner",
+        "Default Workspace Description"),
     CancellationToken.None);
 
 Console.WriteLine();
 Console.WriteLine("Workspace Created");
-Console.WriteLine($"Id   : {result.WorkspaceId}");
-Console.WriteLine($"Name : {result.Name}");
+Console.WriteLine($"Id          : {result.WorkspaceId}");
+Console.WriteLine($"Name        : {result.Name}");
+
+
 
 var projectHandler = scope.ServiceProvider
     .GetRequiredService<CreateProjectHandler>();
@@ -78,21 +121,31 @@ var workspace = await repository.GetAsync(
 
 Console.WriteLine();
 Console.WriteLine("Repository Verification");
-Console.WriteLine($"Found : {workspace is not null}");
-Console.WriteLine($"Name  : {workspace?.Name}");
+Console.WriteLine($"Found       : {workspace is not null}");
+Console.WriteLine($"Name        : {workspace?.Name}");
+Console.WriteLine($"Owner       : {workspace?.Owner}");
+Console.WriteLine($"Description : {workspace?.Description}");
+Console.WriteLine($"Status      : {workspace?.Status}");
 Console.WriteLine();
 Console.WriteLine();
-var runtime = app.Services.GetRequiredService<IAgentRuntime>();
-var agent = app.Services.GetRequiredService<DeveloperAgent>();
+var runtime =
+    app.Services.GetRequiredService<IAgentRuntime>();
+
+var agent =
+    agentRegistry.GetAgent(AgentType.Developer);
 
 var conversationHandler = scope.ServiceProvider
     .GetRequiredService<CreateConversationHandler>();
 
 var conversationResult =
     await conversationHandler.HandleAsync(
-        new CreateConversationCommand(
-            projectResult.ProjectId,
-            "Architecture Discussion"),
+       new CreateConversationCommand(
+    projectResult.ProjectId,
+    workspace.Id,
+    "Architecture Discussion",
+    "Initial architecture discussion.",
+    ConversationType.Standalone,
+    ConversationVisibility.Project),
         CancellationToken.None);
 
 Console.WriteLine();
@@ -126,10 +179,12 @@ Console.WriteLine($"Workspace Id : {project?.WorkspaceId}");
 
 var workItemHandler = scope.ServiceProvider.GetRequiredService<CreateWorkItemHandler>();
 
-var workItemResult = await workItemHandler.HandleAsync(
+
+    var workItemResult = await workItemHandler.HandleAsync(
     new CreateWorkItemCommand(
-        project.Id,
-        "Implement Repository Pattern",
+        projectResult.ProjectId,
+        "Implementation Repository",
+        "Implementation repository work item.",
         WorkItemType.Task));
 
 Console.WriteLine();
@@ -168,7 +223,7 @@ var knowledgeResult =
             workspace.Id,
             "Architecture ADR",
             "Established reusable generic Dataverse repository infrastructure.",
-            KnowledgeSource.Document));
+            KnowledgeType.Documentation));
 
 Console.WriteLine();
 Console.WriteLine("Knowledge Created");
@@ -184,7 +239,7 @@ Console.WriteLine();
 Console.WriteLine("Knowledge Repository Verification");
 Console.WriteLine($"Found : {knowledge is not null}");
 Console.WriteLine($"Title : {knowledge?.Title}");
-Console.WriteLine($"Source : {knowledge?.Source}");
+Console.WriteLine($"Type : {knowledge?.Type}");
 Console.WriteLine($"Workspace Id : {knowledge?.WorkspaceId}");
 
 var branchHandler =
@@ -276,7 +331,9 @@ var snapshotResult =
     await snapshotHandler.HandleAsync(
         new CreateSnapshotCommand(
             branchResult.BranchId,
-            "Initial project snapshot"));
+            conversation.Id,
+            "Initial Snapshot",
+            "Initial conversation and branch state"));
 
 Console.WriteLine();
 Console.WriteLine("Snapshot Created");
@@ -290,10 +347,17 @@ var snapshot =
 
 Console.WriteLine();
 Console.WriteLine("Snapshot Repository Verification");
-Console.WriteLine($"Found : {snapshot is not null}");
-Console.WriteLine($"Description : {snapshot?.Description}");
-Console.WriteLine($"Status : {snapshot?.Status}");
-Console.WriteLine($"Branch Id : {snapshot?.BranchId}");
+Console.WriteLine($"Found           : {snapshot is not null}");
+
+if (snapshot is not null)
+{
+    Console.WriteLine($"Snapshot Id     : {snapshot.Id.Value}");
+    Console.WriteLine($"Branch Id       : {snapshot.BranchId.Value}");
+    Console.WriteLine($"Conversation Id : {snapshot.ConversationId.Value}");
+    Console.WriteLine($"Name            : {snapshot.Name}");
+    Console.WriteLine($"State           : {snapshot.State}");
+    Console.WriteLine($"Created At      : {snapshot.CreatedAt:O}");
+}
 
 
 var planHandler =
@@ -334,13 +398,59 @@ var engine =
 
 
 
+
+
+var chatService =
+    scope.ServiceProvider.GetRequiredService<IChatService>();
+
+Console.WriteLine();
+Console.WriteLine("Conversation Memory Test");
+Console.WriteLine("------------------------");
+
+var first =
+    await chatService.SendAsync(
+        conversation.Id,
+        "My name is David.");
+
+Console.WriteLine("User: My name is David.");
+Console.WriteLine($"Assistant: {first.Response}");
+Console.WriteLine();
+
+var second =
+    await chatService.SendAsync(
+        conversation.Id,
+        "What is my name?");
+
+Console.WriteLine("User: What is my name?");
+Console.WriteLine($"Assistant: {second.Response}");
+
+if (!second.Success)
+{
+    Console.WriteLine($"Error: {second.Error}");
+}
+
+
+await chatService.SendAsync(
+    conversation.Id,
+    "My name is David.",
+    CancellationToken.None);
+
+await chatService.SendAsync(
+    conversation.Id,
+    "What is my name?",
+    CancellationToken.None);
+
+
+
 await runtime.RunAsync(
     agent,
-    new AgentContext
-    {
-        ConversationId = Guid.NewGuid().ToString(),
-        WorkspaceId = "Default"
-    });
+    new AgentContext(
+        projectResult.ProjectId.ToString(),
+        conversation.Id.ToString(),
+        workspace.Id.ToString(),
+        AgentType.Developer),
+    CancellationToken.None);
+
 
 
 app.Run();

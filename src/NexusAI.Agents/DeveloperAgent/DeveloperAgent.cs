@@ -11,11 +11,16 @@ public sealed class DeveloperAgent : IAgent
         Description = "Software development assistant"
     };
 
-    public Task RunAsync(
+    public Task<AgentResult> ExecuteAsync(
         AgentContext context,
         CancellationToken cancellationToken = default)
     {
         Console.WriteLine($"Running {Metadata.Name} Agent");
-        return Task.CompletedTask;
+        Console.WriteLine($"Project: {context.ProjectId}");
+
+        return Task.FromResult(
+            new AgentResult(
+                true,
+                "Developer agent execution completed."));
     }
 }

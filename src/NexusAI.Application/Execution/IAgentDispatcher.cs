@@ -1,4 +1,4 @@
-﻿using NexusAI.Application.Agents;
+﻿using NexusAI.Core.Agents;
 
 namespace NexusAI.Application.Execution;
 

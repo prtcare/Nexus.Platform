@@ -7,4 +7,4 @@ public sealed record CreateKnowledgeCommand(
     WorkspaceId WorkspaceId,
     string Title,
     string Content,
-    KnowledgeSource Source);
+    KnowledgeType Type);

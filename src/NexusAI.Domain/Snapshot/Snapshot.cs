@@ -1,5 +1,6 @@
 ﻿using NexusAI.Domain.Branch;
 using NexusAI.Domain.Common;
+using NexusAI.Domain.Conversation;
 
 namespace NexusAI.Domain.Snapshot;
 
@@ -8,32 +9,40 @@ public sealed class Snapshot : Entity<SnapshotId>
     public Snapshot(
         SnapshotId id,
         BranchId branchId,
-        string description,
-        SnapshotStatus status,
+        ConversationId conversationId,
+        string name,
+        string state,
         DateTimeOffset createdAt)
         : base(id)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
         BranchId = branchId;
-        Description = description;
-        Status = status;
+        ConversationId = conversationId;
+        Name = name.Trim();
+        State = state?.Trim() ?? string.Empty;
         CreatedAt = createdAt;
     }
 
     public BranchId BranchId { get; }
 
-    public string Description { get; private set; }
+    public ConversationId ConversationId { get; }
 
-    public SnapshotStatus Status { get; private set; }
+    public string Name { get; private set; }
+
+    public string State { get; private set; }
 
     public DateTimeOffset CreatedAt { get; }
 
-    public void FinalizeSnapshot()
+    public void Rename(string name)
     {
-        Status = SnapshotStatus.Finalized;
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        Name = name.Trim();
     }
 
-    public void UpdateDescription(string description)
+    public void UpdateState(string state)
     {
-        Description = description;
+        State = state?.Trim() ?? string.Empty;
     }
 }

@@ -1,4 +1,5 @@
 ﻿using NexusAI.Domain.Conversation;
+using NexusAI.Domain.Project;
 using NexusAI.Infrastructure.Dataverse.Clients;
 using NexusAI.Infrastructure.Dataverse.Common;
 using NexusAI.Infrastructure.Dataverse.Entities;
@@ -38,5 +39,14 @@ public sealed class ConversationDataverseRepository
         CancellationToken cancellationToken = default)
     {
         return UpdateEntityAsync(conversation, cancellationToken);
+    }
+
+    public Task<IReadOnlyList<Conversation>> ListByProjectAsync(
+        ProjectId projectId,
+        CancellationToken cancellationToken = default)
+    {
+        return RetrieveMultipleDomainAsync(
+            entity => entity.ProjectId == projectId.Value,
+            cancellationToken);
     }
 }

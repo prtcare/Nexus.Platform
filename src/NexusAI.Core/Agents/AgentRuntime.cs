@@ -9,6 +9,8 @@ public sealed class AgentRuntime : IAgentRuntime
         AgentContext context,
         CancellationToken cancellationToken = default)
     {
-        return agent.RunAsync(context, cancellationToken);
+        return agent.ExecuteAsync(
+            context,
+            cancellationToken);
     }
 }

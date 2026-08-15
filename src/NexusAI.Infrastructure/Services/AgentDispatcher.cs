@@ -1,30 +1,26 @@
-﻿using NexusAI.Application.Agents;
-using NexusAI.Application.Execution;
+﻿using NexusAI.Application.Execution;
+using NexusAI.Core.Agents;
 
 namespace NexusAI.Infrastructure.Services;
 
 public sealed class AgentDispatcher : IAgentDispatcher
 {
-    private readonly IEnumerable<IAgent> _agents;
+    private readonly IAgentRegistry _registry;
 
-    public AgentDispatcher(IEnumerable<IAgent> agents)
+    public AgentDispatcher(IAgentRegistry registry)
     {
-        _agents = agents;
+        _registry = registry;
     }
 
-    public async Task<AgentResult> DispatchAsync(
+    public Task<AgentResult> DispatchAsync(
         AgentContext context,
         CancellationToken cancellationToken = default)
     {
-        var agent = _agents.FirstOrDefault(a => a.Type == context.AgentType);
+        ArgumentNullException.ThrowIfNull(context);
 
-        if (agent is null)
-        {
-            throw new InvalidOperationException(
-                $"No agent registered for '{context.AgentType}'.");
-        }
+        var agent = _registry.GetAgent(context.AgentType);
 
-        return await agent.ExecuteAsync(
+        return agent.ExecuteAsync(
             context,
             cancellationToken);
     }
