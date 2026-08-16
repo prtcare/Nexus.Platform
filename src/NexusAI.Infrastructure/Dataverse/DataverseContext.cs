@@ -159,20 +159,6 @@ public sealed class DataverseContext : IDataverseContext, IDisposable
 
     private static Entity MapProject(ProjectEntity source)
     {
-        const int dataverseActive = 121930001;
-        const int dataverseArchived = 121930004;
-
-        var dataverseStatus = source.Status switch
-        {
-            1 => dataverseActive,
-            2 => dataverseArchived,
-
-            _ => throw new ArgumentOutOfRangeException(
-                nameof(source.Status),
-                source.Status,
-                "Unsupported ProjectStatus value.")
-        };
-
         return new Entity(
             "du_t_005_project",
             source.Id)
@@ -180,7 +166,7 @@ public sealed class DataverseContext : IDataverseContext, IDisposable
             ["du_projectname"] = source.Name,
 
             ["du_projectstatus"] =
-                new OptionSetValue(dataverseStatus),
+                new OptionSetValue(source.Status),
 
             ["du_workspace"] =
                 new EntityReference(
@@ -471,6 +457,35 @@ public sealed class DataverseContext : IDataverseContext, IDisposable
                     "du_projectname") ?? string.Empty,
                 Status = entity.GetAttributeValue<OptionSetValue>(
                     "du_projectstatus")?.Value ?? 0,
+                CreatedAt = entity.GetAttributeValue<DateTime>(
+                    "createdon")
+            };
+        }
+
+        if (typeof(T) == typeof(WorkItemEntity))
+        {
+            var project =
+                entity.GetAttributeValue<EntityReference>(
+                    "du_project");
+
+            return (T)(object)new WorkItemEntity
+            {
+                Id = entity.Id,
+
+                ProjectId = project?.Id ?? Guid.Empty,
+
+                Title = entity.GetAttributeValue<string>(
+                    "du_workitemname") ?? string.Empty,
+
+                Description = entity.GetAttributeValue<string>(
+                    "du_description") ?? string.Empty,
+
+                Type = entity.GetAttributeValue<OptionSetValue>(
+                    "du_workitemtype")?.Value ?? 0,
+
+                Status = entity.GetAttributeValue<OptionSetValue>(
+                    "du_workitemstatus")?.Value ?? 0,
+
                 CreatedAt = entity.GetAttributeValue<DateTime>(
                     "createdon")
             };
