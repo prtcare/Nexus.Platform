@@ -19,9 +19,11 @@ public sealed class WorkItem
         WorkItemType type,
         DateTimeOffset createdAt)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+
         Id = id;
         ProjectId = projectId;
-        Title = title;
+        Title = title.Trim();
         Type = type;
         Status = WorkItemStatus.New;
         CreatedAt = createdAt;
@@ -29,7 +31,9 @@ public sealed class WorkItem
 
     public void UpdateTitle(string title)
     {
-        Title = title;
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+
+        Title = title.Trim();
     }
 
     public void UpdateDescription(string? description)

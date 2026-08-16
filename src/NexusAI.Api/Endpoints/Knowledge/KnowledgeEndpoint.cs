@@ -21,6 +21,24 @@ public static class KnowledgeEndpoint
                 CreateKnowledgeHandler handler,
                 CancellationToken cancellationToken) =>
             {
+                if (string.IsNullOrWhiteSpace(request.Title))
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            error = "Title is required."
+                        });
+                }
+
+                if (string.IsNullOrWhiteSpace(request.Content))
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            error = "Content is required."
+                        });
+                }
+
                 var result = await handler.HandleAsync(
                     new CreateKnowledgeCommand(
                         new WorkspaceId(workspaceId),

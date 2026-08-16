@@ -58,6 +58,8 @@ public sealed class ProjectDataverseRepository
         CancellationToken cancellationToken = default)
     {
         return RetrieveMultipleDomainAsync(
+            "du_workspace",
+            workspaceId.Value,
             entity => entity.WorkspaceId == workspaceId.Value,
             cancellationToken);
     }

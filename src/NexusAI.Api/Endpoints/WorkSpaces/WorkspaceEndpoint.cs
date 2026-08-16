@@ -22,6 +22,24 @@ public static class WorkspaceEndpoint
                 [FromServices] CreateWorkspaceHandler handler,
                 CancellationToken cancellationToken) =>
             {
+                if (string.IsNullOrWhiteSpace(request.Name))
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            error = "Name is required."
+                        });
+                }
+
+                if (string.IsNullOrWhiteSpace(request.Owner))
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            error = "Owner is required."
+                        });
+                }
+
                 var result = await handler.HandleAsync(
                     new CreateWorkspaceCommand(
                         request.Name,
@@ -95,6 +113,24 @@ public static class WorkspaceEndpoint
                 [FromServices] UpdateWorkspaceHandler handler,
                 CancellationToken cancellationToken) =>
             {
+                if (string.IsNullOrWhiteSpace(request.Name))
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            error = "Name is required."
+                        });
+                }
+
+                if (string.IsNullOrWhiteSpace(request.Owner))
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            error = "Owner is required."
+                        });
+                }
+
                 var result = await handler.HandleAsync(
                     new UpdateWorkspaceCommand(
                         new WorkspaceId(id),

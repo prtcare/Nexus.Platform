@@ -19,6 +19,15 @@ public static class WorkItemEndpoint
                 [FromServices] CreateWorkItemHandler handler,
                 CancellationToken cancellationToken) =>
             {
+                if (string.IsNullOrWhiteSpace(request.Title))
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            error = "Title is required."
+                        });
+                }
+
                 var result = await handler.HandleAsync(
                     new CreateWorkItemCommand(
     new ProjectId(projectId),
@@ -92,6 +101,15 @@ public static class WorkItemEndpoint
         UpdateWorkItemHandler handler,
         CancellationToken cancellationToken) =>
     {
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            return Results.BadRequest(
+                new
+                {
+                    error = "Title is required."
+                });
+        }
+
         var result = await handler.HandleAsync(
             new UpdateWorkItemCommand(
                 new WorkItemId(id),

@@ -15,6 +15,15 @@ public static class ChatEndpoint
                 SendChatHandler handler,
                 CancellationToken cancellationToken) =>
             {
+                if (string.IsNullOrWhiteSpace(request.Prompt))
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            error = "Prompt is required."
+                        });
+                }
+
                 var command = new SendChatCommand(
                     new ConversationId(request.ConversationId),
                     request.Prompt);

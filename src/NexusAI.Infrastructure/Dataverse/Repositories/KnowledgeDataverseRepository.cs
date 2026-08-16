@@ -46,6 +46,8 @@ public sealed class KnowledgeDataverseRepository
     CancellationToken cancellationToken = default)
     {
         return await RetrieveMultipleDomainAsync(
+            "du_workspace",
+            workspaceId.Value,
             entity => entity.WorkspaceId == workspaceId.Value,
             cancellationToken);
     }

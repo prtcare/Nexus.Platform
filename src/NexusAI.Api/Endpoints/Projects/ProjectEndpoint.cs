@@ -19,6 +19,15 @@ public static class ProjectEndpoint
     [FromServices] CreateProjectHandler handler,
     CancellationToken cancellationToken) =>
             {
+                if (string.IsNullOrWhiteSpace(request.Name))
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            error = "Name is required."
+                        });
+                }
+
                 var result = await handler.HandleAsync(
     new CreateProjectCommand(
         new WorkspaceId(request.WorkspaceId),
@@ -83,6 +92,15 @@ public static class ProjectEndpoint
          UpdateProjectHandler handler,
          CancellationToken cancellationToken) =>
      {
+         if (string.IsNullOrWhiteSpace(request.Name))
+         {
+             return Results.BadRequest(
+                 new
+                 {
+                     error = "Name is required."
+                 });
+         }
+
          var result = await handler.HandleAsync(
              new UpdateProjectCommand(
                  new ProjectId(id),

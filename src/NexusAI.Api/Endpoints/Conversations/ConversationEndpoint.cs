@@ -1,4 +1,5 @@
 ﻿using NexusAI.Application.Conversations.Commands.CreateConversation;
+using NexusAI.Application.Conversations.Commands.UpdateConversation;
 using NexusAI.Application.Conversations.Queries.GetConversation;
 using NexusAI.Application.Conversations.Queries.ListConversations;
 using NexusAI.Domain.Common.Identifiers;
@@ -19,6 +20,15 @@ public static class ConversationEndpoint
                 CreateConversationHandler handler,
                 CancellationToken cancellationToken) =>
             {
+                if (string.IsNullOrWhiteSpace(request.Title))
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            error = "Title is required."
+                        });
+                }
+
                 var result =
                     await handler.HandleAsync(
                         new CreateConversationCommand(
@@ -75,6 +85,44 @@ public static class ConversationEndpoint
                         cancellationToken);
 
                 return Results.Ok(result);
+            });
+
+        app.MapPut(
+            "/api/conversations/{id:guid}",
+            async (
+                Guid id,
+                UpdateConversationRequest request,
+                UpdateConversationHandler handler,
+                CancellationToken cancellationToken) =>
+            {
+                if (string.IsNullOrWhiteSpace(request.Title))
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            error = "Title is required."
+                        });
+                }
+
+                var result =
+                    await handler.HandleAsync(
+                        new UpdateConversationCommand(
+                            new ConversationId(id),
+                            request.Title,
+                            request.Description,
+                            request.Type,
+                            request.Visibility),
+                        cancellationToken);
+
+                if (result is null)
+                {
+                    return Results.NotFound();
+                }
+
+                return Results.Ok(
+                    new UpdateConversationResponse(
+                        result.ConversationId.Value,
+                        result.Title));
             });
 
         return app;
