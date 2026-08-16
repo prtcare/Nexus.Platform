@@ -11,7 +11,7 @@ using NexusAI.Api.Endpoints.Snapshots;
 using NexusAI.Api.Endpoints.WorkItems;
 using NexusAI.Api.Endpoints.Workspaces;
 using NexusAI.Infrastructure.DependencyInjection;
-
+using NexusAI.Api.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -33,7 +33,20 @@ builder.Services.AddSwaggerGen(options =>
         });
 });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("NexusWebDevelopment", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
+
+app.UseCors("NexusWebDevelopment");
 
 // Configure the HTTP request pipeline.
 app.UseSwagger();
@@ -59,7 +72,7 @@ app.MapSnapshotEndpoints();
 app.MapBranchEndpoints();
 app.MapSessionEndpoints();
 app.MapArtifactEndpoints();
-
+app.MapPlatformHealthEndpoint();
 
 
 app.Run();
