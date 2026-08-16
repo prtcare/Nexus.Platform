@@ -62,6 +62,13 @@ public sealed class BranchMapper
     {
         return value switch
         {
+            // 0 is DataverseContext's sentinel for a missing/unset
+            // du_branchstatus attribute, not a real OptionSet code
+            // (real codes start at 121930000) - treat it as Active,
+            // the status every branch is created with.
+            0 =>
+                BranchStatus.Active,
+
             DataverseActive =>
                 BranchStatus.Active,
 

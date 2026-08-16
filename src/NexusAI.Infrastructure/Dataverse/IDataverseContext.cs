@@ -23,4 +23,11 @@ public interface IDataverseContext
     Func<TEntity, bool> predicate,
     CancellationToken cancellationToken = default)
     where TEntity : DataverseEntity;
+
+    Task<IReadOnlyList<TEntity>> RetrieveMultipleAsync<TEntity>(
+    string filterAttributeName,
+    Guid filterValue,
+    Func<TEntity, bool> predicate,
+    CancellationToken cancellationToken = default)
+    where TEntity : DataverseEntity;
 }

@@ -82,6 +82,36 @@ public sealed class DataverseContext : IDataverseContext, IDisposable
             .ToList();
     }
 
+    public async Task<IReadOnlyList<TEntity>> RetrieveMultipleAsync<TEntity>(
+        string filterAttributeName,
+        Guid filterValue,
+        Func<TEntity, bool> predicate,
+        CancellationToken cancellationToken = default)
+        where TEntity : DataverseEntity
+    {
+        var logicalName = GetLogicalName<TEntity>();
+
+        var query = new QueryExpression(logicalName)
+        {
+            ColumnSet = new ColumnSet(true),
+            Criteria = new FilterExpression()
+        };
+
+        query.Criteria.AddCondition(
+            filterAttributeName,
+            ConditionOperator.Equal,
+            filterValue);
+
+        var result = await _client.RetrieveMultipleAsync(
+            query,
+            cancellationToken);
+
+        return result.Entities
+            .Select(FromDataverseEntity<TEntity>)
+            .Where(predicate)
+            .ToList();
+    }
+
     // ============================================================
     // ///TO DATAVERSE ENTITY
     // ============================================================

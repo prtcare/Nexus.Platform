@@ -52,6 +52,8 @@ public sealed class BranchDataverseRepository
         CancellationToken cancellationToken = default)
     {
         return RetrieveMultipleDomainAsync(
+            "du_conversation",
+            conversationId.Value,
             entity =>
                 entity.ConversationId ==
                 conversationId.Value,

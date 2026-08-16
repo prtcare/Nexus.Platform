@@ -90,4 +90,21 @@ public abstract class DataverseRepositoryBase<TDomain, TEntity, TId>
             .Select(Mapper.ToDomain)
             .ToList();
     }
+
+    protected async Task<IReadOnlyList<TDomain>> RetrieveMultipleDomainAsync(
+    string filterAttributeName,
+    Guid filterValue,
+    Func<TEntity, bool> predicate,
+    CancellationToken cancellationToken = default)
+    {
+        var entities = await Client.Context.RetrieveMultipleAsync(
+            filterAttributeName,
+            filterValue,
+            predicate,
+            cancellationToken);
+
+        return entities
+            .Select(Mapper.ToDomain)
+            .ToList();
+    }
 }

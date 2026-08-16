@@ -64,6 +64,16 @@ public sealed class InMemoryDataverseContext : IDataverseContext
         return Task.FromResult<IReadOnlyList<TEntity>>(result);
     }
 
+    public Task<IReadOnlyList<TEntity>> RetrieveMultipleAsync<TEntity>(
+    string filterAttributeName,
+    Guid filterValue,
+    Func<TEntity, bool> predicate,
+    CancellationToken cancellationToken = default)
+    where TEntity : DataverseEntity
+    {
+        return RetrieveMultipleAsync(predicate, cancellationToken);
+    }
+
     public Task UpdateAsync<T>(
     T entity,
     CancellationToken cancellationToken = default)

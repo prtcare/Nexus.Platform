@@ -52,6 +52,8 @@ public sealed class SnapshotDataverseRepository
         CancellationToken cancellationToken = default)
     {
         return RetrieveMultipleDomainAsync(
+            "du_branch",
+            branchId.Value,
             entity => entity.BranchId == branchId.Value,
             cancellationToken);
     }
