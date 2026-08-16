@@ -19,6 +19,15 @@ public static class BranchEndpoint
                 CreateBranchHandler handler,
                 CancellationToken cancellationToken) =>
             {
+                if (string.IsNullOrWhiteSpace(request.Name))
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            error = "Name is required."
+                        });
+                }
+
                 var result =
                     await handler.HandleAsync(
                         new CreateBranchCommand(
@@ -94,6 +103,15 @@ public static class BranchEndpoint
                 UpdateBranchHandler handler,
                 CancellationToken cancellationToken) =>
             {
+                if (string.IsNullOrWhiteSpace(request.Name))
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            error = "Name is required."
+                        });
+                }
+
                 if (!Enum.IsDefined(
                         typeof(BranchStatus),
                         request.Status))

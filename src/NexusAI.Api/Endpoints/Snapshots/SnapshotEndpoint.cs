@@ -20,6 +20,15 @@ public static class SnapshotEndpoint
         CreateSnapshotHandler handler,
         CancellationToken cancellationToken) =>
     {
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return Results.BadRequest(
+                new
+                {
+                    error = "Name is required."
+                });
+        }
+
         var result = await handler.HandleAsync(
             new CreateSnapshotCommand(
                 new BranchId(request.BranchId),
@@ -90,6 +99,15 @@ public static class SnapshotEndpoint
                 UpdateSnapshotHandler handler,
                 CancellationToken cancellationToken) =>
             {
+                if (string.IsNullOrWhiteSpace(request.Name))
+                {
+                    return Results.BadRequest(
+                        new
+                        {
+                            error = "Name is required."
+                        });
+                }
+
                 var result = await handler.HandleAsync(
                     new UpdateSnapshotCommand(
                         new SnapshotId(id),
