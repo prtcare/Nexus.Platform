@@ -128,6 +128,8 @@ public sealed class DataverseContext : IDataverseContext, IDisposable
 
             WorkItemEntity workItem => MapWorkItem(workItem),
 
+            ArtifactEntity artifact => MapArtifact(artifact),
+
             ConversationEntity conversation => MapConversation(conversation),
 
             ConversationMessageEntity message => MapConversationMessage(message),
@@ -189,6 +191,33 @@ public sealed class DataverseContext : IDataverseContext, IDisposable
                 new EntityReference(
                     "du_t_005_project",
                     source.ProjectId)
+        };
+    }
+
+    private static Entity MapArtifact(ArtifactEntity source)
+    {
+        if (source.WorkItemId == Guid.Empty)
+        {
+            throw new InvalidOperationException(
+                "ArtifactEntity.WorkItemId cannot be empty.");
+        }
+
+        return new Entity(
+            "du_t_020_artifact",
+            source.Id)
+        {
+            ["du_artifactname"] = source.Name,
+
+            ["du_artifacttype"] =
+                new OptionSetValue(source.Type),
+
+            ["du_content"] =
+                source.Content,
+
+            ["du_workitem"] =
+                new EntityReference(
+                    "du_t_019_workitem",
+                    source.WorkItemId)
         };
     }
 
@@ -491,6 +520,32 @@ public sealed class DataverseContext : IDataverseContext, IDisposable
             };
         }
 
+        if (typeof(T) == typeof(ArtifactEntity))
+        {
+            var workItem =
+                entity.GetAttributeValue<EntityReference>(
+                    "du_workitem");
+
+            return (T)(object)new ArtifactEntity
+            {
+                Id = entity.Id,
+
+                WorkItemId = workItem?.Id ?? Guid.Empty,
+
+                Name = entity.GetAttributeValue<string>(
+                    "du_artifactname") ?? string.Empty,
+
+                Type = entity.GetAttributeValue<OptionSetValue>(
+                    "du_artifacttype")?.Value ?? 0,
+
+                Content = entity.GetAttributeValue<string>(
+                    "du_content") ?? string.Empty,
+
+                CreatedAt = entity.GetAttributeValue<DateTime>(
+                    "createdon")
+            };
+        }
+
         if (typeof(T) == typeof(ConversationEntity))
         {
             var project =
@@ -766,6 +821,9 @@ public sealed class DataverseContext : IDataverseContext, IDisposable
 
         if (typeof(T) == typeof(WorkItemEntity))
             return "du_t_019_workitem";
+
+        if (typeof(T) == typeof(ArtifactEntity))
+            return "du_t_020_artifact";
 
         if (typeof(T) == typeof(ConversationEntity))
             return "du_t_010_conversation";

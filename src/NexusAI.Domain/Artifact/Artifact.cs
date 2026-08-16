@@ -40,4 +40,9 @@ public sealed class Artifact : Entity<ArtifactId>
     {
         Content = content;
     }
+
+    public void ChangeType(ArtifactType type)
+    {
+        Type = type;
+    }
 }

@@ -4,6 +4,9 @@ using Microsoft.Extensions.Options;
 using Microsoft.PowerPlatform.Dataverse.Client;
 using NexusAI.Application.Adr.Commands;
 using NexusAI.Application.Artifact.Commands;
+using NexusAI.Application.Artifact.Commands.UpdateArtifact;
+using NexusAI.Application.Artifact.Queries.GetArtifact;
+using NexusAI.Application.Artifact.Queries.ListArtifacts;
 using NexusAI.Application.Branch.Commands;
 using NexusAI.Application.Branch.Commands.UpdateBranch;
 using NexusAI.Application.Branch.Queries.GetBranch;
@@ -354,6 +357,9 @@ public static class ServiceCollectionExtensions
         // ============================================================
 
         services.AddScoped<CreateArtifactHandler>();
+        services.AddScoped<GetArtifactHandler>();
+        services.AddScoped<ListArtifactsHandler>();
+        services.AddScoped<UpdateArtifactHandler>();
 
         // ============================================================
         // ///ADR APPLICATION

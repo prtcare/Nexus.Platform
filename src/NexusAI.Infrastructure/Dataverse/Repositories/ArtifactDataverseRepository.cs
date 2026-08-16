@@ -1,4 +1,5 @@
 ﻿using NexusAI.Domain.Artifact;
+using NexusAI.Domain.WorkItem;
 using NexusAI.Infrastructure.Dataverse.Clients;
 using NexusAI.Infrastructure.Dataverse.Common;
 using NexusAI.Infrastructure.Dataverse.Entities;
@@ -36,5 +37,16 @@ public sealed class ArtifactDataverseRepository
         CancellationToken cancellationToken = default)
     {
         return UpdateEntityAsync(artifact, cancellationToken);
+    }
+
+    public Task<IReadOnlyList<Artifact>> ListByWorkItemAsync(
+        WorkItemId workItemId,
+        CancellationToken cancellationToken = default)
+    {
+        return RetrieveMultipleDomainAsync(
+            "du_workitem",
+            workItemId.Value,
+            entity => entity.WorkItemId == workItemId.Value,
+            cancellationToken);
     }
 }
