@@ -60,6 +60,12 @@ public sealed class ConversationMessageMapper
     {
         return agentType.Trim().ToLowerInvariant() switch
         {
+            // Empty is DataverseContext's fallback for a missing/unset
+            // du_agenttype attribute, not a real recorded role - treat
+            // it as System rather than crashing the read.
+            "" =>
+                ConversationMessageRole.System,
+
             "user" =>
                 ConversationMessageRole.User,
 
