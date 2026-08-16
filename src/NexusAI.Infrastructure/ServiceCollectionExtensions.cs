@@ -29,6 +29,9 @@ using NexusAI.Application.Projects.Queries.GetProject;
 using NexusAI.Application.Projects.Queries.ListProjects;
 using NexusAI.Application.Providers;
 using NexusAI.Application.Session.Commands;
+using NexusAI.Application.Session.Commands.UpdateSession;
+using NexusAI.Application.Session.Queries.GetSession;
+using NexusAI.Application.Session.Queries.ListSessions;
 using NexusAI.Application.Snapshot.Commands;
 using NexusAI.Application.Snapshot.Commands.UpdateSnapshot;
 using NexusAI.Application.Snapshot.Queries.GetSnapshot;
@@ -363,6 +366,9 @@ public static class ServiceCollectionExtensions
         // ============================================================
 
         services.AddScoped<CreateSessionHandler>();
+        services.AddScoped<GetSessionHandler>();
+        services.AddScoped<ListSessionsHandler>();
+        services.AddScoped<UpdateSessionHandler>();
 
         // ============================================================
         // ///SNAPSHOT APPLICATION

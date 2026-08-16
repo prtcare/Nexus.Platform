@@ -108,6 +108,7 @@ public sealed class DataverseContext : IDataverseContext, IDisposable
 
             BranchEntity branch => MapBranch(branch),
 
+            SessionEntity session => MapSession(session),
             _ => throw new NotSupportedException(
                 $"Dataverse mapping is not supported for {typeof(T).Name}.")
         };
@@ -355,6 +356,44 @@ public sealed class DataverseContext : IDataverseContext, IDisposable
                     "du_t_010_conversation",
                     source.ConversationId)
         };
+    }
+
+    private static Entity MapSession(
+    SessionEntity source)
+    {
+        if (source.ConversationId == Guid.Empty)
+        {
+            throw new InvalidOperationException(
+                "SessionEntity.ConversationId cannot be empty.");
+        }
+
+        var entity = new Entity(
+            "du_t_014_session",
+            source.Id)
+        {
+            ["du_conversation"] =
+                new EntityReference(
+                    "du_t_010_conversation",
+                    source.ConversationId),
+
+            ["du_sessionstatus"] =
+                new OptionSetValue(source.Status),
+
+            ["du_startedon"] =
+                source.StartedAt.UtcDateTime
+        };
+
+        if (source.EndedAt.HasValue)
+        {
+            entity["du_endedon"] =
+                source.EndedAt.Value.UtcDateTime;
+        }
+        else
+        {
+            entity["du_endedon"] = null;
+        }
+
+        return entity;
     }
 
     // ============================================================
@@ -613,6 +652,53 @@ public sealed class DataverseContext : IDataverseContext, IDisposable
             };
         }
 
+        if (typeof(T) == typeof(SessionEntity))
+        {
+            var conversation =
+                entity.GetAttributeValue<EntityReference>(
+                    "du_conversation");
+
+            var startedOn =
+                entity.GetAttributeValue<DateTime?>(
+                    "du_startedon");
+
+            var endedOn =
+                entity.GetAttributeValue<DateTime?>(
+                    "du_endedon");
+
+            return (T)(object)new SessionEntity
+            {
+                Id = entity.Id,
+
+                ConversationId =
+                    conversation?.Id ?? Guid.Empty,
+
+                Status =
+                    entity.GetAttributeValue<OptionSetValue>(
+                        "du_sessionstatus")?.Value ?? 0,
+
+                StartedAt =
+                    startedOn.HasValue
+                        ? new DateTimeOffset(
+                            DateTime.SpecifyKind(
+                                startedOn.Value,
+                                DateTimeKind.Utc))
+                        : DateTimeOffset.MinValue,
+
+                EndedAt =
+                    endedOn.HasValue
+                        ? new DateTimeOffset(
+                            DateTime.SpecifyKind(
+                                endedOn.Value,
+                                DateTimeKind.Utc))
+                        : null,
+
+                CreatedAt =
+                    entity.GetAttributeValue<DateTime>(
+                        "createdon")
+            };
+        }
+
         throw new NotSupportedException(
             $"Dataverse mapping is not supported for {typeof(T).Name}.");
     }
@@ -655,6 +741,10 @@ public sealed class DataverseContext : IDataverseContext, IDisposable
             return "du_t_015_branch";
         }
 
+        if (typeof(T) == typeof(SessionEntity))
+        {
+            return "du_t_014_session";
+        }
 
         throw new NotSupportedException(
             $"Dataverse entity mapping is not supported for {typeof(T).Name}.");

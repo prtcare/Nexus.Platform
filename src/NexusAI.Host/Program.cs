@@ -16,7 +16,6 @@ using NexusAI.Application.Planning;
 using NexusAI.Application.Planning.Commands;
 using NexusAI.Application.Projects.Commands.CreateProject;
 using NexusAI.Application.Providers;
-using NexusAI.Application.Session.Commands;
 using NexusAI.Application.Snapshot.Commands;
 using NexusAI.Application.WorkItem;
 using NexusAI.Application.Workspaces.Commands.CreateWorkspace;
@@ -34,6 +33,7 @@ using NexusAI.Domain.Workspace;
 using NexusAI.Host.Extensions;
 using NexusAI.Infrastructure.DependencyInjection;
 using NexusAI.Domain.Common.Identifiers;
+using NexusAI.Application.Session.Commands;
 
 
 

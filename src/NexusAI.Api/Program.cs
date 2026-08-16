@@ -5,6 +5,7 @@ using NexusAI.Api.Endpoints.Chat;
 using NexusAI.Api.Endpoints.Conversations;
 using NexusAI.Api.Endpoints.Knowledge;
 using NexusAI.Api.Endpoints.Projects;
+using NexusAI.Api.Endpoints.Sessions;
 using NexusAI.Api.Endpoints.Snapshots;
 using NexusAI.Api.Endpoints.WorkItems;
 using NexusAI.Api.Endpoints.Workspaces;
@@ -55,5 +56,8 @@ app.MapWorkspaceEndpoints();
 app.MapConversationMessageEndpoints();
 app.MapSnapshotEndpoints();
 app.MapBranchEndpoints();
+app.MapSessionEndpoints();
+
+
 
 app.Run();

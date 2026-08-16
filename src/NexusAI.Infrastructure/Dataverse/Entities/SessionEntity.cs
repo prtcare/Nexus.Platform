@@ -1,6 +1,4 @@
-﻿using NexusAI.Infrastructure.Dataverse.Entities;
-
-namespace NexusAI.Infrastructure.Dataverse.Entities;
+﻿namespace NexusAI.Infrastructure.Dataverse.Entities;
 
 public sealed class SessionEntity : DataverseEntity
 {
@@ -9,4 +7,6 @@ public sealed class SessionEntity : DataverseEntity
     public int Status { get; set; }
 
     public DateTimeOffset StartedAt { get; set; }
+
+    public DateTimeOffset? EndedAt { get; set; }
 }

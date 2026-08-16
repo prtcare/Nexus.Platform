@@ -2,7 +2,6 @@
 
 public enum SessionStatus
 {
-    Active,
-    Completed,
-    Cancelled
+    Running = 1,
+    Ended = 2
 }

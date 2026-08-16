@@ -1,4 +1,5 @@
-﻿using NexusAI.Domain.Session;
+﻿using NexusAI.Domain.Conversation;
+using NexusAI.Domain.Session;
 using NexusAI.Infrastructure.Dataverse.Clients;
 using NexusAI.Infrastructure.Dataverse.Common;
 using NexusAI.Infrastructure.Dataverse.Entities;
@@ -6,7 +7,10 @@ using NexusAI.Infrastructure.Dataverse.Entities;
 namespace NexusAI.Infrastructure.Dataverse.Repositories;
 
 public sealed class SessionDataverseRepository
-    : DataverseRepositoryBase<Session, SessionEntity, SessionId>,
+    : DataverseRepositoryBase<
+        Session,
+        SessionEntity,
+        SessionId>,
       ISessionRepository
 {
     public SessionDataverseRepository(
@@ -17,23 +21,40 @@ public sealed class SessionDataverseRepository
     }
 
     public override Task AddAsync(
-        Session domain,
+        Session session,
         CancellationToken cancellationToken = default)
     {
-        return CreateAsync(domain, cancellationToken);
+        return CreateAsync(
+            session,
+            cancellationToken);
     }
 
     public override Task<Session?> GetAsync(
         SessionId id,
         CancellationToken cancellationToken = default)
     {
-        return RetrieveDomainAsync(id.Value, cancellationToken);
+        return RetrieveDomainAsync(
+            id.Value,
+            cancellationToken);
     }
 
     public override Task UpdateAsync(
-        Session domain,
+        Session session,
         CancellationToken cancellationToken = default)
     {
-        return UpdateEntityAsync(domain, cancellationToken);
+        return UpdateEntityAsync(
+            session,
+            cancellationToken);
+    }
+
+    public Task<IReadOnlyList<Session>> ListByConversationAsync(
+        ConversationId conversationId,
+        CancellationToken cancellationToken = default)
+    {
+        return RetrieveMultipleDomainAsync(
+            entity =>
+                entity.ConversationId ==
+                conversationId.Value,
+            cancellationToken);
     }
 }
