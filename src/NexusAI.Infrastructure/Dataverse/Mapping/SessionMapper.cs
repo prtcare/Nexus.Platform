@@ -57,6 +57,13 @@ public sealed class SessionMapper
     {
         return value switch
         {
+            // 0 is DataverseContext's sentinel for a missing/unset
+            // du_sessionstatus attribute, not a real OptionSet code
+            // (real codes start at 121930000) - treat it as Running,
+            // the status every session is created with.
+            0 =>
+                SessionStatus.Running,
+
             DataverseRunning =>
                 SessionStatus.Running,
 

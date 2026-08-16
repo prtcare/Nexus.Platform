@@ -59,6 +59,11 @@ public sealed class ProjectMapper
     {
         return value switch
         {
+            // 0 is DataverseContext's sentinel for a missing/unset
+            // du_projectstatus attribute, not a real OptionSet code -
+            // treat it as Active, the status every project is created with.
+            0 => ProjectStatus.Active,
+
             DataverseActive => ProjectStatus.Active,
             DataverseArchived => ProjectStatus.Archived,
 

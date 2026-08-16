@@ -94,6 +94,12 @@ public sealed class ConversationMapper
     {
         return value switch
         {
+            // 0 is DataverseContext's sentinel for a missing/unset
+            // du_conversationstatus attribute, not a real OptionSet code -
+            // treat it as Active, the status every conversation is created with.
+            0 =>
+                ConversationStatus.Active,
+
             DataverseStatusActive =>
                 ConversationStatus.Active,
 

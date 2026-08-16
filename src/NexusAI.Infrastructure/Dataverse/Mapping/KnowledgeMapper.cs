@@ -148,6 +148,12 @@ public sealed class KnowledgeMapper
     {
         return value switch
         {
+            // 0 is DataverseContext's sentinel for a missing/unset
+            // du_knowledgestatus attribute, not a real OptionSet code -
+            // treat it as Active, the status every knowledge item is created with.
+            0 =>
+                KnowledgeStatus.Active,
+
             DataverseDraft =>
                 KnowledgeStatus.Draft,
 

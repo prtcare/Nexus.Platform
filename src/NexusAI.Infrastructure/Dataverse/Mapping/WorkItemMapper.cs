@@ -119,6 +119,11 @@ public sealed class WorkItemMapper
     {
         return value switch
         {
+            // 0 is DataverseContext's sentinel for a missing/unset
+            // du_workitemstatus attribute, not a real OptionSet code -
+            // treat it as New, the status every work item is created with.
+            0 => WorkItemStatus.New,
+
             DataverseNew => WorkItemStatus.New,
             DataverseActive => WorkItemStatus.Active,
             DataverseBlocked => WorkItemStatus.Blocked,
