@@ -1,4 +1,4 @@
-﻿namespace NexusAI.Infrastructure.OpenAI;
+namespace Nexus.Platform.Providers.OpenAI;
 
 public sealed class OpenAIOptions
 {
