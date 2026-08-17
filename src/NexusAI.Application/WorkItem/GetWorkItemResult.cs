@@ -7,7 +7,7 @@ public sealed record GetWorkItemResult(
     WorkItemId WorkItemId,
     ProjectId ProjectId,
     string Title,
-    string Description,
+    string? Description,
     WorkItemType Type,
     WorkItemStatus Status,
     DateTimeOffset CreatedAt);

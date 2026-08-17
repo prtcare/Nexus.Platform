@@ -141,7 +141,7 @@ var conversationResult =
     await conversationHandler.HandleAsync(
        new CreateConversationCommand(
     projectResult.ProjectId,
-    workspace.Id,
+    workspace!.Id,
     "Architecture Discussion",
     "Initial architecture discussion.",
     ConversationType.Standalone,

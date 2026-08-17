@@ -13,7 +13,6 @@ public static class ModuleExtensions
     {
         new CoreModule().Register(services);
 
-        return services;
         services.AddScoped<
     IRepositoryMapper<ConversationMessage, ConversationMessageEntity>,
     ConversationMessageMapper>();
@@ -21,5 +20,7 @@ public static class ModuleExtensions
         services.AddScoped<
     IConversationMessageRepository,
     ConversationMessageDataverseRepository>();
+
+        return services;
     }
 }

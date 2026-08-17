@@ -17,6 +17,4 @@ public sealed class MemoryEntity : DataverseEntity
     public string Keywords { get; set; } = string.Empty;
 
     public string Metadata { get; set; } = string.Empty;
-
-    public DateTimeOffset CreatedAt { get; set; }
 }

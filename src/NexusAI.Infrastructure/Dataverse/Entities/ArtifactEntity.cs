@@ -11,6 +11,4 @@ public sealed class ArtifactEntity : DataverseEntity
     public int Type { get; set; }
 
     public string Content { get; set; } = string.Empty;
-
-    public DateTimeOffset CreatedAt { get; set; }
 }
