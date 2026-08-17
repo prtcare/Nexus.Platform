@@ -1,8 +1,22 @@
-<Project>
+﻿<Project>
+
   <PropertyGroup>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <LangVersion>latest</LangVersion>
+    <Version>0.1.0</Version>
   </PropertyGroup>
+
+  <!-- Nexus V2 boundary guard: Platform knows nothing above it. -->
+  <Target Name="NexusBoundaryGuard" BeforeTargets="Build">
+    <ItemGroup Condition="$(MSBuildProjectName.StartsWith('Nexus.Platform.'))">
+      <_Bad Include="@(ProjectReference)"
+            Condition="$([System.String]::Copy('%(Filename)').StartsWith('Nexus.Intelligence.')) OR $([System.String]::Copy('%(Filename)').StartsWith('Nexus.Products.'))" />
+      <_Bad Include="@(PackageReference)"
+            Condition="$([System.String]::Copy('%(Identity)').StartsWith('Nexus.Intelligence.')) OR $([System.String]::Copy('%(Identity)').StartsWith('Nexus.Products.'))" />
+    </ItemGroup>
+    <Error Condition="'@(_Bad)' != ''"
+           Text="Nexus V2 boundary violation in $(MSBuildProjectName): Platform may not reference @(_Bad->'%(Identity)', ', '). See NEXUS_ARCHITECTURE_V2.md section 2.3." />
+  </Target>
+
 </Project>

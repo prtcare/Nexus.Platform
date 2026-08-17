@@ -1,0 +1,15 @@
+﻿<Solution>
+  <Folder Name="/src/">
+    <Project Path="src\Nexus.Platform.Contracts\Nexus.Platform.Contracts.csproj" />
+    <Project Path="src\Nexus.Platform.Core\Nexus.Platform.Core.csproj" />
+    <Project Path="src\Nexus.Platform.Providers.OpenAI\Nexus.Platform.Providers.OpenAI.csproj" />
+    <Project Path="src\Nexus.Platform.Providers.Anthropic\Nexus.Platform.Providers.Anthropic.csproj" />
+    <Project Path="src\Nexus.Platform.Tools\Nexus.Platform.Tools.csproj" />
+    <Project Path="src\Nexus.Platform.Identity\Nexus.Platform.Identity.csproj" />
+    <Project Path="src\Nexus.Platform.Persistence\Nexus.Platform.Persistence.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests\Nexus.Platform.Tests\Nexus.Platform.Tests.csproj" />
+    <Project Path="tests\Nexus.Platform.Architecture.Tests\Nexus.Platform.Architecture.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Nexus.Platform.Tools</RootNamespace>
+    <AssemblyName>Nexus.Platform.Tools</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>Nexus.Platform.Tools</PackageId>
+    <Authors>PRT</Authors>
+    <Description>Nexus V2 - Nexus.Platform.Tools</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Nexus.Platform.Contracts\Nexus.Platform.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>
+
