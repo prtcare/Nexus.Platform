@@ -63,6 +63,27 @@ function New-Dir {
 }
 
 <#
+  Runs a native command with stderr merged, WITHOUT PowerShell turning stderr lines into
+  terminating errors. With $ErrorActionPreference = 'Stop', `git ... 2>&1` throws a
+  NativeCommandError on any stderr output - and git writes to stderr in normal operation
+  ("Switched to a new branch", progress, hints). Exit code is the only reliable signal.
+#>
+function Invoke-Native {
+    param(
+        [Parameter(Mandatory)][string] $Exe,
+        [string[]] $Arguments = @()
+    )
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $script:NativeOutput = @(& $Exe @Arguments 2>&1 | ForEach-Object { "$_" })
+        $script:NativeExitCode = $LASTEXITCODE
+        return ($script:NativeExitCode -eq 0)
+    }
+    finally { $ErrorActionPreference = $previous }
+}
+
+<#
   Moves a file or folder with `git mv`.
   $To     : repo-relative DESTINATION PARENT folder.
   $Rename : optional new leaf name at the destination.
@@ -92,10 +113,10 @@ function Move-Git {
     if ($Execute) {
         Push-Location $RepoRoot
         try {
-            git mv --force -- "$From" "$target" 2>&1 | Out-Null
-            if ($LASTEXITCODE -ne 0) { Write-Warn2 "git mv returned $LASTEXITCODE for $From" }
+            if (-not (Invoke-Native -Exe 'git' -Arguments @('mv','--force','--',$From,$target))) {
+                Write-Warn2 "git mv failed ($From): $($script:NativeOutput -join ' ')"
+            }
         }
-        catch   { Write-Warn2 "git mv failed for $From : $_" }
         finally { Pop-Location }
     }
 }
@@ -111,8 +132,11 @@ function Remove-Git {
 
     if ($Execute) {
         Push-Location $RepoRoot
-        try   { git rm -r --quiet --force -- "$Path" 2>&1 | Out-Null }
-        catch { Write-Warn2 "git rm failed for $Path : $_" }
+        try {
+            if (-not (Invoke-Native -Exe 'git' -Arguments @('rm','-r','--quiet','--force','--',$Path))) {
+                Write-Warn2 "git rm failed ($Path): $($script:NativeOutput -join ' ')"
+            }
+        }
         finally { Pop-Location }
     }
 }
@@ -214,14 +238,17 @@ Write-Do "repo root: $RepoRoot"
 
 Push-Location $RepoRoot
 try {
-    $null = git rev-parse --is-inside-work-tree 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "Not a git repository. Initialise git before restructuring." }
+    if (-not (Invoke-Native -Exe 'git' -Arguments @('rev-parse','--is-inside-work-tree'))) {
+        throw "Not a git repository. Initialise git before restructuring."
+    }
 
-    $dirty = git status --porcelain
-    if ($dirty -and $Execute) {
+    [void](Invoke-Native -Exe 'git' -Arguments @('status','--porcelain'))
+    $dirty = @($script:NativeOutput | Where-Object { $_ -ne '' })
+
+    if ($dirty.Count -gt 0 -and $Execute) {
         throw "Working tree is dirty. Commit or stash first - this script moves ~150 files."
     }
-    Write-Do ("working tree: " + $(if ($dirty) { "dirty (dry run only)" } else { "clean" }))
+    Write-Do ("working tree: " + $(if ($dirty.Count -gt 0) { "dirty (dry run only)" } else { "clean" }))
 }
 finally { Pop-Location }
 
@@ -233,8 +260,12 @@ if (-not $Execute) {
 if ($Execute -and -not $SkipBranch) {
     Write-Do "git checkout -b arch/v2"
     Push-Location $RepoRoot
-    try   { git checkout -b arch/v2 2>&1 | Out-Null }
-    catch { Write-Warn2 "branch arch/v2 may already exist" }
+    try {
+        if (-not (Invoke-Native -Exe 'git' -Arguments @('checkout','-b','arch/v2'))) {
+            [void](Invoke-Native -Exe 'git' -Arguments @('checkout','arch/v2'))
+            Write-Warn2 "branch arch/v2 already existed - switched to it"
+        }
+    }
     finally { Pop-Location }
 }
 

@@ -114,15 +114,66 @@ function Assert-Tool {
     Write-Host "   $Exe : ok" -ForegroundColor DarkGray
 }
 
+<#
+  Runs a native command with stderr merged into stdout, WITHOUT PowerShell turning
+  stderr lines into terminating errors.
+
+  This matters: $ErrorActionPreference = 'Stop' plus `2>&1` makes PowerShell wrap any
+  stderr output from a native exe in a NativeCommandError and throw - even when the
+  command succeeded. dotnet, git and claude all write to stderr in normal operation.
+  Exit code is the only reliable success signal for a native command.
+#>
+function Invoke-Native {
+    param(
+        [Parameter(Mandatory)][string] $Exe,
+        [string[]] $Arguments = @(),
+        [switch]   $Stream,
+        [string]   $LogPath
+    )
+
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        if ($Stream) {
+            if ($LogPath) { & $Exe @Arguments 2>&1 | Tee-Object -FilePath $LogPath }
+            else          { & $Exe @Arguments 2>&1 }
+            $script:NativeOutput = @()
+        }
+        else {
+            $script:NativeOutput = @(& $Exe @Arguments 2>&1 | ForEach-Object { "$_" })
+            if ($LogPath) { $script:NativeOutput | Set-Content -Path $LogPath -Encoding UTF8 }
+        }
+        $script:NativeExitCode = $LASTEXITCODE
+        return ($script:NativeExitCode -eq 0)
+    }
+    finally { $ErrorActionPreference = $previous }
+}
+
 function Invoke-Build {
     param([string]$Solution)
+
     Write-Host ""
     Write-Host "   building $Solution ..." -ForegroundColor DarkGray
+
+    $log = Join-Path $LogDir ("build-{0}.log" -f ([IO.Path]::GetFileNameWithoutExtension($Solution)))
+
     Push-Location $RepoRoot
     try {
-        & dotnet build $Solution --nologo -v quiet 2>&1 | Tee-Object -Variable out | Out-Null
-        $ok = ($LASTEXITCODE -eq 0)
-        if (-not $ok) { $out | Select-Object -Last 40 | ForEach-Object { Write-Host "   $_" -ForegroundColor Red } }
+        $ok = Invoke-Native -Exe 'dotnet' -Arguments @('build', $Solution, '--nologo') -LogPath $log
+
+        if (-not $ok) {
+            Write-Host ""
+            $errors = @($script:NativeOutput | Where-Object { $_ -match 'error [A-Z]{2,}\d+|error :' })
+            if ($errors.Count -gt 0) {
+                Write-Host "   $($errors.Count) build error(s), first 25:" -ForegroundColor Red
+                $errors | Select-Object -First 25 | ForEach-Object { Write-Host "     $_" -ForegroundColor Red }
+            }
+            else {
+                $script:NativeOutput | Select-Object -Last 30 | ForEach-Object { Write-Host "     $_" -ForegroundColor Red }
+            }
+            Write-Host ""
+            Write-Host "   full log: $log" -ForegroundColor DarkGray
+        }
         return $ok
     }
     finally { Pop-Location }
@@ -150,8 +201,16 @@ function Invoke-ClaudeStage {
 
     Push-Location $RepoRoot
     try {
-        & claude @args 2>&1 | Tee-Object -FilePath $log
-        return ($LASTEXITCODE -eq 0)
+        return Invoke-Native -Exe 'claude' -Arguments $args -Stream -LogPath $log
+    }
+    finally { Pop-Location }
+}
+
+function Get-DirtyFiles {
+    Push-Location $RepoRoot
+    try {
+        [void](Invoke-Native -Exe 'git' -Arguments @('status','--porcelain'))
+        return @($script:NativeOutput | Where-Object { $_ -ne '' })
     }
     finally { Pop-Location }
 }
@@ -160,14 +219,14 @@ function Commit-Stage {
     param([hashtable]$Stage)
     Push-Location $RepoRoot
     try {
-        $dirty = git status --porcelain
-        if (-not $dirty) {
+        if ((Get-DirtyFiles).Count -eq 0) {
             Write-Host "   nothing to commit for stage $($Stage.N)" -ForegroundColor Yellow
             return
         }
-        git add -A | Out-Null
-        git commit -m "refactor(v2): stage $($Stage.N) - $($Stage.Name)" | Out-Null
-        Write-Host "   committed: stage $($Stage.N) - $($Stage.Name)" -ForegroundColor Green
+        [void](Invoke-Native -Exe 'git' -Arguments @('add','-A'))
+        $ok = Invoke-Native -Exe 'git' -Arguments @('commit','-m',"refactor(v2): stage $($Stage.N) - $($Stage.Name)")
+        if ($ok) { Write-Host "   committed: stage $($Stage.N) - $($Stage.Name)" -ForegroundColor Green }
+        else     { Write-Host "   git commit failed - commit by hand before continuing" -ForegroundColor Red }
     }
     finally { Pop-Location }
 }
@@ -223,24 +282,20 @@ if (Test-Path $ExcludeFile) {
     }
 }
 
-Push-Location $RepoRoot
-try {
-    $dirty = git status --porcelain
-    if ($dirty) {
-        Write-Host ""
-        Write-Host "   Working tree is dirty:" -ForegroundColor Yellow
-        $dirty | Select-Object -First 20 | ForEach-Object { Write-Host "     $_" -ForegroundColor Yellow }
-        Write-Host ""
-        Write-Host "   Commit it and re-run:" -ForegroundColor Yellow
-        Write-Host "     git add -A" -ForegroundColor Yellow
-        Write-Host "     git commit -m `"chore: pre-migration checkpoint`"" -ForegroundColor Yellow
-        Write-Host "     .\run-migration.ps1" -ForegroundColor Yellow
-        throw "Working tree is dirty. Commit or stash before starting."
-    }
-}
-finally { Pop-Location }
-
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
+
+$dirty = Get-DirtyFiles
+if ($dirty.Count -gt 0) {
+    Write-Host ""
+    Write-Host "   Working tree is dirty:" -ForegroundColor Yellow
+    $dirty | Select-Object -First 20 | ForEach-Object { Write-Host "     $_" -ForegroundColor Yellow }
+    Write-Host ""
+    Write-Host "   Commit it and re-run:" -ForegroundColor Yellow
+    Write-Host "     git add -A" -ForegroundColor Yellow
+    Write-Host "     git commit -m `"chore: pre-migration checkpoint`"" -ForegroundColor Yellow
+    Write-Host "     .\run-migration.ps1" -ForegroundColor Yellow
+    throw "Working tree is dirty. Commit or stash before starting."
+}
 
 # ---------------------------------------------------------------------------
 # Run
@@ -255,15 +310,30 @@ foreach ($stage in $Stages) {
     # -- Stage 0: baseline -------------------------------------------------
     if ($stage.N -eq 0) {
         if (-not (Invoke-Build 'NexusAI.slnx')) {
-            throw "The existing solution does not build. Fix that first - migrating on a broken build means you cannot tell migration errors from pre-existing ones."
+            Write-Host ""
+            Write-Host "   The existing solution does not build." -ForegroundColor Red
+            Write-Host "   Migrating on a broken build means you cannot tell migration errors" -ForegroundColor Red
+            Write-Host "   from pre-existing ones. Fix it first:" -ForegroundColor Red
+            Write-Host ""
+            Write-Host "     dotnet build NexusAI.slnx" -ForegroundColor Red
+            Write-Host "     claude `"fix the build errors in this solution, do not restructure anything`"" -ForegroundColor Red
+            Write-Host ""
+            Write-Host "   Then commit and re-run .\run-migration.ps1" -ForegroundColor Red
+            throw "Stage 0 build gate failed."
         }
+
         Push-Location $RepoRoot
         try {
-            git tag -f pre-v2 | Out-Null
-            git checkout -b arch/v2 2>&1 | Out-Null
-            Write-Host "   tagged pre-v2, branched arch/v2" -ForegroundColor Green
+            [void](Invoke-Native -Exe 'git' -Arguments @('tag','-f','pre-v2'))
+
+            if (Invoke-Native -Exe 'git' -Arguments @('checkout','-b','arch/v2')) {
+                Write-Host "   tagged pre-v2, branched arch/v2" -ForegroundColor Green
+            }
+            else {
+                [void](Invoke-Native -Exe 'git' -Arguments @('checkout','arch/v2'))
+                Write-Host "   tagged pre-v2, switched to existing arch/v2" -ForegroundColor Yellow
+            }
         }
-        catch { Write-Host "   branch arch/v2 already exists - continuing" -ForegroundColor Yellow }
         finally { Pop-Location }
         continue
     }
