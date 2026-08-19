@@ -35,22 +35,31 @@ Nexus will not be one monolithic application. It will be an ecosystem with three
 
 ### 1. Nexus Platform
 
-The Platform is the dependable foundation shared by every Nexus product.
+*Corrected under V2.1 — see ADR-011 and ADR-012 in `08_DECISIONS_AND_TECHNICAL_DEBT.md`.*
+
+The Platform is the backbone between every Nexus product and the AI providers, tools and
+vendors they use. It is deliberately small, and it is not a product foundation — it holds no
+product data at all.
 
 It will provide:
 
-- identity, organizations, users, teams and permissions;
-- workspaces, projects, milestones and goals;
-- conversations, branches, sessions and snapshots;
-- work items, approvals, schedules and dependencies;
-- knowledge, memory, decisions and artifacts;
-- results, evaluations and feedback;
-- files, connectors, notifications and activity history;
-- APIs, events, audit records and tenant isolation;
-- model-provider and tool-provider connections;
-- billing, usage, plans and product entitlements.
+- model-provider connections, model catalog and governed invocation;
+- governed tool execution and tool catalog;
+- identity, tenancy and product registry — a user is one user across Workspace, Vault, ERP
+  and every other product;
+- credentials and secrets — the only place in the system that holds a vendor key;
+- metering, quota and usage governance;
+- audit records for every governed action.
 
-The Platform owns durable records and governance. It does not decide how every product should look.
+The Platform does **not** own workspaces, projects, conversations or knowledge, and it has
+no product database. Those belong entirely to the product that defines them — Nexus Workspace,
+Vault, Nexus Business, and so on — because each product's structure is different, and a
+shared structure imposed from the Platform would be wrong for all of them. The Platform owns
+durable backbone records (identity, entitlements, usage, audit) and governance; it does not
+decide how any product should look, and it cannot compile against a product's types.
+
+Nexus Intelligence, not the Platform, is what turns Platform capability and product data into
+a decision — see the next section.
 
 ### 2. Nexus Intelligence
 

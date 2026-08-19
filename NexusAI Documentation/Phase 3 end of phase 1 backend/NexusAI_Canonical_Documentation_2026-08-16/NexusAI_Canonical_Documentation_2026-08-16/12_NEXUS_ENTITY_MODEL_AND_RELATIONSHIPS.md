@@ -18,6 +18,39 @@ It also records:
 
 This is the canonical reference for deciding where new Nexus information belongs.
 
+## Product ownership under V2.1
+
+*Added under V2.1 — see ADR-011 in `08_DECISIONS_AND_TECHNICAL_DEBT.md` and
+`NEXUS_ARCHITECTURE_V2.md` §1.3.*
+
+**All 21 tables described in this document belong to the Chat product (`Nexus.Web` /
+`Nexus.Products.Chat.*`), not to a shared Nexus Platform.** Workspace, Project, Milestone,
+Conversation, Knowledge, ADR, Work Item, Artifact, and every other concept below is
+product-owned data. Nexus Platform (`Nexus.AI`) holds no Workspace, Project, Conversation, or
+Knowledge table and no product database at all — it is the backbone that Intelligence uses to
+reach a model, not a shared foundation these tables sit on. A future product (Vault, ERP,
+Nexus Build) gets its own store, its own schema, and will very likely **not** look like this
+document at all.
+
+**Memory is retired from this product's schema.** It no longer lives here, in any form —
+present or future. Memory now belongs entirely to `Nexus.Intelligence.Memory` in the
+`Nexus.Int` solution, keyed by an opaque `ScopeRef` (kind, key, path) that this product
+supplies but Intelligence never parses. There are no product foreign keys into Memory and
+none are planned; see the note under "Code model without a confirmed Dataverse table" below,
+and ADR-012.
+
+### Forward note — Azure SQL migration (ADR-014)
+
+ADR-014 (Azure SQL replaces Dataverse for the Chat product), written up in full in
+`08_DECISIONS_AND_TECHNICAL_DEBT.md`, moves every table in this document from Dataverse to
+Azure SQL. The `du_t_0nn_` naming below is retired as part of that migration: table names
+lose both the `du_` publisher prefix and the `T_nnn_` sequence numbering that Dataverse
+required — for example `du_t_001_workspace` becomes simply `Workspace`. The migration is a
+schema rewrite, not a data migration (existing Dataverse contents are disposable smoke-test
+records); it proceeds one aggregate at a time, Domain and Application untouched throughout —
+see `ADR-014_AZURE_SQL_MIGRATION.md` §2 for the staged plan. Treat the logical names in this
+document as historical once that migration executes, and update this file alongside it.
+
 ## Current source of truth
 
 ### Dataverse
@@ -45,9 +78,12 @@ The supplied NexusAI ZIP currently contains domain and Dataverse infrastructure 
 - ADR
 - Work Item
 - Artifact
-- Memory
+- Memory *(as it existed before V2.1 — see below)*
 
-Memory exists in the code but is not one of the 21 tables shown in the Dataverse screenshot. This mismatch must be resolved before persistent Memory is considered complete.
+Memory existed in the product's Domain and Infrastructure code but was never one of the 21
+tables shown in the Dataverse screenshot. **Under V2.1 this mismatch is resolved by removal,
+not by adding a table:** Memory is retired from the product entirely and now lives in
+`Nexus.Intelligence.Memory`, keyed by `ScopeRef`. See "Product ownership under V2.1" above.
 
 ### Important distinction
 
@@ -360,6 +396,28 @@ All tables below are confirmed as created in the `N_001_Nexus` solution.
 
 “Implemented” means that the supplied ZIP contains the corresponding domain and Dataverse code. Frontend completion and comprehensive automated testing are separate requirements.
 
+## Which tables have a C# aggregate
+
+*Added under V2.1 — restates the "Current C# position" column above as a direct yes/no list,
+and matches the High-priority debt item in `08_DECISIONS_AND_TECHNICAL_DEBT.md`.*
+
+**Have a C# aggregate today** — Workspace, Project, Conversation, ConversationMessage,
+Session, Branch, Snapshot, Knowledge, WorkItem, Artifact. ADR has a domain model and
+repository but an incomplete public API.
+
+**Exist as Dataverse tables but have no C# aggregate at all** — `ProjectBrief`,
+`ProjectMilestone`, `MilestoneCriterion`, `Team`, `TeamMember`, `WorkspaceMember`, and
+`ProjectMember`. (`ConversationSummary`, `ConversationLink`, and `AccessGrant` are also
+unmodelled — see "Dataverse tables without corresponding code" below — but are lower
+priority than the seven above.)
+
+**Consequence:** because `ProjectBrief`, `ProjectMilestone`, and `MilestoneCriterion` have no
+aggregate, the `Objective` `ContextItem` this product sends to Intelligence on every turn
+currently carries only the project name, at `Authoritative` trust — not the brief, not the
+active milestone, not its criteria. This is the single largest available answer-quality lever
+in the product; see `NEXUS_ARCHITECTURE_V2.md` §3.1 for the `ContextItem` shape and
+`08_DECISIONS_AND_TECHNICAL_DEBT.md` for the tracked debt item.
+
 ## Complete relationship registry
 
 ### Core lookup links
@@ -533,12 +591,11 @@ These should be implemented as complete vertical slices when their user experien
 
 ### Code model without a confirmed Dataverse table
 
-Memory exists in Domain and Infrastructure code, but no Memory table appears in the 21-table screenshot.
-
-Choose one of these solutions:
-
-1. Create a new governed `T_022_Memory` table; or
-2. Remove/defer persistent Memory until its lifecycle is designed.
+Memory existed in this product's Domain and Infrastructure code, but no Memory table ever
+appeared in the 21-table screenshot. **Resolved under V2.1:** neither of the two options once
+considered here (add a `T_022_Memory` table, or defer it) applies any more — Memory is
+retired from the product's schema outright and rebuilt in `Nexus.Intelligence.Memory`, keyed
+by `ScopeRef`. See "Product ownership under V2.1" near the top of this document.
 
 Do not store Memory in Knowledge merely to avoid creating a table. They have different meanings and governance.
 
@@ -562,7 +619,7 @@ The following numbers are recommendations, not existing Dataverse tables.
 
 | Proposed no. | Future table | Purpose | Principal links |
 |---|---|---|---|
-| T_022 | Memory | Working/recalled context separate from approved Knowledge | Workspace, optional Project, optional Conversation |
+| ~~T_022~~ | ~~Memory~~ | **Retired under V2.1** — not a product table, present or future. Lives in `Nexus.Intelligence.Memory`, keyed by `ScopeRef`, outside this product's Dataverse schema entirely. | — |
 | T_023 | Result | Actual outcome of a recommendation, decision, Work Item or Artifact | Project, Milestone, Conversation, ADR, WorkItem, Artifact |
 | T_024 | ResultMetric | Individual measurement used to evaluate a Result | Result; metric definition/unit |
 | T_025 | AgentDefinition | Versioned identity, purpose, tools, permissions and evaluation rules of an Agent | Owner/Organization, Product |
@@ -659,7 +716,7 @@ A Family in Vault may also be represented as an Organization-like tenant, with a
 2. Implement ConversationLink and ParentConversation.
 3. Rework Knowledge lifecycle and source links.
 4. Rework ADR to match the future direct relationship model.
-5. Resolve the Memory table decision.
+5. ~~Resolve the Memory table decision.~~ Resolved under V2.1 — Memory moved to `Nexus.Intelligence.Memory`; no product-side action remains.
 
 ### Stage 3 — Complete collaboration and security
 
@@ -688,6 +745,7 @@ The existing 21 Dataverse tables are a strong foundation. Together they represen
 
 The future additions create the fifth system:
 
-5. **Outcome intelligence** — Memory, Result, ResultMetric, AgentDefinition, AgentRun and Approval.
+5. **Outcome intelligence** — Result, ResultMetric, AgentDefinition, AgentRun and Approval.
+   (Memory is no longer part of this system — see "Product ownership under V2.1" above.)
 
 These systems should remain linked through explicit IDs, stable APIs and governed history. That is how every future Nexus product—Workspace, Vault, Trips, Business, Build or Machines—can use the same intelligence foundation without becoming one monolithic application.
