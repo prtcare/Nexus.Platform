@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Nexus.Platform.Persistence</RootNamespace>
+    <AssemblyName>Nexus.Platform.Persistence</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>Nexus.Platform.Persistence</PackageId>
+    <Authors>PRT</Authors>
+    <Description>Nexus V2 - Nexus.Platform.Persistence</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Nexus.Platform.Contracts\Nexus.Platform.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>
+
