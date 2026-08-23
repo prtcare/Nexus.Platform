@@ -39,17 +39,16 @@ a consumer isn't picking up your change, check the stamp before debugging anythi
 ## Documentation
 
 Cross-cutting architecture, conventions and decisions for all three repos:
+**`docs\`** — start at `docs\DOCUMENTATION_INDEX.md`, or at
+`docs\DEVELOPER_ONBOARDING.md` if this is your first time in the
+repository. `docs\CURRENT_STATE.md` records what is actually built right
+now. `docs\AI_DEVELOPMENT_GOVERNANCE.md` records how AI coding models are
+used to build Nexus itself.
 
-- **`docs\`** — the canonical numbered set (00–12). Start at `docs\README.md`.
-- **`docs\00_DOCUMENTATION_STANDARD.md`** — where docs live, how they're numbered, who owns
-  which subject, when they get updated. Read this before adding a document.
-- **`docs\07_DEVELOPMENT_GUIDE.md`** — coding standards, naming conventions, the
-  vertical-slice workflow, the review checklist.
-- **`docs\08_DECISIONS_AND_TECHNICAL_DEBT.md`** — the ADR log (one global sequence across
-  all repos) and current debt.
-
-`NexusAI Documentation\Phase 1…` and `Phase 2\` are historical snapshots. They are kept for
-provenance and are **not** current — do not consult them for how the system works today.
+The numbered 00–12 document set and docs\README.md predate the v2.2
+consolidation and are superseded, partially superseded, or kept for the
+decision trail — see docs\DOCUMENTATION_INDEX.md §10 for the disposition of
+each. Do not treat them as current without checking that table first.
 
 ## Related repositories
 
