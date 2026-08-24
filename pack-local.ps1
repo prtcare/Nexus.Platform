@@ -32,7 +32,7 @@ $version = "0.1.0-dev.$(Get-Date -Format yyyyMMddHHmmss)"
 
 # 1. Pack all seven Nexus.Platform.* projects (the two test projects are IsPackable=false).
 Write-Host "packing Nexus.Platform.* as $version -> $out" -ForegroundColor Cyan
-dotnet pack Nexus.AI.slnx -c Release -o $out -p:PackageVersion=$version --nologo
+dotnet pack Nexus.Platform.slnx -c Release -o $out -p:PackageVersion=$version --nologo
 if ($LASTEXITCODE -ne 0) { throw 'pack failed' }
 
 # 2. Push everything in $out to the GitHub Packages feed for 'prtcare'.

@@ -361,7 +361,7 @@ New-Csproj -Root $NexusAIRoot -Folder $AI.ArchTests -Name 'Nexus.Platform.Archit
 Move-Git -Repo $NexusAIRoot -From 'src\NexusAI.Application\Providers' -To $AI.Contracts -Rename '_migrate'
 Move-Git -Repo $NexusAIRoot -From 'src\NexusAI.Infrastructure\OpenAI' -To $AI.OpenAI    -Rename '_migrate'
 
-Write-TextFile (Join-Path $NexusAIRoot 'Nexus.AI.slnx') @"
+Write-TextFile (Join-Path $NexusAIRoot 'Nexus.Platform.slnx') @"
 <Solution>
   <Folder Name="/src/">
     <Project Path="$($AI.Contracts)\Nexus.Platform.Contracts.csproj" />
@@ -414,7 +414,7 @@ $packAI = @"
 `$version = "0.1.0-dev.`$(Get-Date -Format yyyyMMddHHmmss)"
 
 Write-Host "packing Nexus.Platform.* as `$version -> `$feed" -ForegroundColor Cyan
-dotnet pack Nexus.AI.slnx -c Release -o `$feed -p:PackageVersion=`$version --nologo
+dotnet pack Nexus.Platform.slnx -c Release -o `$feed -p:PackageVersion=`$version --nologo
 if (`$LASTEXITCODE -ne 0) { throw 'pack failed' }
 Write-Host "done. run 'dotnet restore' in Nexus.Int to pick it up." -ForegroundColor Green
 "@
