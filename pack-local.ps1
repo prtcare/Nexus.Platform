@@ -1,11 +1,42 @@
-﻿# Builds and packs the Platform libraries into the local feed.
-# The version carries a timestamp suffix on purpose: NuGet caches by version, so re-packing
-# the SAME version would not be picked up by Nexus.Int. Consumers reference '0.1.0-*'.
+# Builds and pushes the seven Nexus.Platform.* packages to GitHub Packages.
+#
+# Push-only flow: NexusAI never restores from this feed - every internal
+# dependency is a ProjectReference and external PackageReferences resolve from
+# the default nuget.org source - so no nuget.config and no source registration
+# are needed. The feed URL and api-key are passed inline to `dotnet nuget push`.
+# No nuget.config file is created by this script.
+#
+# Versioning: <Version>0.1.0</Version> is pinned in Directory.Build.props for every
+# project. GitHub Packages (like nuget.org) refuses to overwrite a published
+# version, so re-running this script without a version bump no-ops via
+# --skip-duplicate. The version stays a MANUAL bump in Directory.Build.props until
+# a real versioning policy is designed - do not mistake --skip-duplicate for one.
+#
+# Error handling: this script uses $ErrorActionPreference = 'Stop'. The repo has no
+# documented PowerShell error-handling convention yet; closing that documentation
+# gap is tracked separately.
 $ErrorActionPreference = 'Stop'
-$feed    = 'C:\Personal\LocalNuGet'
-$version = "0.1.0-dev.$(Get-Date -Format yyyyMMddHHmmss)"
 
-Write-Host "packing Nexus.Platform.* as $version -> $feed" -ForegroundColor Cyan
-dotnet pack Nexus.AI.slnx -c Release -o $feed -p:PackageVersion=$version --nologo
+# Credential: read from $env:GITHUB_PACKAGES_TOKEN (a PAT scoped to write:packages).
+# Its value is never read for display, logged, echoed, or written to any file -
+# it is only passed as the api-key argument to dotnet nuget push.
+if (-not $env:GITHUB_PACKAGES_TOKEN) {
+    throw 'GITHUB_PACKAGES_TOKEN is not set. Set it to a GitHub PAT scoped to write:packages before running this script.'
+}
+
+# Local artifacts folder (gitignored - /artifacts/ is in .gitignore).
+$out = Join-Path $PSScriptRoot 'artifacts\packages'
+
+# 1. Pack all seven Nexus.Platform.* projects (the two test projects are IsPackable=false).
+Write-Host "packing Nexus.Platform.* -> $out" -ForegroundColor Cyan
+dotnet pack Nexus.AI.slnx -c Release -o $out --nologo
 if ($LASTEXITCODE -ne 0) { throw 'pack failed' }
-Write-Host "done. run 'dotnet restore' in Nexus.Int to pick it up." -ForegroundColor Green
+
+# 2. Push everything in $out to the GitHub Packages feed for 'prtcare'.
+Write-Host 'pushing to GitHub Packages (https://nuget.pkg.github.com/prtcare/index.json)' -ForegroundColor Cyan
+dotnet nuget push "$out\*.nupkg" --source https://nuget.pkg.github.com/prtcare/index.json --api-key $env:GITHUB_PACKAGES_TOKEN --skip-duplicate
+
+# 3. Fail the script (non-zero exit) if the push failed - do not swallow the error.
+if ($LASTEXITCODE -ne 0) { throw 'nuget push failed' }
+
+Write-Host 'done. packages pushed to GitHub Packages.' -ForegroundColor Green
