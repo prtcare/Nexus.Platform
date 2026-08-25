@@ -50,7 +50,9 @@ scripts, documentation or configuration that assumes them.
 
 ## 2. The 2026-08-20 incident
 
-This section is not history. It describes a live risk with an unclosed root cause.
+This section is the incident record. The risk it describes — an unconfirmed antivirus cause, no
+backup, `.git-broken` residue in all three repositories — was **closed by M-08-2.1 on 2026-08-25**;
+see §2.4 for the closure and evidence. §2.1–2.3 and §2.5 remain the historical record.
 
 ### 2.1 What happened
 
@@ -90,26 +92,27 @@ Anything that had been committed locally but never pushed was recoverable only f
 `.git-broken`, and only if the object it named still existed somewhere. In practice: **anything not
 pushed was at risk of being gone.**
 
-### 2.4 What is still open
+### 2.4 Closure — M-08-2.1 Close the 2026-08-20 recovery
 
-**`.git-broken\` remains in all three repositories.** It has not been removed, because removing it
-before confirming that every local ref exists on `origin` would destroy the only record of what was
-lost.
+**CLOSED as of 2026-08-25.** Every acceptance criterion for M-08-2.1 has been met, and the evidence
+for the two environmental ones is recorded:
 
-**The antivirus exclusion for `C:\Personal` was recommended and has never been confirmed.** Nobody
-has opened Windows Security and verified that the exclusion is present. Until someone does, the
-condition that destroyed three repositories is still live. This is not a theoretical residual risk;
-it is the same machine, the same paths and the same scanner.
+- **The `C:\Personal` exclusion is confirmed present in Windows Security.** The exclusion that was
+  recommended on 2026-08-20 — the one whose absence left the cause of the object-store loss live —
+  is now confirmed in place. This closes the residual risk described in §2.2.
+- **A documented, tested backup exists for all three repositories.** On 2026-08-25, `git clone
+  --mirror` backed up `Nexus.Platform`, `Nexus.Intelligence` and `Nexus.Experience` — every ref,
+  branch and tag — from `origin` to `C:\Users\Dell\OneDrive - PRT\A1_Business\Nexus` (a
+  OneDrive-synced off-machine copy). Each mirror passed `git fsck --strict` and a restore-verified
+  `dotnet build`. Full record in §15.1.
+- **The `.git-broken` directories are removed from all three repositories**, each only after a
+  per-repository comparison confirmed every local ref exists on `origin` (matching, or `origin` a
+  strict ancestor with nothing local-only beyond it) and that nothing was ahead of its upstream.
 
-Closing this is **M-08-2.1 Close the 2026-08-20 recovery**, whose acceptance criteria are exact:
-
-- the `C:\Personal` exclusion is confirmed present in Windows Security, with evidence recorded;
-- a documented, tested backup exists for all three repositories;
-- the `.git-broken` directories are removed from all three;
-- a written rule states push at every stage boundary, not every milestone.
-
-The order matters. Compare local refs to remote refs per repository **first**; remove `.git-broken`
-**last**.
+**Stale same-machine artifacts.** Two sets predate the real backup above and no longer serve a
+purpose now that it exists: `C:\Personal\_backup\*-worktree` (the 2026-08-20 worktree snapshots)
+and `C:\Personal\*-fresh` (the temporary fresh clones from the recovery). They are safe to delete
+manually.
 
 ### 2.5 The rule this produced
 
