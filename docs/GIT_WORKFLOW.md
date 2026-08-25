@@ -576,7 +576,7 @@ by default, in 90 days for reachable objects and 30 for unreachable ones.
 | No architecture gate | NetArchTest exists but runs only when someone runs it | M-08-1.4 |
 | Antivirus exclusion unconfirmed | The 2026-08-20 cause is still live | M-08-2.1 |
 | `.git-broken` still present | In all three repositories | M-08-2.1 |
-| No backup | `origin` only | M-08-2.1, M-08-7.1, M-08-7.2 |
+| No automated backup | Manual `git clone --mirror` backup with tested restore exists (2026-08-25); automation pending | M-08-7.1, M-08-7.2 |
 | Local package feed | `C:\Personal\LocalNuGet` is unreachable from CI | M-08-1.1 |
 | Uncommitted proven work | `Nexus.Web` `feat/azure-sql` at `29ac2f4`, Stage 1b uncommitted | M-02-1.1 Commit Stage 1b |
 
