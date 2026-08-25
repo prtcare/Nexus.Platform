@@ -534,9 +534,14 @@ applies emphatically to `.git-broken`.
 local loss — which is exactly what happened, and it worked. It does not protect against a bad force
 push, an accidental repository deletion, an account compromise, or a provider outage.
 
-**No documented, tested backup exists for any of the three repositories.** Establishing one is an
-acceptance criterion of **M-08-2.1**, and automated backup with tested restore is
-**M-08-7.1 Automated backup** and **M-08-7.2 Tested restore**.
+**A documented, tested backup now exists.** On **2026-08-25**, `git clone --mirror` was used to back
+up all three repositories (`Nexus.Platform`, `Nexus.Intelligence`, `Nexus.Experience`) — every ref,
+branch, and tag — from `origin` on GitHub to `C:\Users\Dell\OneDrive - PRT\A1_Business\Nexus`
+(OneDrive-synced off-machine copy). Each mirror passed `git fsck --strict`, and each was
+restore-verified: a fresh clone of the mirror into a temp folder was built with `dotnet build`,
+succeeding with **0 errors, 0 warnings** for all three. This satisfies the acceptance criterion of
+**M-08-2.1**; automated backup with tested restore remains **M-08-7.1 Automated backup** and
+**M-08-7.2 Tested restore**.
 
 ### 15.2 What a real backup requires
 
