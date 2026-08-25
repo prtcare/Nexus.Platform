@@ -64,8 +64,7 @@ public sealed class ModelCatalogTests
 
         var result = await ListAsync(catalog);
 
-        // Deliberately broken (M-08-1.2 red-build demonstration): wrong expectation.
-        Assert.Equal(4, result.Count);
+        Assert.Equal(3, result.Count);
     }
 
     [Fact]
