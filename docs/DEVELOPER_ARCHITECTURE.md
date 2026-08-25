@@ -74,7 +74,7 @@ Conversation storage is 11 EXPERIENCE. Runtime health is 10 OPERATIONS. Specific
 
 **CURRENT:** none of this exists. `Nexus.Developer` is not a repository. The only development state
 that exists in structured form today is `nexus-roadmap.yaml`, a hand-written file, and a `WorkItem`
-aggregate stranded inside the Chat product in `Nexus.Web`.
+aggregate stranded inside the Chat product in `Nexus.Experience`.
 
 **TARGET** — the repository is created at `M-07-1.1`:
 
@@ -294,9 +294,9 @@ architectural:
 > another worktree, never inside an agent's working directory.**
 
 ```
-C:\Personal\Nexus.Web\                        the repository
-C:\Personal\Nexus.Web.work\WI-07-1.1.1-a\     worker A
-C:\Personal\Nexus.Web.work\WI-07-1.1.1-b\     worker B
+C:\Personal\Nexus.Experience\                        the repository
+C:\Personal\Nexus.Experience.work\WI-07-1.1.1-a\     worker A
+C:\Personal\Nexus.Experience.work\WI-07-1.1.1-b\     worker B
 ```
 
 This is a lesson from **2026-08-20**, not a style choice. Windows holds a lock on the working
@@ -556,7 +556,7 @@ produced. Proposing work without knowing whether previous proposals helped is gu
 | Any of the twenty-one entities | **None exist** |
 | Structured development state | `nexus-roadmap.yaml`, hand-written, hand-validated |
 | The one `WorkItem` that exists | Stranded in `Nexus.Products.Chat.Domain`, absorbed at `S-07-1.1.1.2.2` |
-| CI to produce build records from | **None.** `.github/workflows` in NexusAI is empty; the other two repositories have no `.github` at all |
+| CI to produce build records from | **None.** `.github/workflows` in Nexus.Platform is empty; the other two repositories have no `.github` at all |
 | Behaviour tests in the whole system | **Two** |
 
 `nexus-roadmap.yaml` is the transitional artifact this layer exists to replace. It is hand-written,

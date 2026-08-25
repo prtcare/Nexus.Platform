@@ -1,7 +1,6 @@
 # Repository Structure
 
-**Status:** TRANSITION — three repositories exist; five are the target, and two of the three are
-being renamed
+**Status:** TRANSITION — three repositories exist; five are the target; the three-repo rename is **DONE** (2026-08-24)
 **Owner:** DELIVERY (Layer 08), with GOVERNANCE (03) recording the repository set
 **Last updated:** 2026-08-21
 **Layer:** 08 DELIVERY
@@ -23,9 +22,9 @@ reference — `TECHNOLOGY_STACK.md`; what a `.csproj` version pin means — `STA
 
 | Local path | Remote | Solution | Holds |
 |---|---|---|---|
-| `C:\Personal\NexusAI` | `github.com/prtcare/NexusAI` | `Nexus.AI.slnx` | Platform foundation |
-| `C:\Personal\Nexus.Int` | `github.com/prtcare/Nexus-Int` | `Nexus.Int.slnx` | Intelligence |
-| `C:\Personal\Nexus.Web` | `github.com/prtcare/Nexus-web` | `Nexus.Web.slnx` | Chat product + web client |
+| `C:\Personal\Nexus.Platform` | `github.com/prtcare/Nexus.Platform` | `Nexus.Platform.slnx` | Platform foundation |
+| `C:\Personal\Nexus.Intelligence` | `github.com/prtcare/Nexus.Intelligence` | `Nexus.Intelligence.slnx` | Intelligence |
+| `C:\Personal\Nexus.Experience` | `github.com/prtcare/Nexus.Experience` | `Nexus.Experience.slnx` | Chat product + web client |
 | `C:\Personal\LocalNuGet` | — | — | Package feed on disk. **Not a git repository.** |
 
 **TARGET — five repositories.** Do not write scripts, pipelines or documentation that assume any of
@@ -35,7 +34,7 @@ these exist today.
 |---|---|---|
 | `Nexus.Platform` | `NexusAI` renamed | 01 CORE, 02 DATA, 03 GOVERNANCE, 05 AUTOMATION, 06 PRODUCT CORE, 08 DELIVERY, 09 ASSURANCE, 10 OPERATIONS |
 | `Nexus.Intelligence` | `Nexus.Int` renamed | 04 AI |
-| `Nexus.Experience` | `Nexus.Web` becomes this | 11 EXPERIENCE |
+| `Nexus.Experience` | `Nexus.Web` renamed | 11 EXPERIENCE |
 | `Nexus.Developer` | new | 07 DEVELOPER |
 | `Nexus.Products.<Name>` | new, one per product | 12 PRODUCTS |
 
@@ -62,7 +61,7 @@ layer's short name, lowercase.
 | 08 | DELIVERY | `Nexus.Platform` + per-repo pipelines | `delivery` | none |
 | 09 | ASSURANCE | `Nexus.Platform` | `assurance` | none |
 | 10 | OPERATIONS | `Nexus.Platform` | `operations` | none |
-| 11 | EXPERIENCE | `Nexus.Experience` | `experience` | `Nexus.Web.Client` (frontend only; the engine does not exist) |
+| 11 | EXPERIENCE | `Nexus.Experience` | `experience` | `Nexus.Experience.Client` (frontend only; the engine does not exist) |
 | 12 | PRODUCTS | `Nexus.Products.<Name>` | own database per product | `Nexus.Products.Chat.Domain`, `.Application`, `.Infrastructure`, `.Api` |
 
 **Read that table honestly: seven of the twelve layers have no project at all.** Nexus is three
@@ -75,11 +74,11 @@ migration that exists used schema `org`.
 
 ## 3. What is inside each repository today
 
-### 3.1 `NexusAI` → TARGET `Nexus.Platform`
+### 3.1 `NexusAI` → `Nexus.Platform` (renamed 2026-08-24)
 
 ```
-C:\Personal\NexusAI\
-  Nexus.AI.slnx
+C:\Personal\Nexus.Platform\
+  Nexus.Platform.slnx
   Directory.Build.props
   global.json
   nuget.config
@@ -125,21 +124,21 @@ structure, not projects.
 | Rule | Statement |
 |---|---|
 | Never add a file to one | Adding a file to a gitignored directory produces work that is invisible to git and will be lost |
-| Never reference one | Nothing in `Nexus.AI.slnx` should point at them |
+| Never reference one | Nothing in `Nexus.Platform.slnx` should point at them |
 | Never revive one | A new project uses the `Nexus.<Capability>.<Role>` pattern — `NAMING_STANDARDS.md` §3 |
 
 **Their disposition is undecided.** Deleting them is safe in the sense that they contain nothing;
 it is unproven in the sense that nobody has confirmed no tool, script or `.slnx` entry still
 mentions them, and the repository lost its object database on 2026-08-20 to an unconfirmed cause.
-The decision — delete, or keep as an inert marker until the repository rename — belongs to the same
-work item that renames `NexusAI` to `Nexus.Platform`, because that work item has to walk every path
-in the repository anyway. Until then: leave them, and do not put anything in them.
+The repository rename (2026-08-24) was the natural moment to settle it — that rename walked every
+path in the repository anyway — but the call was not made and the eight husks remain. Until a
+decision lands: leave them, and do not put anything in them.
 
-### 3.3 `Nexus.Int` → TARGET `Nexus.Intelligence`
+### 3.3 `Nexus.Int` → `Nexus.Intelligence` (renamed 2026-08-24)
 
 ```
-C:\Personal\Nexus.Int\
-  Nexus.Int.slnx
+C:\Personal\Nexus.Intelligence\
+  Nexus.Intelligence.slnx
   Directory.Build.props   global.json   nuget.config   pack-local.ps1
   .git-broken\
   NO .github DIRECTORY AT ALL
@@ -181,11 +180,11 @@ C:\Personal\Nexus.Int\
 
 `AI_DEVELOPMENT_STANDARDS.md` owns what these types mean and how to extend them.
 
-### 3.4 `Nexus.Web` → TARGET `Nexus.Experience`
+### 3.4 `Nexus.Web` → `Nexus.Experience` (renamed 2026-08-24)
 
 ```
-C:\Personal\Nexus.Web\
-  Nexus.Web.slnx
+C:\Personal\Nexus.Experience\
+  Nexus.Experience.slnx
   Directory.Build.props   global.json   nuget.config
   .git-broken\
   NO .github DIRECTORY AT ALL
@@ -207,19 +206,19 @@ C:\Personal\Nexus.Web\
       Endpoints\  Artifacts, Branches, Chat, ConversationMessage, Conversations, Knowledge,
                   Projects, Sessions, Snapshots, WorkItems, WorkSpaces, HealthEndpoint
       Program.cs, ChatProductModule.cs
-    Nexus.Web.Client\        React + TypeScript + Vite
+    Nexus.Experience.Client\        React + TypeScript + Vite
   tests\
     Nexus.Products.Chat.Architecture.Tests\  BoundaryTests.cs
     Nexus.Products.Chat.Tests\               Chat\ChatContextBundleMapperTests.cs
 ```
 
 **This repository currently violates its own target boundary**, and knowingly so: it holds both the
-Chat *product* (layer 12) and the web *client* (layer 11). The split happens when `Nexus.Web` becomes
-`Nexus.Experience` and the Chat product moves to `Nexus.Products.Chat`. Until then, treat
-`Nexus.Web.Client` as EXPERIENCE code that happens to be co-located, and do not deepen the coupling —
+Chat *product* (layer 12) and the web *client* (layer 11). The split happens when the Chat product moves to `Nexus.Products.Chat` — the `Nexus.Web` → `Nexus.Experience`
+rename (2026-08-24) has already completed. Until then, treat
+`Nexus.Experience.Client` as EXPERIENCE code that happens to be co-located, and do not deepen the coupling —
 `TYPESCRIPT_REACT_STANDARDS.md` and `PRODUCT_DEVELOPMENT_GUIDE.md` §11.
 
-`Nexus.Web.Client/src/` structure is owned by `TYPESCRIPT_REACT_STANDARDS.md` §1 and is not repeated
+`Nexus.Experience.Client/src/` structure is owned by `TYPESCRIPT_REACT_STANDARDS.md` §1 and is not repeated
 here.
 
 ---
@@ -264,9 +263,9 @@ One `.slnx` per repository, at the repository root, named for the repository —
 
 | Repository | Solution | Note |
 |---|---|---|
-| `NexusAI` | `Nexus.AI.slnx` | Matches neither its directory nor its `Nexus.Platform.*` contents. Renamed with the repository. |
-| `Nexus.Int` | `Nexus.Int.slnx` | |
-| `Nexus.Web` | `Nexus.Web.slnx` | |
+| `Nexus.Platform` | `Nexus.Platform.slnx` | Previously `Nexus.AI.slnx`; renamed with the repository (2026-08-24). |
+| `Nexus.Intelligence` | `Nexus.Intelligence.slnx` | Previously `Nexus.Int.slnx`; renamed with the repository (2026-08-24). |
+| `Nexus.Experience` | `Nexus.Experience.slnx` | Previously `Nexus.Web.slnx`; renamed with the repository (2026-08-24). |
 
 `.slnx` is the XML solution format. **Do not add `.sln` files.** A repository with both formats will
 have two disagreeing project lists within a month, and the one the build agent picks is not the one
@@ -286,8 +285,8 @@ the husks in §3.2 came to exist.
 | `global.json` | The pinned .NET SDK version. `dotnet` refuses to build with a different one | All three |
 | `nuget.config` | Package sources | All three |
 | `.gitignore` | Includes `bin`, `obj`, the husk directories, `.env.local`, local settings | All three |
-| `pack-local.ps1` | Packs and pushes to `C:\Personal\LocalNuGet` | `NexusAI`, `Nexus.Int` |
-| `set-openai-key.ps1` | Sets the OpenAI key locally | `NexusAI` |
+| `pack-local.ps1` | Packs and pushes to `C:\Personal\LocalNuGet` | `Nexus.Platform`, `Nexus.Intelligence` |
+| `set-openai-key.ps1` | Sets the OpenAI key locally | `Nexus.Platform` |
 
 **`global.json` is the reason a developer does not choose an SDK version.** Install what it pins;
 `DEVELOPER_ONBOARDING.md` §3 gives the command that reads it.
@@ -313,14 +312,14 @@ and the deliberate advice *not* to create test projects to satisfy a naming tabl
 
 | Repository | Project | Files |
 |---|---|---|
-| `NexusAI` | `Nexus.Platform.Architecture.Tests` | `PlatformBoundaryTests.cs` |
-| `NexusAI` | `Nexus.Platform.Tests` | **none — a `.csproj` with zero `.cs` files** |
-| `Nexus.Int` | `Nexus.Intelligence.Architecture.Tests` | `BoundaryRuleTests.cs` |
-| `Nexus.Int` | `Nexus.Intelligence.Tests` | `Ranking/KeywordContextRankerTests.cs` |
-| `Nexus.Web` | `Nexus.Products.Chat.Architecture.Tests` | `BoundaryTests.cs` |
-| `Nexus.Web` | `Nexus.Products.Chat.Tests` | `Chat/ChatContextBundleMapperTests.cs` |
+| `Nexus.Platform` | `Nexus.Platform.Architecture.Tests` | `PlatformBoundaryTests.cs` |
+| `Nexus.Platform` | `Nexus.Platform.Tests` | **none — a `.csproj` with zero `.cs` files** |
+| `Nexus.Intelligence` | `Nexus.Intelligence.Architecture.Tests` | `BoundaryRuleTests.cs` |
+| `Nexus.Intelligence` | `Nexus.Intelligence.Tests` | `Ranking/KeywordContextRankerTests.cs` |
+| `Nexus.Experience` | `Nexus.Products.Chat.Architecture.Tests` | `BoundaryTests.cs` |
+| `Nexus.Experience` | `Nexus.Products.Chat.Tests` | `Chat/ChatContextBundleMapperTests.cs` |
 
-There are **zero frontend tests**. `Nexus.Web.Client` has no test framework at all —
+There are **zero frontend tests**. `Nexus.Experience.Client` has no test framework at all —
 `TYPESCRIPT_REACT_STANDARDS.md` §19.
 
 The three architecture test projects are the only mechanical enforcement of anything in this
@@ -332,8 +331,8 @@ document. They are why "put it in the right project" is a rule with teeth rather
 
 | Location | Holds |
 |---|---|
-| `C:\Personal\NexusAI\docs\` | The numbered canonical set 00–12, `README.md`, the ADR series, architecture, migration and incident records |
-| Repository root of `NexusAI` | The `*_PROMPTS_*.md` working files and `nexus-v2-restructure.ps1` — drift, per §4 |
+| `C:\Personal\Nexus.Platform\docs\` | The numbered canonical set 00–12, `README.md`, the ADR series, architecture, migration and incident records |
+| Repository root of `Nexus.Platform` | The `*_PROMPTS_*.md` working files and `nexus-v2-restructure.ps1` — drift, per §4 |
 | A product repository's `docs\` | Only what is specific to that product |
 
 **One documentation home.** The canonical set lives in the Platform repository because it describes
@@ -386,7 +385,7 @@ wrong variable before M-08-4.1 decides the environment model.
 | A product aggregate | the product's repository | `src/Nexus.Products.<Name>.Domain/<Aggregate>/` |
 | An EF configuration, repository or migration | the product's repository | `src/Nexus.Products.<Name>.Infrastructure/Sql/` |
 | An HTTP endpoint | the owning `.Api` project | `Endpoints/<Name>Endpoint.cs` |
-| A React feature | `Nexus.Experience` (CURRENT: `Nexus.Web`) | `Nexus.Web.Client/src/features/<feature>/` |
+| A React feature | `Nexus.Experience` | `Nexus.Experience.Client/src/features/<feature>/` |
 | A standard or ADR | `Nexus.Platform` | `docs/` |
 | A PowerShell script | the repository it operates on | `scripts/` (CURRENT: repository root) |
 
@@ -419,7 +418,7 @@ type in Contracts to avoid a mapper. The mapper is the point.
 
 ## 12. The rename path
 
-The two renames are **TARGET**, not scheduled work in this document, and each is one work item.
+The three renames are **DONE** as of 2026-08-24; this section records the path that was taken.
 
 ```
 NexusAI      →  Nexus.Platform      (local dir, remote, Nexus.AI.slnx → Nexus.Platform.slnx)
@@ -430,7 +429,7 @@ new          →  Nexus.Developer
 new          →  Nexus.Products.<Name>   one per product
 ```
 
-What a rename touches, in the order it breaks if done partially:
+What the rename touched — recorded here in the order it breaks if done partially:
 
 1. The GitHub remote name and every clone's `origin` URL.
 2. The local directory name — and therefore every worktree path and every `nuget.config` relative
@@ -440,12 +439,13 @@ What a rename touches, in the order it breaks if done partially:
 5. `Nexus.Web.Client` → `Nexus.Experience.Client`, and its project reference.
 6. Every documentation path in this set.
 
-**Rules for the transition.** Both the local directory and the remote change in the *same* change —
-a repository whose remote name and directory name disagree is how the current three-way naming mess
-started. Push before starting and verify the remote after finishing, because all three repositories
-lost `.git\objects` on 2026-08-20 and the root cause has never been confirmed fixed
-(`GIT_WORKFLOW.md` §2). Extracting the Chat product out of `Nexus.Web` is a **separate** work item
-from renaming it; doing both at once produces a diff nobody can review.
+**Rules that governed the transition.** Both the local directory and the remote change in the *same*
+change — a repository whose remote name and directory name disagree is how the previous three-way
+naming mess started. The rule was to push before starting and verify the remote after finishing,
+because all three repositories lost `.git\objects` on 2026-08-20 and the root cause has never been
+confirmed fixed (`GIT_WORKFLOW.md` §2). Extracting the Chat product into its own `Nexus.Products.Chat`
+repository is a **separate** work item from the rename and remains pending; bundling the two would
+have produced a diff nobody could review.
 
 `Nexus.Developer` is created empty when DEVELOPER's first milestone (M-07-1.1 Work graph aggregates)
 starts, not before. An empty repository is the same lie as an empty test project.
@@ -456,12 +456,12 @@ starts, not before. An empty repository is the same lie as an empty test project
 
 | Question | Decided by | State |
 |---|---|---|
-| Whether the eight `NexusAI.*` husks are deleted or left inert | The `NexusAI` → `Nexus.Platform` rename work item | **Not yet decided** — §3.2 |
+| Whether the eight `NexusAI.*` husks are deleted or left inert | The `NexusAI` → `Nexus.Platform` rename (2026-08-24) — it did not settle this | **Not yet decided** — §3.2 |
 | Whether `Nexus.Platform.Tests` keeps its name | Whichever comes first: tests, or the rename | Not yet decided — `ASSURANCE_STANDARDS.md` §14 |
 | Whether each product gets one repository or products share one | The second product. One product is not a pattern | Not yet decided |
 | Where `IProductRegistry` finally lives | It sits in `Nexus.Platform.Contracts/Identity/` and conceptually belongs to GOVERNANCE | Moves when GOVERNANCE is built |
 | Whether `infra/` is per-repository or its own repository | **M-08-4.1** Environment model | Not yet decided |
-| Ordering of the `Nexus.Web` split versus its rename | The work item that does the first one | Not yet decided |
+| Ordering of the `Nexus.Web` split versus its rename | History: the rename ran first (2026-08-24); the Chat-product split is still pending | Split pending — §3.4 |
 
 ---
 

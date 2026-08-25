@@ -1,6 +1,6 @@
 # Builds and pushes the seven Nexus.Platform.* packages to GitHub Packages.
 #
-# Push-only flow: NexusAI never restores from this feed - every internal
+# Push-only flow: Nexus.Platform never restores from this feed - every internal
 # dependency is a ProjectReference and external PackageReferences resolve from
 # the default nuget.org source - so no nuget.config and no source registration
 # are needed. The feed URL and api-key are passed inline to `dotnet nuget push`.

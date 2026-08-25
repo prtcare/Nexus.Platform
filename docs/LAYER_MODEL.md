@@ -60,7 +60,7 @@ old reference without this table produces the wrong layer.
 | 01 CORE | Platform | 01 | `identity` | Every assembly: `Nexus.Platform.Contracts`, `.Core`, `.Identity`, `.Persistence`, `.Tools`, `.Providers.*`. **The assembly prefix is not changing** — `Nexus.Platform` is the repository, CORE is the layer |
 | 02 DATA | Data & Knowledge | 02 | `knowledge` | `Nexus.Platform.Persistence` (a stub) |
 | 03 GOVERNANCE | Governance & Registry | 03 | `governance` | — |
-| 04 AI | Intelligence | 04 | `intel` | Every assembly: `Nexus.Intelligence.*`; the repository `Nexus.Int`; the route `/intelligence/v1`. **TARGET** is `Nexus.AI.*` — a rename that is its own work item, never bundled with a behaviour change |
+| 04 AI | Intelligence | 04 | `intel` | Every assembly: `Nexus.Intelligence.*`; the repository `Nexus.Intelligence`; the route `/intelligence/v1`. **TARGET** is `Nexus.AI.*` — a rename that is its own work item, never bundled with a behaviour change |
 | 05 AUTOMATION | Automation & Workflow | 05 | `automation` | — |
 | 06 PRODUCT CORE | Shared Product Foundation | 06 | `product` | — |
 | 07 DEVELOPER | Developer | 07 | `dev` | — |
@@ -100,7 +100,7 @@ product ever re-implements identity, tenancy, authorization, audit, secrets or m
 
 | | |
 |---|---|
-| **Repository** | `Nexus.Platform` (CURRENT: `NexusAI`) |
+| **Repository** | `Nexus.Platform` (renamed from `NexusAI`, 2026-08-24) |
 | **Schema** | `core` — **TARGET, `M-02-1.5`** |
 | **Projects (TARGET)** | `Nexus.Platform.Contracts`, `.Core`, `.Identity`, `.Authorization`, `.Persistence`, `.Providers.OpenAI`, `.Providers.Anthropic`, `.Tools` |
 | **Today** | Contracts and Core are **real**. `Identity` (240 B), `Persistence` (308 B), `Tools` (231 B) and `Providers.Anthropic` (306 B) are **stubs**. `Authorization` does not exist. Governance primitives are in-memory or console only |
@@ -167,7 +167,7 @@ layer and product, without any consumer's structure leaking into it.
 
 | | |
 |---|---|
-| **Repository** | `Nexus.Intelligence` (CURRENT: `Nexus.Int`), deployed at `/intelligence/v1` |
+| **Repository** | `Nexus.Intelligence` (renamed from `Nexus.Int`, 2026-08-24), deployed at `/intelligence/v1` |
 | **Schema** | `ai` |
 | **Projects (TARGET)** | `Nexus.AI.Contracts`, `.Core`, `.Context`, `.Memory`, `.Agents`, `.Evaluation`, `.Api` |
 | **Today** | **The strongest layer in the system.** `Nexus.Intelligence.Contracts` (17 turn types plus the context types), `.Core` with a complete ten-step `TurnPipeline`, `Planner`, `ExecutionEngine`, `.Context` with `KeywordContextRanker` and `PromptAssembler`, `.Memory`, `.Agents` with `AgentRegistry` and `AgentDispatcher`, `.Api`. `DeveloperAgent.cs` is a 974-byte stub; the tool surface is `EmptyToolCatalog` and `EmptyToolGateway`; every store is in-memory. The `Nexus.AI.*` rename is TARGET |
@@ -267,7 +267,7 @@ to reconstruct them.
 | **Repository** | `Nexus.Platform` for contracts and records; **the pipelines live in each repository's own `.github/workflows/`**, because a pipeline that is not next to the code it builds drifts from it |
 | **Schema** | `delivery` |
 | **Projects (TARGET)** | `Nexus.Delivery.Contracts`, `.Core`, `.Infrastructure` |
-| **Today** | Does not exist, and **neither does any CI.** `NexusAI\.github\workflows\` is empty; the other two repositories have no `.github` directory. No infrastructure-as-code, no environment definitions, no deployment pipeline anywhere |
+| **Today** | Does not exist, and **neither does any CI.** `Nexus.Platform\.github\workflows\` is empty; the other two repositories have no `.github` directory. No infrastructure-as-code, no environment definitions, no deployment pipeline anywhere |
 | **Owns** | Git providers, repositories, branch policy, tags and commits · build infrastructure, CI/CD, artifact registry · environment management and provisioning · deployment and release promotion · infrastructure-as-code · backup, restore and disaster recovery · deployment credentials |
 | **Does NOT own** | The *meaning* of a build (07 decides whether it satisfies a work item) · whether a requirement was met (09) · runtime health after deployment (10) · product identity (03) |
 | **Minimum before the gate** | Deliberately tiny, and **mandatory**: a workflow per repository doing restore, build, test and publish results · branch protection on `main` requiring a green build · NetArchTest wired into CI as a hard gate · results in a form DEVELOPER can ingest · the antivirus exclusion for `C:\Personal\` **verified** and a documented backup of all three repositories |
@@ -341,10 +341,10 @@ becoming the architecture.
 
 | | |
 |---|---|
-| **Repository** | `Nexus.Experience` — CURRENT: `Nexus.Web`, which becomes this |
+| **Repository** | `Nexus.Experience` — renamed from `Nexus.Web` (2026-08-24) |
 | **Schema** | `experience` |
 | **Projects (TARGET)** | `Nexus.Experience.Contracts`, `.Conversation`, `.Core`, `.Infrastructure`, `.Api`, `.Client` |
-| **Today** | **Real, but trapped inside the Chat product.** `Conversation` and `ConversationMessage` are Chat aggregates carrying `ConversationType` and `ConversationVisibility`. The React client (`Nexus.Web.Client`) is real and substantial — `ChatPanel`, `MessageThread`, `ConversationList`, `CitationsPanel`, `ChatTelemetryContext` and the `use*` hooks all survive the extraction intact |
+| **Today** | **Real, but trapped inside the Chat product.** `Conversation` and `ConversationMessage` are Chat aggregates carrying `ConversationType` and `ConversationVisibility`. The React client (`Nexus.Experience.Client`) is real and substantial — `ChatPanel`, `MessageThread`, `ConversationList`, `CitationsPanel`, `ChatTelemetryContext` and the `use*` hooks all survive the extraction intact |
 | **Owns** | Conversation, message, participant, attachment, conversation session · memory, knowledge, tool-usage and result references · scope-kind bindings · UI preferences, command definitions, notification delivery |
 | **Does NOT own** | Contextual structure of any kind — `Workspace` and `Project` are 06, `Milestone` and `WorkItem` are 07 · product domain data · documents · model access |
 | **Minimum before the gate** | Conversation core · scope resolution · a reusable chat surface, only as much as DEVELOPER needs |
@@ -377,7 +377,7 @@ The engine is never called a Chat product.
 | **Repository** | `Nexus.Products.<Name>` — one repository per product, because a product must be removable |
 | **Schema** | **Its own database**, not a schema in `NexusPlatform` |
 | **Projects (TARGET)** | `Nexus.Products.<Name>.Domain`, `.Application`, `.Infrastructure`, `.Api`, `.Client` |
-| **Today** | One product: `Nexus.Products.Chat.*` in `Nexus.Web`, holding eleven aggregates of which six belong to other layers. It is being dissolved — the conversation half becomes EXPERIENCE |
+| **Today** | One product: `Nexus.Products.Chat.*` in `Nexus.Experience`, holding eleven aggregates of which six belong to other layers. It is being dissolved — the conversation half becomes EXPERIENCE |
 | **Owns** | Everything domain-specific to that product, and only that |
 | **Does NOT own** | Anything a lower layer owns · **another product's types — products never reference each other** |
 | **Minimum before the gate** | Nothing. Products are what the gate exists to unblock |

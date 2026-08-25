@@ -51,7 +51,7 @@ says `Nexus.Intelligence.Core` it means the assembly.
 
 ## 3. Project map — CURRENT
 
-`Nexus.Int`, remote `github.com/prtcare/Nexus-Int`, solution `Nexus.Int.slnx`, deployed at
+`Nexus.Intelligence`, remote `github.com/prtcare/Nexus.Intelligence`, solution `Nexus.Intelligence.slnx`, deployed at
 `/intelligence/v1`.
 
 | Project | Holds | Band |
@@ -94,7 +94,7 @@ the AI layer holds an interface reference and nothing else — it can *ask for a
 that are not AI**: a layer needing one completion does not take a dependency on reasoning, agents,
 context and memory to get it.
 
-**CURRENT caveat.** `set-openai-key.ps1` in NexusAI handles the OpenAI key today; `ISecretResolver`
+**CURRENT caveat.** `set-openai-key.ps1` in Nexus.Platform handles the OpenAI key today; `ISecretResolver`
 exists as a contract and is not the live path. **GATE A MINIMUM — `M-01-5.1`** makes it real, and
 `M-01-6.1` verifies the OpenAI path end to end.
 
@@ -348,7 +348,7 @@ nobody is alerted about is accounting rather than control — `OPERATIONS_ARCHIT
 ## 14. Citations
 
 `Citation` is in `Contracts/Context/`. The frontend already renders it — `CitationsPanel.tsx`,
-`citationTargets.ts`, `useCitationTarget.ts` in `Nexus.Web.Client/src/features/chat/`.
+`citationTargets.ts`, `useCitationTarget.ts` in `Nexus.Experience.Client/src/features/chat/`.
 
 **CURRENT: built end to end, and never proven against a live model.**
 

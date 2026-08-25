@@ -61,7 +61,7 @@ Version pinning mechanics, upgrade cadence and deprecation live in **STACK_VERSI
 |---|---|
 | **Purpose** | Single runtime and SDK for every backend project in Nexus. |
 | **Approved version** | `net10.0`. This is the only verified pinned version in the stack. |
-| **Where used** | Every project in NexusAI, Nexus.Int and Nexus.Web: `Nexus.Platform.Contracts`, `Nexus.Platform.Core`, `Nexus.Intelligence.Core`, `Nexus.Products.Chat.Domain`, and the rest. |
+| **Where used** | Every project in Nexus.Platform, Nexus.Intelligence and Nexus.Experience: `Nexus.Platform.Contracts`, `Nexus.Platform.Core`, `Nexus.Intelligence.Core`, `Nexus.Products.Chat.Domain`, and the rest. |
 | **Why selected** | Not recorded in any ADR. The observable rationale: one runtime across three repositories, first-class Minimal APIs, and EF Core support. |
 | **Alternatives rejected** | Not recorded. Do not claim any. |
 | **Upgrade policy** | SDK band pinned via `global.json` per repository. See STACK_VERSION_POLICY.md §2. |
@@ -173,7 +173,7 @@ Version pinning mechanics, upgrade cadence and deprecation live in **STACK_VERSI
 |---|---|
 | **Purpose** | The web client. React renders, TypeScript types, Vite builds and serves. |
 | **Approved version** | unpinned — see STACK_VERSION_POLICY.md |
-| **Where used** | `Nexus.Web.Client/src/` in its entirety: `App.tsx`, `main.tsx`, `layouts/AppLayout.tsx`, `routes/AppRoutes.tsx`, the `features/chat`, `features/projects`, `features/workspaces` and `features/system` folders, and eleven pages from `ChatPage` to `WorkspacesPage`. |
+| **Where used** | `Nexus.Experience.Client/src/` in its entirety: `App.tsx`, `main.tsx`, `layouts/AppLayout.tsx`, `routes/AppRoutes.tsx`, the `features/chat`, `features/projects`, `features/workspaces` and `features/system` folders, and eleven pages from `ChatPage` to `WorkspacesPage`. |
 | **Why selected** | Not recorded. Vite is evidenced by `vite.svg` and the `VITE_` environment-variable prefix in `config/environment.ts`. |
 | **Alternatives rejected** | Not recorded. Next.js, Angular and Vue are not present. |
 | **Upgrade policy** | React major upgrades are a whole-client change and get their own work item. Vite majors are routine. |
@@ -214,14 +214,14 @@ Version pinning mechanics, upgrade cadence and deprecation live in **STACK_VERSI
 |---|---|
 | **Purpose** | Source control (`git`), remote hosting and future CI (GitHub), .NET package distribution (NuGet), developer scripting (PowerShell). |
 | **Approved version** | n/a — tools, not dependencies. |
-| **Where used** | Remotes `github.com/prtcare/NexusAI`, `github.com/prtcare/Nexus-Int`, `github.com/prtcare/Nexus-web`. Package flow: `pack-local.ps1` in NexusAI and Nexus.Int → `C:\Personal\LocalNuGet` → consumed via `nuget.config`. Scripts: `pack-local.ps1`, `set-openai-key.ps1`, `nexus-v2-restructure.ps1`, `run-migration.ps1`. |
+| **Where used** | Remotes `github.com/prtcare/Nexus.Platform`, `github.com/prtcare/Nexus.Intelligence`, `github.com/prtcare/Nexus.Experience`. Package flow: `pack-local.ps1` in Nexus.Platform and Nexus.Intelligence → `C:\Personal\LocalNuGet` → consumed via `nuget.config`. Scripts: `pack-local.ps1`, `set-openai-key.ps1`, `nexus-v2-restructure.ps1`, `run-migration.ps1`. |
 | **Why selected** | Not recorded. |
 | **Alternatives rejected** | Not recorded. |
 | **Upgrade policy** | Tooling upgrades are unmanaged and do not require an ADR. |
 | **Compatibility requirements** | **`C:\Personal\LocalNuGet` is not a git repository and is unreachable from any build agent.** No CI can restore against it. **TARGET: GitHub Packages — M-08-1.1 Package feed reachable from CI.** Until then, packaging is a local-only workflow. Two further constraints are real and permanent: a git worktree nested inside an agent's working directory cannot be renamed on Windows while that agent runs, so **worktrees go in a sibling directory**; and all three repositories lost `.git\objects` simultaneously on 2026-08-20, with the recommended antivirus exclusion for `C:\Personal` **never confirmed** — **M-08-2.1 Close the 2026-08-20 recovery**. |
 | **Owner** | 08 DELIVERY |
 
-> **CI is NOT part of the current stack.** `NexusAI\.github\workflows\` exists and is empty. `Nexus.Web` and `Nexus.Int` have no `.github` directory at all. There is no pipeline, no IaC and no environment definition anywhere. Anything in this document that says "in CI" is TARGET, gated on **M-08-1.2**.
+> **CI is NOT part of the current stack.** `Nexus.Platform\.github\workflows\` exists and is empty. `Nexus.Experience` and `Nexus.Intelligence` have no `.github` directory at all. There is no pipeline, no IaC and no environment definition anywhere. Anything in this document that says "in CI" is TARGET, gated on **M-08-1.2**.
 
 ---
 

@@ -21,9 +21,9 @@ where — `SECURITY_STANDARDS.md` §repository permissions.
 
 | Local path | Remote | Solution |
 |---|---|---|
-| `C:\Personal\NexusAI` | `github.com/prtcare/NexusAI` | `Nexus.AI.slnx` |
-| `C:\Personal\Nexus.Int` | `github.com/prtcare/Nexus-Int` | `Nexus.Int.slnx` |
-| `C:\Personal\Nexus.Web` | `github.com/prtcare/Nexus-web` | `Nexus.Web.slnx` |
+| `C:\Personal\Nexus.Platform` | `github.com/prtcare/Nexus.Platform` | `Nexus.Platform.slnx` |
+| `C:\Personal\Nexus.Intelligence` | `github.com/prtcare/Nexus.Intelligence` | `Nexus.Intelligence.slnx` |
+| `C:\Personal\Nexus.Experience` | `github.com/prtcare/Nexus.Experience` | `Nexus.Experience.slnx` |
 
 `C:\Personal\LocalNuGet` is a package feed on disk. **It is not a git repository** and must never be
 made one — it holds build output, and build output does not belong in version control.
@@ -244,17 +244,17 @@ that looks like a permissions problem rather than a lock.
 worktree, never inside an agent's working directory.
 
 ```
-C:\Personal\Nexus.Web\                  the repository
-C:\Personal\Nexus.Web.work\WI-02-1.5.1-a\    worker A worktree
-C:\Personal\Nexus.Web.work\WI-02-1.5.1-b\    worker B worktree
+C:\Personal\Nexus.Experience\                  the repository
+C:\Personal\Nexus.Experience.work\WI-02-1.5.1-a\    worker A worktree
+C:\Personal\Nexus.Experience.work\WI-02-1.5.1-b\    worker B worktree
 ```
 
 ### 5.2 Lifecycle
 
 ```
-git worktree add ../Nexus.Web.work/WI-02-1.5.1-a -b work/WI-02-1.5.1-a integration/M-02-1.5
+git worktree add ../Nexus.Experience.work/WI-02-1.5.1-a -b work/WI-02-1.5.1-a integration/M-02-1.5
 ... work, commit, push ...
-git worktree remove ../Nexus.Web.work/WI-02-1.5.1-a
+git worktree remove ../Nexus.Experience.work/WI-02-1.5.1-a
 git worktree prune
 ```
 
@@ -588,4 +588,4 @@ incident.
 - `SECURITY_STANDARDS.md` — repository permissions, worker permissions, secret handling.
 - `CONFIGURATION_STANDARDS.md` — what may and may not enter git.
 - `DATABASE_STANDARDS.md` — migration ownership and the model snapshot.
-- GIT_RECOVERY_2026-08-20.md — the original incident record in the NexusAI docs set.
+- GIT_RECOVERY_2026-08-20.md — the original incident record in the Nexus.Platform docs set.

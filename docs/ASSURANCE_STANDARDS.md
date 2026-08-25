@@ -40,12 +40,12 @@ exists.
 
 | Repository | Project | Files |
 |---|---|---|
-| NexusAI | `Nexus.Platform.Architecture.Tests` | `PlatformBoundaryTests.cs` |
-| NexusAI | `Nexus.Platform.Tests` | **NONE — a `.csproj` with zero `.cs` files** |
-| Nexus.Int | `Nexus.Intelligence.Architecture.Tests` | `BoundaryRuleTests.cs` |
-| Nexus.Int | `Nexus.Intelligence.Tests` | `Ranking/KeywordContextRankerTests.cs` |
-| Nexus.Web | `Nexus.Products.Chat.Architecture.Tests` | `BoundaryTests.cs` |
-| Nexus.Web | `Nexus.Products.Chat.Tests` | `Chat/ChatContextBundleMapperTests.cs` |
+| Nexus.Platform | `Nexus.Platform.Architecture.Tests` | `PlatformBoundaryTests.cs` |
+| Nexus.Platform | `Nexus.Platform.Tests` | **NONE — a `.csproj` with zero `.cs` files** |
+| Nexus.Intelligence | `Nexus.Intelligence.Architecture.Tests` | `BoundaryRuleTests.cs` |
+| Nexus.Intelligence | `Nexus.Intelligence.Tests` | `Ranking/KeywordContextRankerTests.cs` |
+| Nexus.Experience | `Nexus.Products.Chat.Architecture.Tests` | `BoundaryTests.cs` |
+| Nexus.Experience | `Nexus.Products.Chat.Tests` | `Chat/ChatContextBundleMapperTests.cs` |
 
 Five test files. Three of them are architecture tests using NetArchTest.
 
@@ -74,7 +74,7 @@ test: nothing will tell anyone if it stops working.
 
 ### 2.3 What does not exist at all
 
-There is **no CI**. `.github\workflows\` in NexusAI is empty; Nexus.Web and Nexus.Int have no
+There is **no CI**. `.github\workflows\` in Nexus.Platform is empty; Nexus.Experience and Nexus.Intelligence have no
 `.github` directory. There is no acceptance criterion model, no verification method model, no
 evidence store, no verdict, no quality gate and no release qualification. Nothing in this document
 is currently enforced by a machine.
@@ -236,7 +236,7 @@ assemblies (`Nexus.Platform.Contracts`, `Nexus.Intelligence.Contracts`).
 | Status codes for known failure conditions | A `404` that becomes a `500` breaks error handling |
 | Problem Details shape on failure | `API_STANDARDS.md` §7 |
 
-The `Nexus.Web.Client` TypeScript models (`Workspace.ts`, `Project.ts`, `chat.types.ts`) are the
+The `Nexus.Experience.Client` TypeScript models (`Workspace.ts`, `Project.ts`, `chat.types.ts`) are the
 real consumer contract. A response DTO change that those models do not expect is a break regardless
 of what any C# test says.
 

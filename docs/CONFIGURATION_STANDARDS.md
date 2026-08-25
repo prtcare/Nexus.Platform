@@ -133,7 +133,7 @@ which is the confirmed pattern for local runs.
 
 ## 5. Frontend configuration
 
-**CURRENT.** `Nexus.Web.Client/src/config/environment.ts` is the single place the React client reads
+**CURRENT.** `Nexus.Experience.Client/src/config/environment.ts` is the single place the React client reads
 configuration, and the `VITE_` prefix is confirmed in use.
 
 | Rule | Statement |
@@ -195,7 +195,7 @@ path to its value; neither holds the value.**
 | Never in a comment | Including "// old key, no longer used" |
 
 **CURRENT.** `ISecretResolver` exists as a contract in `Nexus.Platform.Contracts/Secrets/` and has no
-implementation. `set-openai-key.ps1` in NexusAI handles the OpenAI key today. That is the whole of
+implementation. `set-openai-key.ps1` in Nexus.Platform handles the OpenAI key today. That is the whole of
 secret configuration in Nexus.
 
 **TARGET — M-01-5.1 Real secret resolver**, whose acceptance criteria include: no provider key,

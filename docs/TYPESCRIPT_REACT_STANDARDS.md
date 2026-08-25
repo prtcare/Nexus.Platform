@@ -8,14 +8,14 @@
 
 **Scope.** Cross-language rules are **CODE_CONVENTIONS.md**; names are **NAMING_STANDARDS.md**; the server side of every contract is **CSHARP_STANDARDS.md**. This document is the frontend form only.
 
-The client is `Nexus.Web.Client` — React, TypeScript and Vite, with TanStack Query for server state. See TECHNOLOGY_STACK.md. **TARGET:** the project becomes `Nexus.Experience.Client` when `Nexus.Web` becomes `Nexus.Experience`.
+The client is `Nexus.Experience.Client` — React, TypeScript and Vite, with TanStack Query for server state. See TECHNOLOGY_STACK.md. **Renamed (2026-08-24):** the project, formerly `Nexus.Web.Client`, became `Nexus.Experience.Client` when `Nexus.Web` became `Nexus.Experience`.
 
 ---
 
 ## 1. Folder structure
 
 ```
-Nexus.Web.Client/src/
+Nexus.Experience.Client/src/
   api/          ApiClient.ts, ApiError.ts
   app/          AppProviders.tsx, queryClient.ts
   components/   Card.tsx, MetricCard.tsx, RouteErrorBoundary.tsx
@@ -304,7 +304,7 @@ Eleven pages: `ChatPage`, `CreateWorkspacePage`, `DashboardPage`, `InsightsPage`
 
 ## 19. Testing
 
-> **CURRENT: there are ZERO frontend tests. No test file, no test framework, no test configuration, anywhere in `Nexus.Web.Client`. This is the largest single quality gap in Nexus.**
+> **CURRENT: there are ZERO frontend tests. No test file, no test framework, no test configuration, anywhere in `Nexus.Experience.Client`. This is the largest single quality gap in Nexus.**
 
 For context, the backend has exactly two behaviour tests — the frontend has none, and the frontend is where the most-changed code is.
 

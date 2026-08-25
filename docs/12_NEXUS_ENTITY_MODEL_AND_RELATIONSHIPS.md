@@ -23,10 +23,10 @@ This is the canonical reference for deciding where new Nexus information belongs
 *Added under V2.1 — see ADR-011 in `08_DECISIONS_AND_TECHNICAL_DEBT.md` and
 `NEXUS_ARCHITECTURE_V2.md` §1.3.*
 
-**All 21 tables described in this document belong to the Chat product (`Nexus.Web` /
+**All 21 tables described in this document belong to the Chat product (`Nexus.Experience` /
 `Nexus.Products.Chat.*`), not to a shared Nexus Platform.** Workspace, Project, Milestone,
 Conversation, Knowledge, ADR, Work Item, Artifact, and every other concept below is
-product-owned data. Nexus Platform (`Nexus.AI`) holds no Workspace, Project, Conversation, or
+product-owned data. Nexus Platform (`Nexus.Platform`) holds no Workspace, Project, Conversation, or
 Knowledge table and no product database at all — it is the backbone that Intelligence uses to
 reach a model, not a shared foundation these tables sit on. A future product (Vault, ERP,
 Nexus Build) gets its own store, its own schema, and will very likely **not** look like this
@@ -34,7 +34,7 @@ document at all.
 
 **Memory is retired from this product's schema.** It no longer lives here, in any form —
 present or future. Memory now belongs entirely to `Nexus.Intelligence.Memory` in the
-`Nexus.Int` solution, keyed by an opaque `ScopeRef` (kind, key, path) that this product
+`Nexus.Intelligence` solution, keyed by an opaque `ScopeRef` (kind, key, path) that this product
 supplies but Intelligence never parses. There are no product foreign keys into Memory and
 none are planned; see the note under "Code model without a confirmed Dataverse table" below,
 and ADR-012.

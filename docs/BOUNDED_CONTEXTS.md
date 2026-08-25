@@ -354,7 +354,7 @@ enforceable: *promotion to Staging deploys the identical artifact already in Dev
 field — a Beta release can be running in Production without contradiction (`M-08-4.1`, `M-07-7.2`).
 
 **CURRENT — this layer is half absent.** Source control (8.1) is in daily use across three
-repositories. 8.2 through 8.6 do not exist: `NexusAI\.github\workflows\` is empty and the other two
+repositories. 8.2 through 8.6 do not exist: `Nexus.Platform\.github\workflows\` is empty and the other two
 repositories have no `.github` directory at all. `M-08-1.1` through `M-08-1.4` are the first work in
 the roadmap, because the GATE A acceptance test cannot be demonstrated without CI.
 
@@ -436,7 +436,7 @@ kind produces **a clear error, not an empty bundle** (`M-11-2.1`) — an empty b
 indistinguishable from a misconfiguration and is how this seam would rot silently.
 
 **TRANSITION, and it is the largest structural move in the roadmap.** A working conversation
-implementation exists as `Nexus.Products.Chat.*` in `Nexus.Web`. It is a product and must become a
+implementation exists as `Nexus.Products.Chat.*` in `Nexus.Experience`. It is a product and must become a
 layer. Its `Workspace` and `Project` go to 06; its `WorkItem`, `Adr`, `Branch`, `Snapshot`,
 `Artifact` and `Session` go to 07, 08 and 02; what remains becomes 11.1 and 11.4 — `M-11-1.1` and
 `M-11-1.2`. **EXPERIENCE contributes nothing to GATE A**, deliberately. A standalone end-user chat
@@ -463,7 +463,7 @@ across the whole solution**, and `M-06-1.2` and `M-09-7.1` state the same rule i
 PRODUCT CORE and ASSURANCE. Three layers say it separately because it is the rule most likely to be
 broken by a small, reasonable-looking change.
 
-**CURRENT.** One product exists — Chat, in `Nexus.Web` — and it predates all of this. It is a
+**CURRENT.** One product exists — Chat, in `Nexus.Experience` — and it predates all of this. It is a
 reference, not a template, and most of what it currently owns belongs to layers 02, 06, 07, 08
 and 11. `PRODUCT_ARCHITECTURE.md` §13 carries the detail.
 

@@ -33,7 +33,7 @@ Documentation states intended architecture; the real repository states what is a
 
 ## 6. The AGENTS.md contract
 
-Every primary repository (currently NexusAI, Nexus.Int, Nexus.Web) carries an AGENTS.md at its root. It states: what the repository is; the small mandatory reading set for any task (never the entire documentation set); that repository instructions override a coding model's default conventions; that existing implementation, naming and structure must be inspected and reused before anything new is created; what the model may decide itself; what requires architect approval; what to do before changing files; what to do before declaring completion; and the repository's currently known temporary mechanisms. It links to this document and to DOCUMENTATION_INDEX.md rather than restating their content.
+Every primary repository (currently Nexus.Platform, Nexus.Intelligence, Nexus.Experience) carries an AGENTS.md at its root. It states: what the repository is; the small mandatory reading set for any task (never the entire documentation set); that repository instructions override a coding model's default conventions; that existing implementation, naming and structure must be inspected and reused before anything new is created; what the model may decide itself; what requires architect approval; what to do before changing files; what to do before declaring completion; and the repository's currently known temporary mechanisms. It links to this document and to DOCUMENTATION_INDEX.md rather than restating their content.
 
 ## 7. Documentation discipline
 

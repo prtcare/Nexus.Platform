@@ -12,9 +12,9 @@ its own repository and solution:
 
 | Solution | Repository | Is | Deployed as |
 |---|---|---|---|
-| **Nexus.AI** | `C:\Personal\NexusAI` | Platform — model gateways, provider neutrality, usage metering, quota, audit | NuGet packages, never run directly |
-| **Nexus.Int** | `C:\Personal\Nexus.Int` | Intelligence — policy, intent, context ranking, agent and model selection, prompt assembly | `/intelligence/v1` |
-| **Nexus.Web** | `C:\Personal\Nexus.Web` | Chat product — domain, database, API and React client | `/api/v1` |
+| **Nexus.Platform** | `C:\Personal\Nexus.Platform` | Platform — model gateways, provider neutrality, usage metering, quota, audit | NuGet packages, never run directly |
+| **Nexus.Intelligence** | `C:\Personal\Nexus.Intelligence` | Intelligence — policy, intent, context ranking, agent and model selection, prompt assembly | `/intelligence/v1` |
+| **Nexus.Experience** | `C:\Personal\Nexus.Experience` | Chat product — domain, database, API and React client | `/api/v1` |
 
 Platform holds **no product data and no product schema**. Workspaces, projects,
 conversations, knowledge and chat all belong to the Chat product, because every future
@@ -43,7 +43,7 @@ See `09_ROADMAP_AND_MILESTONES.md` for the sequence and
 - Clean Architecture — command/query handlers, repositories, strongly typed IDs
 - EF Core code-first against SQL Server (LocalDB now, Azure SQL at Stage 4)
 - Provider-neutral model gateway, currently backed by OpenAI
-- React + Vite client (`Nexus.Web.Client`)
+- React + Vite client (`Nexus.Experience.Client`)
 - Architecture tests (NetArchTest) enforcing the layer boundaries in each solution
 
 ## Documentation map
@@ -76,15 +76,15 @@ Supporting references, kept alongside:
 ## Getting started
 
 1. Install the .NET 10 SDK. `global.json` pins the version.
-2. Set the model-provider key with `set-openai-key.ps1`. It belongs to `Nexus.Int` only,
+2. Set the model-provider key with `set-openai-key.ps1`. It belongs to `Nexus.Intelligence` only,
    under `Platform:Providers:OpenAI:ApiKey` — a product must never hold a provider
    credential. Never use `dotnet user-secrets set`; it parks the value in shell history.
-3. Build and pack Platform: `dotnet build Nexus.AI.slnx` then `.\pack-local.ps1`, which
+3. Build and pack Platform: `dotnet build Nexus.Platform.slnx` then `.\pack-local.ps1`, which
    publishes to the local feed at `C:\Personal\LocalNuGet`.
-4. Build and run Intelligence: `dotnet build Nexus.Int.slnx`, then run
+4. Build and run Intelligence: `dotnet build Nexus.Intelligence.slnx`, then run
    `Nexus.Intelligence.Api`. Swagger at `http://localhost:5000/swagger`.
-5. Build and run the product: `dotnet build Nexus.Web.slnx`, run
-   `Nexus.Products.Chat.Api`, then `npm install && npm run dev` in `src\Nexus.Web.Client`.
+5. Build and run the product: `dotnet build Nexus.Experience.slnx`, run
+   `Nexus.Products.Chat.Api`, then `npm install && npm run dev` in `src\Nexus.Experience.Client`.
 6. Verify a chat turn end to end.
 
 Do not commit API keys, client secrets, passwords, certificates, connection strings

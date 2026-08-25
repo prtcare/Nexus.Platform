@@ -14,7 +14,7 @@
 
 Two things must be said before any rule, because a policy that pretends otherwise is unusable.
 
-**There is no CI.** `NexusAI\.github\workflows\` exists and is empty. `Nexus.Web` and `Nexus.Int` have no `.github` directory at all. Every rule below that says "the build fails" is **TARGET** until **M-08-1.2 Pipelines on every repository** lands, and every rule that says "merge is blocked" is TARGET until **M-08-1.4 Branch protection and architecture gate** lands. Until then the same rules are enforced by the person opening the pull request. Say so plainly rather than writing a policy that quietly does nothing.
+**There is no CI.** `Nexus.Platform\.github\workflows\` exists and is empty. `Nexus.Experience` and `Nexus.Intelligence` have no `.github` directory at all. Every rule below that says "the build fails" is **TARGET** until **M-08-1.2 Pipelines on every repository** lands, and every rule that says "merge is blocked" is TARGET until **M-08-1.4 Branch protection and architecture gate** lands. Until then the same rules are enforced by the person opening the pull request. Say so plainly rather than writing a policy that quietly does nothing.
 
 **Only one version is verified.** `net10.0` is the target framework of every project. Every other version in Nexus — EF Core, `Microsoft.Data.SqlClient`, Swashbuckle, the OpenAI SDK, `System.ClientModel`, React, TypeScript, Vite, TanStack Query, NetArchTest — is recorded in TECHNOLOGY_STACK.md as *unpinned* because the exact value was not read from a project file. The EF Core assemblies on disk are 9.x-era; that is an observation about assemblies, not a pin.
 
@@ -24,7 +24,7 @@ The first action this policy demands is therefore **audit, not upgrade**: read t
 
 ## 2. The pinning mechanisms that exist
 
-Three files per repository do the work. All three exist in NexusAI, Nexus.Int and Nexus.Web.
+Three files per repository do the work. All three exist in Nexus.Platform, Nexus.Intelligence and Nexus.Experience.
 
 ### `global.json` — pins the .NET SDK
 
@@ -34,7 +34,7 @@ Three files per repository do the work. All three exist in NexusAI, Nexus.Int an
 | **State** | CURRENT — one exists per repository. |
 | **Policy** | Pin the SDK **version** with a **`rollForward` of `latestPatch`**. Patch-level drift is safe and carries security fixes; feature-band drift changes compiler and MSBuild behaviour between two developers on the same commit. |
 | **Who changes it** | 08 DELIVERY, in a work item that touches nothing else. Never bundled with feature work. |
-| **Non-negotiable** | All three repositories move to the same SDK version in the same change. Nexus.Web consumes packages produced by NexusAI and Nexus.Int; divergent SDKs produce divergent output for identical source. |
+| **Non-negotiable** | All three repositories move to the same SDK version in the same change. Nexus.Experience consumes packages produced by Nexus.Platform and Nexus.Intelligence; divergent SDKs produce divergent output for identical source. |
 
 ### `Directory.Build.props` — one place for shared MSBuild properties
 
@@ -51,7 +51,7 @@ Three files per repository do the work. All three exist in NexusAI, Nexus.Int an
 | Aspect | Rule |
 |---|---|
 | **What it does** | Names the feeds NuGet restores from. Currently points at `C:\Personal\LocalNuGet`. |
-| **State** | **TRANSITION.** The flow is `pack-local.ps1` (in NexusAI and Nexus.Int) → `C:\Personal\LocalNuGet` → consumed via `nuget.config`. `LocalNuGet` is not a git repository and is unreachable from any build agent. |
+| **State** | **TRANSITION.** The flow is `pack-local.ps1` (in Nexus.Platform and Nexus.Intelligence) → `C:\Personal\LocalNuGet` → consumed via `nuget.config`. `LocalNuGet` is not a git repository and is unreachable from any build agent. |
 | **Consequence** | No pipeline can restore Nexus.Platform or Nexus.Intelligence packages. This blocks every pipeline that follows. |
 | **TARGET** | GitHub Packages — **M-08-1.1 Package feed reachable from CI**. |
 | **Policy once it lands** | Feeds are enumerated explicitly with `<clear/>` first, so a machine-level `NuGet.config` cannot silently inject a source. Package-source mapping restricts `Nexus.*` to the Nexus feed so an upstream package cannot shadow a first-party one. |
@@ -61,7 +61,7 @@ Three files per repository do the work. All three exist in NexusAI, Nexus.Int an
 | Aspect | Rule |
 |---|---|
 | **What it does** | `package.json` declares ranges; the lock file pins the resolved graph. |
-| **State** | CURRENT for `Nexus.Web.Client`; the declared versions were not verified. |
+| **State** | CURRENT for `Nexus.Experience.Client`; the declared versions were not verified. |
 | **Policy** | The lock file is committed and is the pin. `npm ci` — never `npm install` — in any automated or reproducible context. A pull request that changes the lock file without changing `package.json` must explain why in its description. |
 | **Ranges** | Caret ranges are acceptable in `package.json` **because** the lock file is committed. Without a committed lock file they would not be. |
 
@@ -124,7 +124,7 @@ A breaking upgrade is any upgrade that changes an API you call, changes a defaul
 **Required, in order:**
 
 1. **Its own branch and its own work item.** `work/<id>` per NAMING_STANDARDS.md §34. Nothing else in the change.
-2. **A written blast radius.** Which projects, which files, which endpoints. For `Nexus.Web`, the client and the API are separate blast radii and must be listed separately.
+2. **A written blast radius.** Which projects, which files, which endpoints. For `Nexus.Experience`, the client and the API are separate blast radii and must be listed separately.
 3. **Boundary tests must pass unchanged.** `PlatformBoundaryTests.cs`, `BoundaryRuleTests.cs` and `BoundaryTests.cs` are the only automated defence the architecture has. An upgrade that requires editing them is not an upgrade, it is an architecture change and needs an ADR.
 4. **Manual verification, because two behaviour tests will not catch it.** The system has exactly two: `Ranking/KeywordContextRankerTests.cs` and `Chat/ChatContextBundleMapperTests.cs`. Until **M-09-3.1 Test plans and test cases**, the verification list is written by hand in the pull request. At minimum: the Chat API starts on `http://localhost:5299`, `HealthEndpoint` answers, and a `Workspace` insert returns a server-generated `Ref` and `Seq`.
 5. **Push at the stage boundary.** The 2026-08-20 incident cost uncommitted work; SQL Stage 1b was complete, proven and uncommitted on `feat/azure-sql` at `29ac2f4`. A long-running upgrade branch is exactly the shape of work that gets lost.
@@ -136,7 +136,7 @@ A breaking upgrade is any upgrade that changes an API you call, changes a defaul
 |---|---|
 | **EF Core major** | Never in the same change as a migration. A model-snapshot difference plus a provider difference is not diagnosable. Verify a real insert against LocalDB and confirm the `Ref` computed column still materialises. |
 | **`Microsoft.Data.SqlClient` major** | Historically changes TLS and certificate-trust defaults. Verify against **both** LocalDB and Azure SQL before merge. |
-| **.NET SDK band** | All three repositories together. Nexus.Web consumes packages built by the other two. |
+| **.NET SDK band** | All three repositories together. Nexus.Experience consumes packages built by the other two. |
 | **React major** | One change across the whole client — `App.tsx`, `main.tsx`, `layouts/AppLayout.tsx`, `routes/AppRoutes.tsx`, every page, every feature folder. There are **zero** frontend tests, so verification is manual and the list goes in the pull request. |
 | **TanStack Query major** | Touches every `use*` hook — `useConversations.ts` through `useSystemHealth.ts` — plus `app/queryClient.ts`. Treat as one atomic change. |
 | **OpenAI SDK** | Must stay behind `IModelGateway`. If an upgrade would surface a provider type in `Nexus.Platform.Contracts`, the upgrade is wrong, not the boundary. |

@@ -1,11 +1,11 @@
-# Nexus.AI — the Platform
+# Nexus.Platform — the Platform
 
 The backbone between Nexus products and AI providers. It handles model gateways, provider
 neutrality, usage metering, quota policy and audit — the *execution* of an AI call, never
 the decision to make one.
 
 **Ships as NuGet packages, not as a service.** Nothing here is deployed; the packages are
-consumed in-process by `Nexus.Int`.
+consumed in-process by `Nexus.Intelligence`.
 
 This repo is also the **documentation hub** for all of Nexus (see below).
 
@@ -15,20 +15,20 @@ This repo is also the **documentation hub** for all of Nexus (see below).
 identity abstractions, the `Nexus.Platform.Contracts` seam.
 
 **Is not:** it holds no product data and no product schema. Workspaces, projects,
-conversations, knowledge and chat all belong to the **Chat product** in `Nexus.Web`, because
+conversations, knowledge and chat all belong to the **Chat product** in `Nexus.Experience`, because
 every future product will structure its data differently. Platform that knows about a
 product's tables is Platform that cannot serve the next product.
 
 It also does not decide anything — routing, ranking, agent and model selection all live in
-`Nexus.Int`. The organising rule across all three repos:
+`Nexus.Intelligence`. The organising rule across all three repos:
 
 > **Intelligence decides. Platform executes. Products own the data and the experience.**
 
 ## Local development
 
 ```powershell
-dotnet build Nexus.AI.slnx
-dotnet test  Nexus.AI.slnx
+dotnet build Nexus.Platform.slnx
+dotnet test  Nexus.Platform.slnx
 .\pack-local.ps1              # packs to C:\Personal\LocalNuGet
 ```
 
@@ -54,6 +54,6 @@ each. Do not treat them as current without checking that table first.
 
 | Repo | Is | Deployed as |
 |---|---|---|
-| `C:\Personal\NexusAI` | Platform (this repo) | NuGet packages |
-| `C:\Personal\Nexus.Int` | Intelligence — the deciding layer | `/intelligence/v1` |
-| `C:\Personal\Nexus.Web` | Chat product — React + .NET | `/api/v1` |
+| `C:\Personal\Nexus.Platform` | Platform (this repo) | NuGet packages |
+| `C:\Personal\Nexus.Intelligence` | Intelligence — the deciding layer | `/intelligence/v1` |
+| `C:\Personal\Nexus.Experience` | Chat product — React + .NET | `/api/v1` |

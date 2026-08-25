@@ -1,6 +1,6 @@
-# AGENTS.md — NexusAI (Nexus.Platform)
+# AGENTS.md — Nexus.Platform
 
-**Repository**: C:\Personal\NexusAI · github.com/prtcare/NexusAI · solution Nexus.AI.slnx
+**Repository**: C:\Personal\Nexus.Platform · github.com/prtcare/Nexus.Platform · solution Nexus.Platform.slnx
 **Is**: The Platform layer — model gateways, provider neutrality, usage metering, quota policy, audit. Ships as NuGet packages, not a service. See README.md for the full is/is-not.
 **This repo is also the documentation hub for all of Nexus** — `docs\` here is authoritative for all three repositories.
 

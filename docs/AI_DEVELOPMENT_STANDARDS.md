@@ -149,7 +149,7 @@ rules data rather than code.
 | `PersistenceHint` / `PersistenceHintKind` | Whether this content may be retained |
 
 **How a consumer participates:** it flattens its own aggregates into `ContextItem` values and hands
-over a `ContextBundle`. `ChatContextBundleMapper` in `Nexus.Web` is the reference implementation and
+over a `ContextBundle`. `ChatContextBundleMapper` in `Nexus.Experience` is the reference implementation and
 is one of exactly two things in the entire system with a behaviour test
 (`Chat/ChatContextBundleMapperTests.cs`).
 
@@ -504,7 +504,7 @@ assume anything behind them survives a restart.
   `SideEffectClass`, §11 the logging prohibitions.
 - `ASSURANCE_STANDARDS.md` — §13 AI evaluation, §7.1 safety-critical criteria, §10 evidence.
 - `NEW_MODULE_GUIDE.md` §7 — the procedure for adding an agent.
-- `REPOSITORY_STRUCTURE.md` §3.3 — the full contents of `Nexus.Int`.
+- `REPOSITORY_STRUCTURE.md` §3.3 — the full contents of `Nexus.Intelligence`.
 - `PRODUCT_DEVELOPMENT_GUIDE.md` §10 — the consumer side of the `ContextBundle` seam.
 - `MACHINE_DEVELOPMENT_GUIDE.md` §1 and §13 — what AI may and may not do where physical safety is
   involved.

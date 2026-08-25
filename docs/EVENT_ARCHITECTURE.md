@@ -86,7 +86,7 @@ direction is legal.
 | Choose | When |
 |---|---|
 | **Direct call (DI)** | Both types are in the same process, the dependency direction is downward, and the caller needs the result to continue. This is the default and covers most of Nexus |
-| **HTTP call** | The dependency direction is downward but the callee is a different host. Two exist today: Nexus.Web → `/intelligence/v1` |
+| **HTTP call** | The dependency direction is downward but the callee is a different host. Two exist today: Nexus.Experience → `/intelligence/v1` |
 | **Event** | The emitter must not know the consumer exists, **and** the emitter does not need the outcome. Both halves, not either |
 | **Job (AUTOMATION 05)** | The work is durable, retryable and may take longer than a request. `M-05-1.1` — a job survives a restart; an in-process event does not |
 | **Poll** | The direction is legal but the emitter would have to know the consumer. The CURRENT answer for DELIVERY → DEVELOPER |
@@ -116,8 +116,8 @@ composes the Chat product. Every step in `TurnPipeline` — `IntentClassifier`, 
 `ContextSelector`, `AgentSelector`, `ModelSelector`, `PromptStep`, `ModelStep`, `ToolLoop`,
 `ResponseComposer` — is invoked directly, in order, synchronously.
 
-**4.2 HTTP between hosts.** `Nexus.Web` calls Intelligence at `/intelligence/v1` through
-`IIntelligenceClient`. `Nexus.Web.Client` calls the Chat API at `/api/v1` through `ApiClient.ts`.
+**4.2 HTTP between hosts.** `Nexus.Experience` calls Intelligence at `/intelligence/v1` through
+`IIntelligenceClient`. `Nexus.Experience.Client` calls the Chat API at `/api/v1` through `ApiClient.ts`.
 Both are request/response; neither is fire-and-forget.
 
 **4.3 Polling, where an event is what you actually want.** DEVELOPER does not exist yet, so no polling

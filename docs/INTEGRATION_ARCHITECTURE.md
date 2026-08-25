@@ -24,14 +24,14 @@ list. Nothing else in Nexus currently talks to anything else.
 
 | # | From | To | Mechanism | Contract | State |
 |---|---|---|---|---|---|
-| 1 | `Nexus.Web.Client` | `Nexus.Products.Chat.Api` | HTTP, `/api/v1` | `ApiClient.ts`, `ApiError.ts`, TanStack Query hooks | **Works.** `http://localhost:5299` |
+| 1 | `Nexus.Experience.Client` | `Nexus.Products.Chat.Api` | HTTP, `/api/v1` | `ApiClient.ts`, `ApiError.ts`, TanStack Query hooks | **Works.** `http://localhost:5299` |
 | 2 | `Nexus.Products.Chat.Api` | `Nexus.Intelligence.Api` | HTTP, **`/intelligence/v1`** | `IIntelligenceClient`, `IntelligenceTurnRequest`/`Response` | **Works.** Port not verified — do not state one |
 | 3 | `Nexus.Intelligence.*` | OpenAI | **Through CORE's gateway** — `IModelGateway` → `RoutingModelGateway` → `OpenAIModelGateway` | `Nexus.Platform.Contracts/Models/` (13 types) | **Works.** The only working provider |
 | 4 | `Nexus.Products.Chat.Infrastructure` | Azure SQL / LocalDB | EF Core, `NexusChatDbContext` | `IEntityTypeConfiguration`, migrations | **Works** for `Workspace`; ten aggregates still on Dataverse |
 | 5 | `Nexus.Products.Chat.Infrastructure` | Dataverse | `Microsoft.PowerPlatform.Dataverse.Client` | Ten aggregate implementations | **TRANSITION — being deleted at `M-02-1.4`** |
-| 6 | `Nexus.Web` | LocalNuGet | NuGet restore via `nuget.config` | `Nexus.Platform.*`, `Nexus.Intelligence.*` packages | Works on one machine. **Blocks CI** |
-| 7 | `Nexus.Int` | LocalNuGet | Same | `Nexus.Platform.*` packages | Same |
-| 8 | `NexusAI`, `Nexus.Int` | LocalNuGet | `pack-local.ps1` | — | Publishes to `C:\Personal\LocalNuGet` |
+| 6 | `Nexus.Experience` | LocalNuGet | NuGet restore via `nuget.config` | `Nexus.Platform.*`, `Nexus.Intelligence.*` packages | Works on one machine. **Blocks CI** |
+| 7 | `Nexus.Intelligence` | LocalNuGet | Same | `Nexus.Platform.*` packages | Same |
+| 8 | `Nexus.Platform`, `Nexus.Intelligence` | LocalNuGet | `pack-local.ps1` | — | Publishes to `C:\Personal\LocalNuGet` |
 | 9 | Developer machine | The OpenAI key | `set-openai-key.ps1` | — | **TARGET — `ISecretResolver`, `M-01-5.1`** |
 
 **Rows 6 to 8 are one problem.** `C:\Personal\LocalNuGet` is a directory. It has no integrity

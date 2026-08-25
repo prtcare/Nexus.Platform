@@ -56,7 +56,7 @@ in this document.
 ```
 ╔═════════════════════════════════════════════════════════════════════════════╗
 ║ ZONE 0 — UNTRUSTED                                                          ║
-║   Browser · Nexus.Web.Client (React + Vite + TanStack Query)                ║
+║   Browser · Nexus.Experience.Client (React + Vite + TanStack Query)         ║
 ║   Holds a token. Renders what it is given. ENFORCES NOTHING.                ║
 ║   Every check here is a convenience; none of it is a control.               ║
 ╚══════════════════════════════╤══════════════════════════════════════════════╝
@@ -344,8 +344,8 @@ boundaries themselves:
 The production-data rule is written now, before any environment exists, because it is the rule most
 often broken the first time something is hard to reproduce — and once broken it cannot be unbroken.
 
-**CURRENT.** `main` is directly pushable in all three repositories. `NexusAI\.github\workflows\` is
-empty; `Nexus.Web` and `Nexus.Int` have no `.github` directory at all. There is no deployment pipeline,
+**CURRENT.** `main` is directly pushable in all three repositories. `Nexus.Platform\.github\workflows\` is
+empty; `Nexus.Experience` and `Nexus.Intelligence` have no `.github` directory at all. There is no deployment pipeline,
 no IaC and no environment definition anywhere.
 
 ---

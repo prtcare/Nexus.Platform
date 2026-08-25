@@ -58,7 +58,7 @@ That last criterion is a security control living inside an observability milesto
 ## 2. The logging library — not yet decided
 
 **No logging library has been selected.** Serilog is not present. Nothing beyond the
-`Microsoft.Extensions.Logging` abstractions exists in NexusAI, Nexus.Int or Nexus.Web, and
+`Microsoft.Extensions.Logging` abstractions exists in Nexus.Platform, Nexus.Intelligence or Nexus.Experience, and
 `TECHNOLOGY_STACK.md` §7 records it as NOT SELECTED.
 
 **The deciding condition**, written down so the decision is made on requirements rather than
@@ -356,7 +356,7 @@ user content anywhere.
 
 ### 12.1 Build
 
-**CURRENT: no CI exists.** `NexusAI/.github/workflows/` is empty; Nexus.Web and Nexus.Int have no
+**CURRENT: no CI exists.** `Nexus.Platform/.github/workflows/` is empty; Nexus.Experience and Nexus.Intelligence have no
 `.github` directory at all. Every claim that something built is a person's assertion.
 
 **TARGET — M-08-1.3 Machine-readable results.** Each pipeline run publishes a JSON artefact with

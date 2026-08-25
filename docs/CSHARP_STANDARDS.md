@@ -290,7 +290,7 @@ No validation library is in use. Do not introduce one without an ADR (next: **AD
 | Prefer a pure type that needs no test double | The reason `KeywordContextRanker` is one of the two things tested is that it is pure |
 | A test never touches a real database, a real provider or the network | An integration test that does is a different category and needs an environment — **M-08-4.1 Environment model** |
 | Architecture tests are not optional | `PlatformBoundaryTests.cs`, `BoundaryRuleTests.cs`, `BoundaryTests.cs` are the only automated defence the architecture has. An upgrade or refactor that requires *editing* them is an architecture change needing an ADR. |
-| Tests do not run in CI | There is no CI — `NexusAI\.github\workflows\` is empty; the other two repositories have no `.github` at all. **M-08-1.2 Pipelines on every repository**, blocking at **M-08-1.4**. |
+| Tests do not run in CI | There is no CI — `Nexus.Platform\.github\workflows\` is empty; the other two repositories have no `.github` at all. **M-08-1.2 Pipelines on every repository**, blocking at **M-08-1.4**. |
 
 ---
 

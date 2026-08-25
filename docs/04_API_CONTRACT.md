@@ -6,7 +6,7 @@ All route IDs use GUID constraints.
 
 **Under V2.1** (see `NEXUS_ARCHITECTURE_V2.md` and ADR-013/ADR-014 in
 `08_DECISIONS_AND_TECHNICAL_DEBT.md`), these are the routes of `Nexus.Products.Chat.Api` in
-the `Nexus.Web` solution — the Chat product's own contract. They are versioned at `/api/v1`.
+the `Nexus.Experience` solution — the Chat product's own contract. They are versioned at `/api/v1`.
 This is a separate contract from the Intelligence API below; the product never exposes a
 Platform or Intelligence route directly.
 
@@ -52,13 +52,13 @@ Platform or Intelligence route directly.
 | Artifact | GET | `/api/v1/workitems/{workItemId}/artifacts` | List by work item |
 | Artifact | PUT | `/api/v1/artifacts/{id}` | Update |
 
-## Intelligence contract — `Nexus.Int`, `/intelligence/v1`
+## Intelligence contract — `Nexus.Intelligence`, `/intelligence/v1`
 
-This is a second, separate contract, owned by the `Nexus.Int` solution, not the Chat product.
+This is a second, separate contract, owned by the `Nexus.Intelligence` solution, not the Chat product.
 Products **may only reach Intelligence through the `Nexus.Intelligence.Contracts` NuGet
 package** — its `IIntelligenceClient` interface and the `IntelligenceTurnRequest` /
 `IntelligenceTurnResponse` / `ContextBundle` records. No product may call these HTTP routes
-directly, hold an HTTP client pointed at `/intelligence/v1`, or reference `Nexus.Int` project
+directly, hold an HTTP client pointed at `/intelligence/v1`, or reference `Nexus.Intelligence` project
 types. See §2.3 and §3 of `NEXUS_ARCHITECTURE_V2.md` for the full contract shape.
 
 | Method | Route | Purpose |

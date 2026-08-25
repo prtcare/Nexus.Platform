@@ -100,9 +100,8 @@ code, and are reviewed in the same pull request that changes what they build.
 | `C:\Personal\Nexus.Web` | `github.com/prtcare/Nexus-web` | `Nexus.Web.slnx` |
 | `C:\Personal\LocalNuGet` | — | Local package feed, **not a git repository** |
 
-TARGET repositories — `Nexus.Platform` (NexusAI renamed), `Nexus.Experience` (Nexus.Web becomes
-this), `Nexus.Developer` (new), `Nexus.Products.<Name>` (new) — do not exist and must not be
-described as existing.
+DONE (2026-08-24) — `Nexus.Platform` (NexusAI renamed), `Nexus.Intelligence` (Nexus.Int renamed),
+`Nexus.Experience` (Nexus.Web renamed); `Nexus.Developer` and `Nexus.Products.<Name>` remain to be created.
 
 ### 4.2 Branches, worktrees and the DEVELOPER relationship
 
@@ -170,13 +169,13 @@ CI milestones sits in P0 and gates GATE A.
 | Milestone | Delivers | Why it is first |
 |---|---|---|
 | `M-08-1.1` Package feed reachable from CI | `Nexus.Platform.*` and `Nexus.Intelligence.*` publish to GitHub Packages; `nuget.config` points at a reachable feed | **`C:\Personal\LocalNuGet` is unreachable from a build agent.** No pipeline can restore until this moves |
-| `M-08-1.2` Pipelines on every repository | Restore, build and test on every push, in all three repositories | Establishes the pattern; NexusAI's pipeline is the template the others copy |
+| `M-08-1.2` Pipelines on every repository | Restore, build and test on every push, in all three repositories | Establishes the pattern; Nexus.Platform's pipeline is the template the others copy |
 | `M-08-1.3` Machine-readable results | A versioned JSON artifact per run — branch, commit, outcome, test counts — retrievable by branch | This is the DEVELOPER interface. Without it, ingestion means parsing logs |
 | `M-08-1.4` Branch protection and architecture gate | `main` unpushable directly; no merge without a green build; NetArchTest as a hard gate | Boundaries enforced by the pipeline rather than by whoever remembers them |
 
 Two details in `M-08-1.2` are easy to skip and both are acceptance criteria. The **frontend build and
-typecheck** run in the `Nexus.Web` pipeline — a .NET-only pipeline in a repository containing
-`Nexus.Web.Client` is a false green. And `Nexus.Platform.Tests` — a `.csproj` with zero `.cs` files —
+typecheck** run in the `Nexus.Experience` pipeline — a .NET-only pipeline in a repository containing
+`Nexus.Experience.Client` is a false green. And `Nexus.Platform.Tests` — a `.csproj` with zero `.cs` files —
 either gets a real test or is deleted, because **an empty test project passing in CI is worse than no
 project**: it reports success for work that was never done.
 

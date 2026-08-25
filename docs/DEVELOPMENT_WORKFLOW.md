@@ -370,8 +370,8 @@ Concrete steps, for the system as it is on 2026-08-21.
 ### 9.3 Testing
 
 **CURRENT: exactly two behaviour tests exist across all three repositories** —
-`Ranking/KeywordContextRankerTests.cs` in Nexus.Int and `Chat/ChatContextBundleMapperTests.cs` in
-Nexus.Web. Three architecture test files exist. `Nexus.Platform.Tests` is a `.csproj` with zero
+`Ranking/KeywordContextRankerTests.cs` in Nexus.Intelligence and `Chat/ChatContextBundleMapperTests.cs` in
+Nexus.Experience. Three architecture test files exist. `Nexus.Platform.Tests` is a `.csproj` with zero
 `.cs` files.
 
 Run them. They are fast, they are the entire safety net, and a change that breaks one of them has

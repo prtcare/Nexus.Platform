@@ -51,14 +51,14 @@ The mechanism that prevents it is §3.
 
 ## 2. Current state — a product that must become a layer
 
-**CURRENT.** `Nexus.Web` contains `Nexus.Products.Chat`, and the conversation implementation inside
+**CURRENT.** `Nexus.Experience` contains `Nexus.Products.Chat`, and the conversation implementation inside
 it works:
 
 | Exists today | Where |
 |---|---|
 | `Conversation`, `ConversationMessage` aggregates | `Nexus.Products.Chat.Domain` |
 | `Conversations`, `ConversationMessage`, `Chat` endpoints | `Nexus.Products.Chat.Api/Endpoints` |
-| `ChatPanel.tsx`, `MessageThread.tsx`, `ConversationList.tsx`, `CreateConversationForm.tsx` | `Nexus.Web.Client/src/features/chat/` |
+| `ChatPanel.tsx`, `MessageThread.tsx`, `ConversationList.tsx`, `CreateConversationForm.tsx` | `Nexus.Experience.Client/src/features/chat/` |
 | `CitationsPanel.tsx`, `citationTargets.ts`, `useCitationTarget.ts` | same |
 | `ChatTelemetryContext.tsx` | same |
 | `ChatContextBundleMapperTests.cs` | `Nexus.Products.Chat.Tests` — **one of only two behaviour tests in the entire system** |

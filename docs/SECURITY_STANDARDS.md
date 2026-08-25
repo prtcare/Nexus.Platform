@@ -196,7 +196,7 @@ the filter only through an explicit and auditable escape, and writes an audit en
 
 ### 5.1 Current state
 
-**CURRENT.** `set-openai-key.ps1` in NexusAI handles the OpenAI key. It is a PowerShell script that
+**CURRENT.** `set-openai-key.ps1` in Nexus.Platform handles the OpenAI key. It is a PowerShell script that
 puts the key where the application can read it. That is the entirety of secret management in Nexus.
 
 It works for one developer on one machine. It does not work for a second developer, a build agent,
@@ -532,7 +532,7 @@ something is hard to reproduce.
 | Secret scanning | **None** — TARGET, M-01-5.1 |
 | SBOM | **None** |
 
-`pack-local.ps1` publishes to the local feed in NexusAI and Nexus.Int. The feed is a directory. It
+`pack-local.ps1` publishes to the local feed in Nexus.Platform and Nexus.Intelligence. The feed is a directory. It
 has no integrity checking, no provenance and no access control beyond the filesystem. It is
 adequate for one machine and is a blocker for CI, which is why M-08-1.1 is P0 with no dependencies —
 nothing else in DELIVERY can proceed while packages resolve only from a path that exists on one

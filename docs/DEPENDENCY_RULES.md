@@ -217,9 +217,9 @@ columns, referential integrity enforced in application code and proven by test.
 
 | Test project | File | Repository | What it can see | Status |
 |---|---|---|---|---|
-| `Nexus.Platform.Architecture.Tests` | `PlatformBoundaryTests.cs` | NexusAI | `Nexus.Platform.*` assemblies | Exists. Runs only when a developer remembers |
-| `Nexus.Intelligence.Architecture.Tests` | `BoundaryRuleTests.cs` | Nexus.Int | `Nexus.Intelligence.*` assemblies | Exists. Runs only when a developer remembers |
-| `Nexus.Products.Chat.Architecture.Tests` | `BoundaryTests.cs` | Nexus.Web | `Nexus.Products.Chat.*` assemblies | Exists. Runs only when a developer remembers |
+| `Nexus.Platform.Architecture.Tests` | `PlatformBoundaryTests.cs` | Nexus.Platform | `Nexus.Platform.*` assemblies | Exists. Runs only when a developer remembers |
+| `Nexus.Intelligence.Architecture.Tests` | `BoundaryRuleTests.cs` | Nexus.Intelligence | `Nexus.Intelligence.*` assemblies | Exists. Runs only when a developer remembers |
+| `Nexus.Products.Chat.Architecture.Tests` | `BoundaryTests.cs` | Nexus.Experience | `Nexus.Products.Chat.*` assemblies | Exists. Runs only when a developer remembers |
 
 Two consequences follow, and both matter more than the file count:
 
@@ -229,7 +229,7 @@ the reference is what makes it unassertable from inside. The rule is therefore h
 repository *would* commit the violation, which is why each of the three repositories has its own
 architecture test project rather than one central one.
 
-**A test nobody runs is not enforcement.** `NexusAI\.github\workflows\` is empty and the other two
+**A test nobody runs is not enforcement.** `Nexus.Platform\.github\workflows\` is empty and the other two
 repositories have no `.github` directory at all. Until `M-08-1.4` wires NetArchTest into a pipeline
 as a hard gate, every rule below is enforced by review.
 

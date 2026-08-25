@@ -1,6 +1,6 @@
 # Product Architecture
 
-**Status:** TARGET — **one product exists (Chat, in `Nexus.Web`) and it predates this shape.** No
+**Status:** TARGET — **one product exists (Chat, in `Nexus.Experience`) and it predates this shape.** No
 `Product` record exists anywhere, no capability pack is declared, and no product state model exists.
 Each gap names the milestone that closes it
 **Owner:** PRODUCTS (Layer 12), with GOVERNANCE (03) owning registration and PRODUCT CORE (06) owning
@@ -398,7 +398,7 @@ number is **ADR-016**.
 
 ## 13. Current reality
 
-**One product exists, and most of what it holds is not its.** `Nexus.Products.Chat` in `Nexus.Web`
+**One product exists, and most of what it holds is not its.** `Nexus.Products.Chat` in `Nexus.Experience`
 carries eleven aggregates: `Workspace` and `Project` belong to PRODUCT CORE (`M-06-1.1`);
 `Conversation` and `ConversationMessage` belong to EXPERIENCE (`M-11-1.1`); `WorkItem` belongs to
 DEVELOPER; `Branch` and `Snapshot` belong to DELIVERY; `Adr`, `Knowledge` and `Artifact` belong to
@@ -427,7 +427,7 @@ time the platform is ready to provide them.
 | Which product is second | Business need. Internal systems are pulled, not scheduled; `F-12-8` ERP is the recommended first | **Not yet decided** |
 | What the standard capability packs actually are | A second product needing the same capability | **Deliberately deferred — `M-12-1.2`.** The §8 vocabulary is illustrative, not ratified |
 | Database naming convention across products | The second database | Not yet decided |
-| Whether Chat is retrofitted or grandfathered | The `Nexus.Web` split | Not yet decided |
+| Whether Chat is retrofitted or grandfathered | The `Nexus.Experience` split | Not yet decided |
 | Whether 12 → 07 DEVELOPER is a real dependency | It is declared in the roadmap and reads as surprising — a product reading its own build state | **Challenge before the first new product** — `DEPENDENCY_RULES.md` §5 |
 
 ---

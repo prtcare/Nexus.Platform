@@ -19,9 +19,9 @@ topology in detail — `LOCAL_DEVELOPMENT.md`; how to add a new *thing* —
 ## If you only read one thing
 
 ```
-git clone https://github.com/prtcare/NexusAI.git      C:\Personal\NexusAI
-git clone https://github.com/prtcare/Nexus-Int.git    C:\Personal\Nexus.Int
-git clone https://github.com/prtcare/Nexus-web.git    C:\Personal\Nexus.Web
+git clone https://github.com/prtcare/Nexus.Platform.git      C:\Personal\Nexus.Platform
+git clone https://github.com/prtcare/Nexus.Intelligence.git    C:\Personal\Nexus.Intelligence
+git clone https://github.com/prtcare/Nexus.Experience.git    C:\Personal\Nexus.Experience
 ```
 
 Three repositories, three `.slnx` solutions, one product API on `http://localhost:5299`, SQL Server
@@ -52,7 +52,7 @@ before you accumulate a day of unpushed work.
 | **Git** | The three repositories | Any current version |
 | **.NET SDK 10** | Every project targets `net10.0` | **`global.json` pins the exact version — read it, do not guess** |
 | **SQL Server LocalDB** | The development database | Ships with SQL Server Express / the Visual Studio data workload |
-| **Node.js + npm** | `Nexus.Web.Client` is a Vite app | Version not pinned anywhere — see §12 |
+| **Node.js + npm** | `Nexus.Experience.Client` is a Vite app | Version not pinned anywhere — see §12 |
 | **PowerShell** | Every script in the repositories is `.ps1` | Windows PowerShell or PowerShell 7 |
 | An IDE | Visual Studio, Rider or VS Code | `.slnx` support requires a current version |
 
@@ -75,15 +75,15 @@ All three live side by side under `C:\Personal`. **The paths matter** — `nuget
 
 ```powershell
 cd C:\Personal
-git clone https://github.com/prtcare/NexusAI.git    NexusAI
-git clone https://github.com/prtcare/Nexus-Int.git  Nexus.Int
-git clone https://github.com/prtcare/Nexus-web.git  Nexus.Web
+git clone https://github.com/prtcare/Nexus.Platform.git    Nexus.Platform
+git clone https://github.com/prtcare/Nexus.Intelligence.git  Nexus.Intelligence
+git clone https://github.com/prtcare/Nexus.Experience.git  Nexus.Experience
 ```
 
-Note the remote names do not match the local directory names — `Nexus-Int` clones into `Nexus.Int`,
-`Nexus-web` into `Nexus.Web`. That inconsistency is real and is corrected by the repository renames
-(`REPOSITORY_STRUCTURE.md` §12). Clone into the directory names above so that every path in this
-document set is true on your machine.
+Note the remote names did not match the local directory names before the renames — `Nexus-Int`
+cloned into `Nexus.Int`, `Nexus-web` into `Nexus.Web`. That inconsistency was real and was corrected
+by the repository renames (2026-08-24, `REPOSITORY_STRUCTURE.md` §12). Clone into the directory
+names above so that every path in this document set is true on your machine.
 
 Then create the package feed folder, which is **not** a git repository and must never become one:
 
@@ -102,7 +102,7 @@ confirmed applied**. Apply one, and confirm it. `GIT_WORKFLOW.md` §2.
 Each repository has its own `global.json`. Read it and install exactly that SDK.
 
 ```powershell
-Get-Content C:\Personal\NexusAI\global.json
+Get-Content C:\Personal\Nexus.Platform\global.json
 dotnet --list-sdks
 dotnet --version          # run inside the repository — it resolves through global.json
 ```
@@ -122,14 +122,14 @@ from there.
 Order matters, because Web consumes Intelligence and Platform:
 
 ```powershell
-cd C:\Personal\NexusAI
+cd C:\Personal\Nexus.Platform
 .\pack-local.ps1
 
-cd C:\Personal\Nexus.Int
+cd C:\Personal\Nexus.Intelligence
 .\pack-local.ps1
 
-cd C:\Personal\Nexus.Web
-dotnet restore Nexus.Web.slnx
+cd C:\Personal\Nexus.Experience
+dotnet restore Nexus.Experience.slnx
 ```
 
 If a restore fails with "unable to find package `Nexus.Platform.Contracts`", the answer is almost
@@ -156,7 +156,7 @@ sqllocaldb start MSSQLLocalDB
 Apply the migrations for the Chat product:
 
 ```powershell
-cd C:\Personal\Nexus.Web
+cd C:\Personal\Nexus.Experience
 dotnet ef database update `
   --project src\Nexus.Products.Chat.Infrastructure `
   --startup-project src\Nexus.Products.Chat.Api
@@ -179,10 +179,10 @@ Schema rules, the Id/Seq/Ref pattern and migration naming are `DATABASE_STANDARD
 
 ## 6. Secrets
 
-**CURRENT.** The OpenAI key is set by a script in `NexusAI`:
+**CURRENT.** The OpenAI key is set by a script in `Nexus.Platform`:
 
 ```powershell
-cd C:\Personal\NexusAI
+cd C:\Personal\Nexus.Platform
 .\set-openai-key.ps1
 ```
 
@@ -213,21 +213,21 @@ alone is not sufficient to prove a turn end to end.
 Three solutions, three commands:
 
 ```powershell
-dotnet build C:\Personal\NexusAI\Nexus.AI.slnx
-dotnet build C:\Personal\Nexus.Int\Nexus.Int.slnx
-dotnet build C:\Personal\Nexus.Web\Nexus.Web.slnx
+dotnet build C:\Personal\Nexus.Platform\Nexus.Platform.slnx
+dotnet build C:\Personal\Nexus.Intelligence\Nexus.Intelligence.slnx
+dotnet build C:\Personal\Nexus.Experience\Nexus.Experience.slnx
 ```
 
 Build in that order the first time — Web consumes packages produced by the other two.
 
-`Nexus.AI.slnx` sits in the `NexusAI` directory and contains `Nexus.Platform.*` projects. That is
-not a mistake on your machine; it is a naming defect corrected by the rename
-(`REPOSITORY_STRUCTURE.md` §12).
+`Nexus.AI.slnx` used to sit in the `NexusAI` directory and contained `Nexus.Platform.*` projects — a
+naming defect, not a mistake on your machine. It was renamed with the repository (2026-08-24) to
+`Nexus.Platform.slnx` (`REPOSITORY_STRUCTURE.md` §12).
 
 Frontend:
 
 ```powershell
-cd C:\Personal\Nexus.Web\src\Nexus.Web.Client
+cd C:\Personal\Nexus.Experience\src\Nexus.Experience.Client
 npm install
 ```
 
@@ -238,7 +238,7 @@ npm install
 ### 8.1 Chat API
 
 ```powershell
-cd C:\Personal\Nexus.Web
+cd C:\Personal\Nexus.Experience
 dotnet run --project src\Nexus.Products.Chat.Api
 ```
 
@@ -258,7 +258,7 @@ warn: Microsoft.AspNetCore.HttpsPolicy.HttpsRedirectionMiddleware[3]
 ### 8.2 Intelligence API
 
 ```powershell
-cd C:\Personal\Nexus.Int
+cd C:\Personal\Nexus.Intelligence
 dotnet run --project src\Nexus.Intelligence.Api
 ```
 
@@ -269,7 +269,7 @@ documentation costs more than a missing one. Routes are served under `/intellige
 ### 8.3 Frontend
 
 ```powershell
-cd C:\Personal\Nexus.Web\src\Nexus.Web.Client
+cd C:\Personal\Nexus.Experience\src\Nexus.Experience.Client
 npm run dev
 ```
 
@@ -285,9 +285,9 @@ Startup order and how the three talk to each other: `LOCAL_DEVELOPMENT.md` §5�
 ## 9. Run the tests
 
 ```powershell
-dotnet test C:\Personal\NexusAI\Nexus.AI.slnx
-dotnet test C:\Personal\Nexus.Int\Nexus.Int.slnx
-dotnet test C:\Personal\Nexus.Web\Nexus.Web.slnx
+dotnet test C:\Personal\Nexus.Platform\Nexus.Platform.slnx
+dotnet test C:\Personal\Nexus.Intelligence\Nexus.Intelligence.slnx
+dotnet test C:\Personal\Nexus.Experience\Nexus.Experience.slnx
 ```
 
 What you are running, stated plainly:
@@ -316,14 +316,14 @@ project**; `Nexus.Platform.Tests` already demonstrates what that costs.
 Branch from the milestone's integration branch, not from `main`:
 
 ```powershell
-cd C:\Personal\Nexus.Web
+cd C:\Personal\Nexus.Experience
 git fetch --prune
-git worktree add ..\Nexus.Web.work\WI-02-1.5.1-a -b work/WI-02-1.5.1-a integration/M-02-1.5
+git worktree add ..\Nexus.Experience.work\WI-02-1.5.1-a -b work/WI-02-1.5.1-a integration/M-02-1.5
 ```
 
 ```
-C:\Personal\Nexus.Web\                          the repository
-C:\Personal\Nexus.Web.work\WI-02-1.5.1-a\       your worktree — a SIBLING
+C:\Personal\Nexus.Experience\                          the repository
+C:\Personal\Nexus.Experience.work\WI-02-1.5.1-a\       your worktree — a SIBLING
 ```
 
 > **The Windows caveat.** A worktree nested inside a folder an agent is running from cannot be
@@ -446,12 +446,12 @@ does not exist — `SECURITY_STANDARDS.md` §1.
 1. Install Git, the SDK from `global.json`, LocalDB, Node, PowerShell, `dotnet-ef`.
 2. Apply and confirm an antivirus exclusion for `C:\Personal`.
 3. Clone the three repositories into the paths in §2. Create `C:\Personal\LocalNuGet`.
-4. `pack-local.ps1` in `NexusAI`, then in `Nexus.Int`.
+4. `pack-local.ps1` in `Nexus.Platform`, then in `Nexus.Intelligence`.
 5. Build all three solutions, in order.
 6. `sqllocaldb start MSSQLLocalDB`, then `dotnet ef database update` for Chat.
 7. `set-openai-key.ps1` if you need a model path.
 8. Run the Chat API; confirm `http://localhost:5299` and ignore the HTTPS warning.
-9. `npm install` and `npm run dev` in `Nexus.Web.Client`; point it at 5299.
+9. `npm install` and `npm run dev` in `Nexus.Experience.Client`; point it at 5299.
 10. `dotnet test` all three. Note that you just ran two behaviour tests.
 11. Read `_FACTS.md`, then `DEVELOPMENT_WORKFLOW.md` and `GIT_WORKFLOW.md` §2 and §5.
 12. Take a work item, create a sibling worktree, and make one small change.

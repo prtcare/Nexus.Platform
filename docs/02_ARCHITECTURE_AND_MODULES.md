@@ -12,9 +12,9 @@ layer**, each in its own repo:
 
 | Solution | Repo | Contains | Deployed? |
 |---|---|---|---|
-| **Nexus.AI** | `C:\Personal\NexusAI` | Nexus Platform — the backbone between products and AI | No — class libraries, packaged to NuGet |
-| **Nexus.Int** | `C:\Personal\Nexus.Int` | Nexus Intelligence — the deciding layer | Yes — HTTP API at `/intelligence/v1` |
-| **Nexus.Web** | `C:\Personal\Nexus.Web` | The Chatbot product — React client, .NET API, domain, Dataverse | Yes — HTTP API at `/api/v1` + static client |
+| **Nexus.Platform** | `C:\Personal\Nexus.Platform` | Nexus Platform — the backbone between products and AI | No — class libraries, packaged to NuGet |
+| **Nexus.Intelligence** | `C:\Personal\Nexus.Intelligence` | Nexus Intelligence — the deciding layer | Yes — HTTP API at `/intelligence/v1` |
+| **Nexus.Experience** | `C:\Personal\Nexus.Experience` | The Chatbot product — React client, .NET API, domain, Dataverse | Yes — HTTP API at `/api/v1` + static client |
 
 The rule, unchanged since V2.0: **Intelligence decides. Platform executes. Products own the
 data and the experience.**
@@ -30,8 +30,8 @@ the boundary between solutions is now a package or network boundary, not a folde
       │  HTTPS
       ▼
 ┌─────────────────────────────────────────┐
-│  Nexus.Web            (deployable)      │
-│  ├── Nexus.Web.Client        React      │
+│  Nexus.Experience          (deployable) │
+│  ├── Nexus.Experience.Client        React │
 │  ├── Nexus.Products.Chat.Api    /api/v1 │
 │  ├── ...Application  ...Domain          │
 │  └── ...Infrastructure  →  Dataverse    │
@@ -40,7 +40,7 @@ the boundary between solutions is now a package or network boundary, not a folde
                    │  📦 Nexus.Intelligence.Contracts
                    ▼
 ┌─────────────────────────────────────────┐
-│  Nexus.Int            (deployable)      │
+│  Nexus.Intelligence          (deployable) │
 │  ├── Nexus.Intelligence.Api             │
 │  ├── ...Core  ...Context                │
 │  └── ...Agents  ...Memory               │
@@ -49,7 +49,7 @@ the boundary between solutions is now a package or network boundary, not a folde
                    │  📦 Nexus.Platform.*
                    ▼
 ┌─────────────────────────────────────────┐
-│  Nexus.AI             (libraries only)  │
+│  Nexus.Platform        (libraries only) │
 │  ├── Nexus.Platform.Contracts           │
 │  ├── Nexus.Platform.Core                │
 │  ├── Nexus.Platform.Providers.OpenAI    │
@@ -59,8 +59,8 @@ the boundary between solutions is now a package or network boundary, not a folde
         OpenAI · Anthropic · connectors
 ```
 
-Nexus.Web reaches Nexus.Int over HTTP, through the `Nexus.Intelligence.Contracts` package.
-Nexus.Int reaches Nexus.AI **in-process**, as a `Nexus.Platform.*` NuGet package reference —
+Nexus.Experience reaches Nexus.Intelligence over HTTP, through the `Nexus.Intelligence.Contracts` package.
+Nexus.Intelligence reaches Nexus.Platform **in-process**, as a `Nexus.Platform.*` NuGet package reference —
 not a network call. Platform has exactly one consumer by design, so a network hop there buys
 nothing; see ADR-013. The Platform contracts are shaped as if they were HTTP regardless, so
 this can flip to a service later without changing callers.
@@ -69,16 +69,16 @@ this can flip to a service later without changing callers.
 
 | Solution | May reference | Must never reference |
 |---|---|---|
-| `Nexus.Web` | `Nexus.Intelligence.Contracts` (package) | anything `Nexus.Platform.*`, any provider SDK, any Intelligence internals |
-| `Nexus.Int` | `Nexus.Platform.*` (packages) | anything `Nexus.Products.*` |
-| `Nexus.AI` | vendor SDKs only | anything `Nexus.Intelligence.*` or `Nexus.Products.*` |
+| `Nexus.Experience` | `Nexus.Intelligence.Contracts` (package) | anything `Nexus.Platform.*`, any provider SDK, any Intelligence internals |
+| `Nexus.Intelligence` | `Nexus.Platform.*` (packages) | anything `Nexus.Products.*` |
+| `Nexus.Platform` | vendor SDKs only | anything `Nexus.Intelligence.*` or `Nexus.Products.*` |
 
 Plus two name-level rules:
 
 - No type named `Workspace`, `Project`, `Conversation`, `ConversationMessage`, `Knowledge`,
   `WorkItem`, `Artifact`, `Branch`, `Snapshot`, `Session` or `Adr` may appear anywhere in
-  `Nexus.AI` or `Nexus.Int`.
-- `Nexus.Web.Client` has exactly one API base URL and it points at the product API.
+  `Nexus.Platform` or `Nexus.Intelligence`.
+- `Nexus.Experience.Client` has exactly one API base URL and it points at the product API.
 
 Because the solutions are physically separate, most of this is enforced by the package graph
 — a product simply cannot reference a Platform type it hasn't installed. **The remaining case
@@ -89,7 +89,7 @@ forbidden type name appears.
 
 ## Layer responsibilities per solution
 
-### Nexus.AI — the Platform
+### Nexus.Platform — the Platform
 
 The only code in the entire system that holds a vendor SDK or a vendor credential. Small by
 design; it owns no product concept.
@@ -108,7 +108,7 @@ Platform's store holds tenants, users, products, entitlements, provider configur
 usage ledger and the audit log. No Workspace. No Project. No Conversation. It cannot compile
 against a product type even by accident, because it never references one.
 
-### Nexus.Int — the Intelligence
+### Nexus.Intelligence — the Intelligence
 
 Decides *what to do, where, and how*. Schema-agnostic by construction — it references no
 product assembly.
@@ -125,13 +125,13 @@ product assembly.
 Intelligence can hold memory *about* a conversation without knowing what a conversation is —
 `ScopeRef` is opaque to it.
 
-### Nexus.Web — the Chatbot product
+### Nexus.Experience — the Chatbot product
 
 The first product, end to end: its own UI, its own API, its own domain, its own database.
 
 | Project | Responsibility |
 |---|---|
-| `Nexus.Web.Client` | React 19 + Vite frontend; exactly one API base URL, pointed at `/api/v1` |
+| `Nexus.Experience.Client` | React 19 + Vite frontend; exactly one API base URL, pointed at `/api/v1` |
 | `Nexus.Products.Chat.Domain` | Business concepts and invariants — aggregates, entities, strongly typed IDs, statuses, repository interfaces. Must not know Dataverse, OpenAI, Swagger, or ASP.NET Core exists. |
 | `Nexus.Products.Chat.Application` | Command/query/result records, handlers, `ContextBundle` mapping (the seam to Intelligence), transaction/use-case validation. Depends on `Nexus.Intelligence.Contracts` for `IIntelligenceClient`; never on a model or vendor type. |
 | `Nexus.Products.Chat.Infrastructure` | `IDataverseClient` and context, Dataverse entities, mappers, repository implementations, service registration |
@@ -149,7 +149,7 @@ product structure: each product's structure will be different.
 
 ## Primary runtime flows
 
-### Standard command / query (within Nexus.Web)
+### Standard command / query (within Nexus.Experience)
 
 `HTTP request → Endpoint → Command/Query handler → Domain/repository → Dataverse → HTTP response`
 
@@ -159,26 +159,26 @@ Unchanged from before V2.1 — this flow never leaves the Chat product.
 
 ```
  1. Browser              POST /api/v1/chat { conversationId, prompt }
- 2. Nexus.Web  Chat.Api → Chat.Application: SendChatHandler
+ 2. Nexus.Experience  Chat.Api → Chat.Application: SendChatHandler
  3.                      persist user message              → Dataverse
  4.                      load history, knowledge, ADRs, project objective
  5.                      map to ContextBundle                ← THE SEAM: product schema dies here
  6.                      POST /intelligence/v1/turns   (HTTP, via IIntelligenceClient)
- 7. Nexus.Int            classify intent
+ 7. Nexus.Intelligence    classify intent
  8.                      policy gate on Actor.Permissions + Constraints
  9.                      rank + trim ContextBundle by relevance × trust
 10.                      select agent
 11.                      IModelCatalog.ListAsync → choose model
 12.                      assemble prompt to fit the chosen context window
 13.                      IModelGateway.InvokeAsync    (in-process, Platform package)
-14. Nexus.AI             IQuotaPolicy.CheckAsync
+14. Nexus.Platform      IQuotaPolicy.CheckAsync
 15.                      resolve credential, call vendor SDK, retry/timeout
 16.                      IUsageMeter.Record + IAuditLog.Append
 17.                      return normalised result
-18. Nexus.Int            optional tool loop (approval-gated)
+18. Nexus.Intelligence    optional tool loop (approval-gated)
 19.                      write turn trace + memory   → Intelligence store
 20.                      reply + citations + decisions + persistenceHints
-21. Nexus.Web            persist assistant message     → Dataverse
+21. Nexus.Experience     persist assistant message     → Dataverse
 22.                      apply persistenceHints (e.g. Knowledge candidate, pending approval)
 23.                      map to product DTO
 24. Browser              ← { reply, citations, usage }
@@ -188,11 +188,11 @@ Steps 5 and 20 are the entire boundary. If a future change makes Intelligence wa
 Dataverse directly, that's a signal `ContextBundle` is the wrong shape — fix the shape, never
 the boundary. Full detail: `NEXUS_ARCHITECTURE_V2.md` §5.
 
-### Agent execution (within Nexus.Int)
+### Agent execution (within Nexus.Intelligence)
 
 `Turn → Planner → Agent registry/dispatcher → Selected agent → Governed tools (via Nexus.Platform.Tools) → Result → memory + trace`
 
-## Repository and mapper pattern (Nexus.Web / Dataverse)
+## Repository and mapper pattern (Nexus.Experience / Dataverse)
 
 - Domain repositories expose domain concepts, not Dataverse query syntax.
 - A Dataverse entity class holds logical column mapping.
@@ -201,11 +201,11 @@ the boundary. Full detail: `NEXUS_ARCHITECTURE_V2.md` §5.
 - Unknown Dataverse choice values must not crash the entire query; define a deliberate fallback or validation policy.
 - Strongly typed IDs are converted only at boundaries.
 
-This pattern is specific to `Nexus.Products.Chat.Infrastructure`. Neither Nexus.AI nor
-Nexus.Int touches Dataverse — Platform's store is its own small `Nexus.Platform.Persistence`,
+This pattern is specific to `Nexus.Products.Chat.Infrastructure`. Neither Nexus.Platform nor
+Nexus.Intelligence touches Dataverse — Platform's store is its own small `Nexus.Platform.Persistence`,
 and Intelligence's store is `Nexus.Intelligence.Memory`.
 
-## Current feature coverage (Nexus.Web / Chat product)
+## Current feature coverage (Nexus.Experience / Chat product)
 
 The feature set is unchanged by the V2.1 restructure — only its location moved, from
 `NexusAI.*` to `Nexus.Products.Chat.*`.
@@ -237,8 +237,8 @@ This is resolved by the V2.1 split itself, not by a later decision. `NexusAI.Hos
 300-line demo script) was deleted — replaced by integration tests — and `NexusAI.Foundation`
 (an empty placeholder) was deleted with it. Each deployable solution now has exactly one host:
 
-- `Nexus.Products.Chat.Api` is the canonical entry point for Nexus.Web.
-- `Nexus.Intelligence.Api` is the canonical entry point for Nexus.Int.
+- `Nexus.Products.Chat.Api` is the canonical entry point for Nexus.Experience.
+- `Nexus.Intelligence.Api` is the canonical entry point for Nexus.Intelligence.
 - Nexus.AI has no host — it is a library set, consumed in-process.
 
 ## Testing architecture
@@ -247,7 +247,7 @@ Add automated projects aligned to behavior, not merely layers, per solution:
 
 - Domain unit tests for invariants and enum/state transitions.
 - Application handler tests with repository/provider fakes.
-- Mapper tests for every Dataverse column and missing optional values (Nexus.Web only).
+- Mapper tests for every Dataverse column and missing optional values (Nexus.Experience only).
 - Repository integration tests against the development/test environment.
 - API contract tests for routes, status codes, validation, and JSON.
 - End-to-end tests for the first frontend journey.

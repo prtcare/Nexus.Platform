@@ -52,7 +52,7 @@ How rules differ per language is **CODE_CONVENTIONS.md**. C#-specific constructi
 | Remote name | Must equal the local directory name |
 | Case | PascalCase, dot-separated. No hyphens, no lowercase. |
 
-**CURRENT — three repositories exist, and their naming is inconsistent.**
+**CURRENT — three repositories exist; their naming was inconsistent until the 2026-08-24 rename.**
 
 | Local path | Remote | Solution |
 |---|---|---|
@@ -63,13 +63,13 @@ How rules differ per language is **CODE_CONVENTIONS.md**. C#-specific constructi
 
 Three different conventions in three repositories: `NexusAI` (no separator), `Nexus-Int` (hyphen, title case), `Nexus-web` (hyphen, lowercase). None matches the pattern above.
 
-**TARGET — the names the repositories are moving to.** Do not describe these as existing.
+**DONE — the names the repositories moved to on 2026-08-24.**
 
 | Target repository | Becomes what | Layers it houses |
 |---|---|---|
 | `Nexus.Platform` | NexusAI renamed | 01 CORE, 02 DATA, 03 GOVERNANCE, 05 AUTOMATION, 06 PRODUCT CORE, 08 DELIVERY, 09 ASSURANCE, 10 OPERATIONS |
 | `Nexus.Intelligence` | Nexus.Int renamed | 04 AI |
-| `Nexus.Experience` | Nexus.Web becomes this | 11 EXPERIENCE |
+| `Nexus.Experience` | Nexus.Web renamed | 11 EXPERIENCE |
 | `Nexus.Developer` | new | 07 DEVELOPER |
 | `Nexus.Products.<Name>` | new, one per product | 12 PRODUCTS |
 
@@ -84,9 +84,9 @@ Three different conventions in three repositories: `NexusAI` (no separator), `Ne
 | Pattern | `<RepositoryName>.slnx`, at the repository root, one per repository |
 | Format | `.slnx` — the XML solution format. Do not add `.sln` files. |
 
-**CURRENT:** `Nexus.AI.slnx`, `Nexus.Int.slnx`, `Nexus.Web.slnx`.
+**CURRENT:** `Nexus.Platform.slnx`, `Nexus.Intelligence.slnx`, `Nexus.Experience.slnx`.
 
-`Nexus.AI.slnx` sits in `NexusAI` and contains `Nexus.Platform.*` projects — the solution name matches neither the directory nor its contents. It is renamed with the repository.
+`Nexus.AI.slnx` sat in `NexusAI` and contained `Nexus.Platform.*` projects — the solution name matched neither the directory nor its contents. It was renamed with the repository (2026-08-24).
 
 ---
 
@@ -110,13 +110,13 @@ Three different conventions in three repositories: `NexusAI` (no separator), `Ne
 | `.Api` | HTTP host. `Program.cs` lives here. | `Nexus.Products.Chat.Api`, `Nexus.Intelligence.Api` |
 | `.Providers.<Vendor>` | One external vendor adapter. | `Nexus.Platform.Providers.OpenAI`, `Nexus.Platform.Providers.Anthropic` |
 | `.<Capability>` | A focused capability library. | `Nexus.Intelligence.Context`, `.Memory`, `.Agents`, `Nexus.Platform.Identity`, `.Persistence`, `.Tools` |
-| `.Client` | A frontend or client application. | `Nexus.Web.Client` |
+| `.Client` | A frontend or client application. | `Nexus.Experience.Client` |
 | `.Tests` | Behaviour tests. | `Nexus.Intelligence.Tests` |
 | `.Architecture.Tests` | NetArchTest boundary rules. | `Nexus.Platform.Architecture.Tests` |
 
 **Two naming defects to be aware of.**
 
-`Nexus.Web.Client` does not match its siblings — everything else in that repository is `Nexus.Products.Chat.*`. It becomes `Nexus.Experience.Client` when the repository is renamed.
+`Nexus.Web.Client` did not match its siblings — everything else in that repository is `Nexus.Products.Chat.*`. It became `Nexus.Experience.Client` when the repository was renamed (2026-08-24).
 
 Eight empty gitignored husks exist in NexusAI: `NexusAI.Agents`, `NexusAI.Api`, `NexusAI.Application`, `NexusAI.Core`, `NexusAI.Domain`, `NexusAI.Foundation`, `NexusAI.Host`, `NexusAI.Infrastructure`. They use a dead `NexusAI.*` prefix. They are not projects, they are residue. Never add a file to one.
 
@@ -696,12 +696,12 @@ A hook file never exports a component; a component file never exports a hook.
 
 | Repository | Project | Files |
 |---|---|---|
-| NexusAI | `Nexus.Platform.Architecture.Tests` | `PlatformBoundaryTests.cs` |
-| NexusAI | `Nexus.Platform.Tests` | **none — a `.csproj` with zero `.cs` files** |
-| Nexus.Int | `Nexus.Intelligence.Architecture.Tests` | `BoundaryRuleTests.cs` |
-| Nexus.Int | `Nexus.Intelligence.Tests` | `Ranking/KeywordContextRankerTests.cs` |
-| Nexus.Web | `Nexus.Products.Chat.Architecture.Tests` | `BoundaryTests.cs` |
-| Nexus.Web | `Nexus.Products.Chat.Tests` | `Chat/ChatContextBundleMapperTests.cs` |
+| Nexus.Platform | `Nexus.Platform.Architecture.Tests` | `PlatformBoundaryTests.cs` |
+| Nexus.Platform | `Nexus.Platform.Tests` | **none — a `.csproj` with zero `.cs` files** |
+| Nexus.Intelligence | `Nexus.Intelligence.Architecture.Tests` | `BoundaryRuleTests.cs` |
+| Nexus.Intelligence | `Nexus.Intelligence.Tests` | `Ranking/KeywordContextRankerTests.cs` |
+| Nexus.Experience | `Nexus.Products.Chat.Architecture.Tests` | `BoundaryTests.cs` |
+| Nexus.Experience | `Nexus.Products.Chat.Tests` | `Chat/ChatContextBundleMapperTests.cs` |
 
 **Exactly two behaviour tests exist in the entire system.** `Ranking/KeywordContextRankerTests.cs` mirrors `Nexus.Intelligence.Context/Ranking/` correctly. `Chat/ChatContextBundleMapperTests.cs` names a type, `ChatContextBundleMapper`, whose location is not recorded — locate it and confirm the folder mirrors it.
 
@@ -785,7 +785,7 @@ In prose, write "the `Artifact` aggregate" or "a build artifact". A sentence con
 | NuGet package | Package id equals assembly name equals project name | `Nexus.Platform.Contracts` |
 | Package version | `<major>.<minor>.<patch>` released; `<major>.<minor>.<patch>-preview.<n>` prerelease | prerelease never merges to `main` — STACK_VERSION_POLICY.md §3 |
 | Published API output | `<ProjectName>/<buildNumber>/` | `Nexus.Products.Chat.Api/20260821.3/` |
-| Client bundle | `<ProjectName>/<buildNumber>/` | `Nexus.Web.Client/20260821.3/` |
+| Client bundle | `<ProjectName>/<buildNumber>/` | `Nexus.Experience.Client/20260821.3/` |
 | Migration script | `<timestamp>_<PascalCaseName>.sql`, matching its migration | `20260820180802_InitialSqlSchema.sql` |
 
 CURRENT: packages are produced by `pack-local.ps1` in NexusAI and Nexus.Int into `C:\Personal\LocalNuGet`. TARGET: GitHub Packages — **M-08-1.1**. Retention: **M-08-3.1 Artifact publication and retention**.
@@ -841,7 +841,7 @@ A task name states what will be true when it is done. *Fix logging* is not a tas
 |---|---|---|
 | Worker slot on a milestone | single lowercase letter, `a`–`c` | `a` |
 | Worker branch | `work/<work-item-id>-<letter>` | `work/WI-02-1.2.1-a` |
-| Worker worktree directory | `<repository>-<letter>`, **sibling** to the repository | `Nexus.Web-a` beside `Nexus.Web` |
+| Worker worktree directory | `<repository>-<letter>`, **sibling** to the repository | `Nexus.Experience-a` beside `Nexus.Experience` |
 | Agent worker record | `<AgentType>Agent` | `DeveloperAgent` (currently a 974-byte stub) |
 
 The letter is scoped to the milestone, not global — `-a` on two different milestones is two different workers and that is fine. What must never happen is two workers sharing a letter within one milestone, because the letter is what keeps the branches and worktrees apart.

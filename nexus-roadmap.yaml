@@ -3885,35 +3885,35 @@ layers:
       data_introduced: []
       acceptance:
       - A push to any repository triggers restore, build and test.
-      - Nexus.Web and Nexus.Int have a .github directory, which today they do not.
-      - The frontend build and typecheck run in the Nexus.Web pipeline.
+      - Nexus.Experience and Nexus.Intelligence have a .github directory, which today they do not.
+      - The frontend build and typecheck run in the Nexus.Experience pipeline.
       - A deliberately broken commit produces a red build, demonstrated once and recorded.
       work_items:
       - id: WI-08-1.2.1
-        name: NexusAI pipeline
+        name: Nexus.Platform pipeline
         scope:
           projects: []
           schemas: []
           contracts: []
         tasks:
         - id: T-08-1.2.1.1
-          name: build.yml with .NET 10 setup, restore, build Nexus.AI.slnx
+          name: build.yml with .NET 10 setup, restore, build Nexus.Platform.slnx
           subtasks:
           - id: S-08-1.2.1.1.1
             name: This is the first pipeline and establishes the pattern the others copy
         - id: T-08-1.2.1.2
           name: Test step with trx logger and result upload
       - id: WI-08-1.2.2
-        name: Nexus.Int pipeline
+        name: Nexus.Intelligence pipeline
         scope:
           projects: []
           schemas: []
           contracts: []
         tasks:
         - id: T-08-1.2.2.1
-          name: Create .github/workflows and mirror the NexusAI pattern
+          name: Create .github/workflows and mirror the Nexus.Platform pattern
       - id: WI-08-1.2.3
-        name: Nexus.Web pipeline
+        name: Nexus.Experience pipeline
         scope:
           projects: []
           schemas: []

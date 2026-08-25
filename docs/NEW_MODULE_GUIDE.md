@@ -200,7 +200,7 @@ file; the repository returns materialised results.
 3. **Generate it:**
 
    ```powershell
-   cd C:\Personal\Nexus.Web
+   cd C:\Personal\Nexus.Experience
    dotnet ef migrations add AddProjectAggregate `
      --project src\Nexus.Products.Chat.Infrastructure `
      --startup-project src\Nexus.Products.Chat.Api
@@ -386,7 +386,7 @@ still green.
    unable to build the current code.
 6. **Use real names.** Real type names, real paths, real commands. If a decision has not been made,
    write "Not yet decided" and say what would decide it.
-7. **Place it in `C:\Personal\NexusAI\docs\`.** One documentation home — a standard copied into a
+7. **Place it in `C:\Personal\Nexus.Platform\docs\`.** One documentation home — a standard copied into a
    product repository will disagree with itself within a month.
 8. **Add an ADR whenever the document records a decision**, especially a new technology: an ADR, a
    `TECHNOLOGY_STACK.md` entry, and the first `PackageReference` land in the same pull request.

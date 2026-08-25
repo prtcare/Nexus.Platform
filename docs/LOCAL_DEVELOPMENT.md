@@ -33,7 +33,7 @@ NexusAI              Nexus.Int              Nexus.Web            LocalNuGet
   Browser
      │  http
      ▼
-  Nexus.Web.Client            (Vite dev server, port printed at startup)
+  Nexus.Experience.Client     (Vite dev server, port printed at startup)
      │  VITE_ base URL
      ▼
   Nexus.Products.Chat.Api     http://localhost:5299        /api/v1
@@ -57,9 +57,9 @@ a package feed. Nothing is containerised, nothing is orchestrated, and nothing i
 
 | Path | Repository | Solution | Purpose locally |
 |---|---|---|---|
-| `C:\Personal\NexusAI` | `github.com/prtcare/NexusAI` | `Nexus.AI.slnx` | Produces the `Nexus.Platform.*` packages the other two consume |
-| `C:\Personal\Nexus.Int` | `github.com/prtcare/Nexus-Int` | `Nexus.Int.slnx` | Produces `Nexus.Intelligence.*` packages; hosts the Intelligence API |
-| `C:\Personal\Nexus.Web` | `github.com/prtcare/Nexus-web` | `Nexus.Web.slnx` | Hosts the Chat API and the web client |
+| `C:\Personal\Nexus.Platform` | `github.com/prtcare/Nexus.Platform` | `Nexus.Platform.slnx` | Produces the `Nexus.Platform.*` packages the other two consume |
+| `C:\Personal\Nexus.Intelligence` | `github.com/prtcare/Nexus.Intelligence` | `Nexus.Intelligence.slnx` | Produces `Nexus.Intelligence.*` packages; hosts the Intelligence API |
+| `C:\Personal\Nexus.Experience` | `github.com/prtcare/Nexus.Experience` | `Nexus.Experience.slnx` | Hosts the Chat API and the web client |
 | `C:\Personal\LocalNuGet` | — | — | The package feed. **Never make this a git repository** |
 | `C:\Personal\<Repo>.work\<WI-id>-<letter>\` | — | — | Worktrees, **siblings** of the repository |
 
@@ -101,9 +101,9 @@ genuinely independent — implemented in the wrong place.
 "It works in my solution but not in the other repository" is nearly always an unpacked change.
 
 ```powershell
-cd C:\Personal\NexusAI   ; .\pack-local.ps1
-cd C:\Personal\Nexus.Int ; .\pack-local.ps1
-cd C:\Personal\Nexus.Web ; dotnet restore Nexus.Web.slnx
+cd C:\Personal\Nexus.Platform   ; .\pack-local.ps1
+cd C:\Personal\Nexus.Intelligence ; .\pack-local.ps1
+cd C:\Personal\Nexus.Experience ; dotnet restore Nexus.Experience.slnx
 ```
 
 ---
@@ -114,7 +114,7 @@ cd C:\Personal\Nexus.Web ; dotnet restore Nexus.Web.slnx
 |---|---|---|
 | **Chat API** (`Nexus.Products.Chat.Api`) | **`http://localhost:5299`** | Its `launchSettings.json`, confirmed in `api_run.log` |
 | **Intelligence API** (`Nexus.Intelligence.Api`) | **Read its own `launchSettings.json`** | Not recorded here — the port has not been verified |
-| **Vite dev server** (`Nexus.Web.Client`) | Printed by Vite at startup | Vite's own output |
+| **Vite dev server** (`Nexus.Experience.Client`) | Printed by Vite at startup | Vite's own output |
 
 **The Intelligence port is deliberately absent from this document.** It has a `launchSettings.json`
 of its own; read the value from there. A guessed port in a topology document is worse than a missing
@@ -168,7 +168,7 @@ isolation dimension that is missed most often.
 
 | Secret | CURRENT mechanism | TARGET |
 |---|---|---|
-| OpenAI API key | `set-openai-key.ps1` in `C:\Personal\NexusAI` | **M-01-5.1** — resolved through `ISecretResolver` |
+| OpenAI API key | `set-openai-key.ps1` in `C:\Personal\Nexus.Platform` | **M-01-5.1** — resolved through `ISecretResolver` |
 | Anything else | User secrets (`dotnet user-secrets`), per project, never committed | Same |
 | Frontend values | `.env.local`, `VITE_` prefix, never committed | Same |
 
@@ -210,9 +210,9 @@ For the full stack:
 
 1. `sqllocaldb start MSSQLLocalDB`
 2. `dotnet ef database update` — only if migrations have changed since your last run
-3. **Intelligence API** — `dotnet run --project src\Nexus.Intelligence.Api` from `C:\Personal\Nexus.Int`
-4. **Chat API** — `dotnet run --project src\Nexus.Products.Chat.Api` from `C:\Personal\Nexus.Web`
-5. **Vite** — `npm run dev` from `C:\Personal\Nexus.Web\src\Nexus.Web.Client`
+3. **Intelligence API** — `dotnet run --project src\Nexus.Intelligence.Api` from `C:\Personal\Nexus.Intelligence`
+4. **Chat API** — `dotnet run --project src\Nexus.Products.Chat.Api` from `C:\Personal\Nexus.Experience`
+5. **Vite** — `npm run dev` from `C:\Personal\Nexus.Experience\src\Nexus.Experience.Client`
 
 Order 3 before 4 only matters for the first chat turn; the Chat API starts fine without Intelligence
 running and fails at the point a turn is dispatched. That failure mode is worth knowing: **a chat
@@ -311,7 +311,7 @@ settled.
 | 6 | `EmptyToolCatalog`, `EmptyToolGateway` | A real tool registry and gateway | **M-01-7.1** |
 | 7 | No logging library, no correlation | Correlation across hosts | **M-10-1.1** |
 | 8 | No CI; nothing verifies a branch | Pipelines, then branch protection | **M-08-1.2**, **M-08-1.4** |
-| 9 | `Nexus.Web` holds both the Chat product and the client | `Nexus.Experience` + `Nexus.Products.Chat` | Repository split — `REPOSITORY_STRUCTURE.md` §12 |
+| 9 | `Nexus.Experience` holds both the Chat product and the client | `Nexus.Experience` + `Nexus.Products.Chat` | Repository split — `REPOSITORY_STRUCTURE.md` §12 |
 | 10 | No authentication, no authorization; hardcoded tenant | Real identity and permission evaluation | **M-01-1.2**, **M-01-3.1** |
 | 11 | Restart required for every configuration change | Runtime feature flags without restart | **M-10-5.1** |
 

@@ -128,7 +128,7 @@ asserts that a known secret pattern is redacted.
 ### 4.1 No logging library has been selected
 
 **No logging library has been selected.** Serilog is not present. Nothing beyond the
-`Microsoft.Extensions.Logging` abstractions exists in NexusAI, Nexus.Int or Nexus.Web, and
+`Microsoft.Extensions.Logging` abstractions exists in Nexus.Platform, Nexus.Intelligence or Nexus.Experience, and
 `TECHNOLOGY_STACK.md` records it as NOT SELECTED. The selection belongs to work item
 `WI-10-1.1.1 Logging foundation`, and the five requirements a candidate must satisfy are
 `OBSERVABILITY_STANDARDS.md` §2 — including the two that are architectural rather than ergonomic: an

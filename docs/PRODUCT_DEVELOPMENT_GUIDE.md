@@ -23,7 +23,7 @@ form of all of this — `MACHINE_DEVELOPMENT_GUIDE.md`.
 > A product is a **composition of declared capability plus its own domain**. It is not a
 > construction project, and standing up the second product should cost a fraction of the first.
 
-Nexus has one product today — Chat, in `Nexus.Web` — and it was built before this path existed. It
+Nexus has one product today — Chat, in `Nexus.Experience` — and it was built before this path existed. It
 is therefore a **reference, not a template**: it holds patterns worth copying (aggregate folders,
 endpoint files, the `ContextBundle` mapper) inside a repository shape that is being split apart
 (`REPOSITORY_STRUCTURE.md` §3.4).
@@ -281,7 +281,7 @@ Which environments the product has, how it is promoted between them, what its ba
 requirements are, and what health signals it emits.
 
 > **TARGET, entirely.** There are no environments, no pipelines, no infrastructure as code and no
-> deployment of any kind — `.github/workflows/` in `NexusAI` exists and is empty, and the other two
+> deployment of any kind — `.github/workflows/` in `Nexus.Platform` exists and is empty, and the other two
 > repositories have no `.github` directory at all. The sequence is **M-08-1.1** (feed reachable from
 > CI) → **M-08-1.2** (pipelines) → **M-08-4.1** (environment model) → **M-08-4.2** (provisioning) →
 > **M-08-5.1** (automated deployment) → **M-08-5.2** (release promotion). A deployment profile
@@ -416,7 +416,7 @@ responsibilities by the time the platform is ready to provide them.
 | Which product is second | Business need. Vault and Trips are named in the roadmap; internal systems are pulled, not scheduled | **Not yet decided** |
 | Whether each product gets its own repository or several share one | The second product. One product is not a pattern | Not yet decided |
 | What the standard capability packs are | A second product needing the same capability. Defining them from one product produces that product's implementation with a general name | Deliberately deferred — M-12-1.2 |
-| Whether Chat is retrofitted onto this path or grandfathered | The `Nexus.Web` split | Not yet decided |
+| Whether Chat is retrofitted onto this path or grandfathered | The `Nexus.Experience` split | Not yet decided |
 | Whether a standalone end-user chat application is released as a product | Business decision | Not yet decided — but if it is, it is a **PRODUCT (layer 12) consuming EXPERIENCE**. The conversation engine is never called a Chat product |
 | Database naming convention across products | The second database | Not yet decided |
 

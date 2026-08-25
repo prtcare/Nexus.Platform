@@ -47,7 +47,7 @@ Phases are sequential for the **foundation**; from P2 onward two streams run in 
 
 ## Part 1 — Executive summary
 
-**The realignment is sound and cheaper than it looks.** The eleven layers are not a rewrite of the current system; they are a finer-grained reading of the three-solution split that already exists. Nexus.AI is Layers 01/03/06, Nexus.Int is Layer 04, Nexus.Web is Layers 10/11. Nothing currently built lands in the wrong place. The V2.1 restructure completed last week did most of the structural work this brief asks for, before the brief existed.
+**The realignment is sound and cheaper than it looks.** The eleven layers are not a rewrite of the current system; they are a finer-grained reading of the three-solution split that already exists. Nexus.Platform is Layers 01/03/06, Nexus.Intelligence is Layer 04, Nexus.Experience is Layers 10/11. Nothing currently built lands in the wrong place. The V2.1 restructure completed last week did most of the structural work this brief asks for, before the brief existed.
 
 **Nothing in flight is wasted.** The Azure SQL migration (ADR-014, Stages 1b–3) becomes Layer 02 foundation work and is a GATE A blocker — it gets *more* important under this architecture, not less. The frontend F0–F4 work, completed and pushed, is Layer 10/11 and stands. Continue both.
 
@@ -71,12 +71,12 @@ Every claim below was read from disk on 2026-08-21 via the device bridge. Nothin
 
 | Repository | Remote | Role today | Solution |
 |---|---|---|---|
-| `C:\Personal\NexusAI` | `github.com/prtcare/NexusAI` | Platform — NuGet libraries only, no host | `Nexus.AI.slnx` |
-| `C:\Personal\Nexus.Int` | `github.com/prtcare/Nexus-Int` | Intelligence — deployed at `/intelligence/v1` | `Nexus.Int.slnx` |
-| `C:\Personal\Nexus.Web` | `github.com/prtcare/Nexus-web` | Chat product — `/api/v1` + React client | `Nexus.Web.slnx` |
+| `C:\Personal\Nexus.Platform` | `github.com/prtcare/Nexus.Platform` | Platform — NuGet libraries only, no host | `Nexus.Platform.slnx` |
+| `C:\Personal\Nexus.Intelligence` | `github.com/prtcare/Nexus.Intelligence` | Intelligence — deployed at `/intelligence/v1` | `Nexus.Intelligence.slnx` |
+| `C:\Personal\Nexus.Experience` | `github.com/prtcare/Nexus.Experience` | Chat product — `/api/v1` + React client | `Nexus.Experience.slnx` |
 | `C:\Personal\LocalNuGet` | — | Local package feed for Platform/Intelligence packages | n/a |
 
-### 2.2 Project map — NexusAI (Platform)
+### 2.2 Project map — Nexus.Platform
 
 Live modules under `src\`:
 
@@ -92,7 +92,7 @@ Live modules under `src\`:
 
 Legacy shells still present as directories but empty or near-empty: `NexusAI.Agents`, `NexusAI.Api`, `NexusAI.Core`, `NexusAI.Domain`, `NexusAI.Foundation`, `NexusAI.Host`, `NexusAI.Infrastructure`. `NexusAI.Application` retains `Agents/`, `Orchestration/Commands/`, `WorkItem/Queries/` folder skeletons. These are gitignored husks from the V2.1 restructure.
 
-### 2.3 Project map — Nexus.Int (Intelligence)
+### 2.3 Project map — Nexus.Intelligence
 
 | Project | Contents | Substance |
 |---|---|---|
@@ -103,7 +103,7 @@ Legacy shells still present as directories but empty or near-empty: `NexusAI.Age
 | `Nexus.Intelligence.Memory` | IMemoryStore, InMemoryMemoryStore, MemoryRecord, MemoryQuery, MemoryKind | **Volatile.** In-memory only. |
 | `Nexus.Intelligence.Api` | Endpoints: Turns, Plans, Results, Capabilities, Health; `Tooling/` EmptyToolCatalog + EmptyToolGateway; `ResultReports/InMemoryResultReportStore` | **Real, but tool surface is empty and results are volatile.** |
 
-### 2.4 Project map — Nexus.Web (Chat product)
+### 2.4 Project map — Nexus.Experience
 
 **Domain — eleven aggregates**, each with an aggregate root, strongly-typed ID, status enum and repository interface:
 
@@ -116,7 +116,7 @@ Legacy shells still present as directories but empty or near-empty: `NexusAI.Age
 - Dataverse implementations for the remaining ten aggregates
 - Both live behind the `Nexus:Persistence` configuration key (ADR-014 strangler pattern)
 
-**Frontend — React/TypeScript under `src\Nexus.Web.Client\src\`:**
+**Frontend — React/TypeScript under `src\Nexus.Experience.Client\src\`:**
 - `api/` — ApiClient, ApiError (single HTTP path, post-F0)
 - `features/chat/` — 15 files: ChatPanel, MessageThread, ConversationList, CreateConversationForm, CitationsPanel, ChatTelemetryContext, citationTargets, useCitationTarget, useConversation(s), useConversationMessages, useCreateConversation, useSendChat, chatApi, chat.types
 - `features/projects/`, `features/workspaces/`, `features/system/`
@@ -127,9 +127,9 @@ Legacy shells still present as directories but empty or near-empty: `NexusAI.Age
 
 | Repository | Test projects | Actual test files |
 |---|---|---|
-| NexusAI | `Nexus.Platform.Tests`, `Nexus.Platform.Architecture.Tests` | `PlatformBoundaryTests.cs` only. **`Nexus.Platform.Tests` contains a `.csproj` and no `.cs` files at all — zero behaviour tests for Platform.** |
-| Nexus.Int | `Nexus.Intelligence.Tests`, `Nexus.Intelligence.Architecture.Tests` | `BoundaryRuleTests.cs`, `KeywordContextRankerTests.cs` — 2 files |
-| Nexus.Web | `Nexus.Products.Chat.Tests`, `Nexus.Products.Chat.Architecture.Tests` | `BoundaryTests.cs`, `ChatContextBundleMapperTests.cs` — 2 files |
+| Nexus.Platform | `Nexus.Platform.Tests`, `Nexus.Platform.Architecture.Tests` | `PlatformBoundaryTests.cs` only. **`Nexus.Platform.Tests` contains a `.csproj` and no `.cs` files at all — zero behaviour tests for Platform.** |
+| Nexus.Intelligence | `Nexus.Intelligence.Tests`, `Nexus.Intelligence.Architecture.Tests` | `BoundaryRuleTests.cs`, `KeywordContextRankerTests.cs` — 2 files |
+| Nexus.Experience | `Nexus.Products.Chat.Tests`, `Nexus.Products.Chat.Architecture.Tests` | `BoundaryTests.cs`, `ChatContextBundleMapperTests.cs` — 2 files |
 
 **Five test files across three repositories, three of which are architecture-boundary tests rather than behaviour tests.** That leaves exactly two behaviour tests in the entire system: `KeywordContextRankerTests` and `ChatContextBundleMapperTests`. There is no test for the turn pipeline, the planner, the tool loop, the model gateway, any repository, any endpoint, or any React component.
 
@@ -748,7 +748,7 @@ Developer's resolver maps a milestone's outcome to `Kind = Objective`, its block
 
 **Does NOT own:** contextual structure of any kind, product domain data, documents, model access.
 
-**What happens to `Nexus.Web`.** It becomes `Nexus.Experience`. Its conversation implementation becomes this layer; `Workspace` and `Project` move to Layer 06; `WorkItem` moves to Layer 07; `Branch`, `Snapshot` and build `Artifact` move to Layer 08; `Adr` and `Knowledge` move to Layer 02. The React client becomes the shared component set. The F0–F4 work is not wasted — `CitationsPanel`, `ChatTelemetryContext` and the thread components survive intact and become reusable, which is what they should have been.
+**What happens to `Nexus.Web` (renamed `Nexus.Experience`, 2026-08-24).** Its conversation implementation becomes this layer; `Workspace` and `Project` move to Layer 06; `WorkItem` moves to Layer 07; `Branch`, `Snapshot` and build `Artifact` move to Layer 08; `Adr` and `Knowledge` move to Layer 02. The React client becomes the shared component set. The F0–F4 work is not wasted — `CitationsPanel`, `ChatTelemetryContext` and the thread components survive intact and become reusable, which is what they should have been.
 
 **Minimum V1 — P2, and deliberately NOT in GATE A.** Conversation core, scope resolution and the reusable chat surface. DEVELOPER V1a runs on an API and a work-graph view; it needs no conversation surface to coordinate three workers, and removing EXPERIENCE from GATE A takes roughly three weeks off the critical path. Commands, search, forms, approvals, notification centre and the component system are P3; voice and realtime are P4.
 
@@ -1187,7 +1187,7 @@ Unchanged principle, and v2.2's moves reinforce it. AI now has milestones in P0,
 
 Every existing entity classified per §35. **`KEEP` dominates: nothing needs to be thrown away.**
 
-### 16.1 Nexus.Web — Chat domain aggregates
+### 16.1 Nexus.Experience — Chat domain aggregates
 
 | Entity | Target layer | Action | Reasoning |
 |---|---|---|---|
@@ -1205,7 +1205,7 @@ Every existing entity classified per §35. **`KEEP` dominates: nothing needs to 
 
 **Sequencing note.** Every `MOVE` above is post-gate. Doing them before the gate means moving code while also building on it. `M-02-1.2` migrates all eleven aggregates to SQL *in place*; they move layers afterwards. Exception: `WorkItem` may move during `M-07-1.1` if it proves cheaper than referencing across the boundary.
 
-### 16.2 NexusAI — Platform
+### 16.2 Nexus.Platform — Platform
 
 | Entity | Target | Action | Reasoning |
 |---|---|---|---|
@@ -1224,7 +1224,7 @@ Every existing entity classified per §35. **`KEEP` dominates: nothing needs to 
 | `NexusAI.Agents`, `.Api`, `.Core`, `.Domain`, `.Foundation`, `.Host`, `.Infrastructure` | — | **REMOVE** | Empty gitignored husks from V2.1. Deleting them removes ambiguity about where code goes. Low risk, do during `M-08-1.x`. |
 | `NexusAI.Application/{Agents,Orchestration,WorkItem}` | — | **REMOVE** | Same. |
 
-### 16.3 Nexus.Int — Intelligence
+### 16.3 Nexus.Intelligence — Intelligence
 
 | Entity | Target | Action | Reasoning |
 |---|---|---|---|
