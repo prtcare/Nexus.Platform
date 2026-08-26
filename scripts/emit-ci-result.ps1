@@ -46,7 +46,9 @@ if ($trxFiles.Count -eq 0) {
 }
 
 foreach ($trxFile in $trxFiles) {
-    [xml]$trx = Get-Content -Raw -Path $trxFile.FullName
+    # LiteralPath: vstest names colliding trx files with a "[1]" suffix, and '[' ']'
+    # are wildcard characters to -Path - a plain -Path here silently matches nothing.
+    [xml]$trx = Get-Content -Raw -LiteralPath $trxFile.FullName
     $results = $trx.TestRun.Results.UnitTestResult
     if ($null -eq $results) { continue }
 
