@@ -7,6 +7,7 @@
     <Project Path="src\Nexus.Platform.Tools\Nexus.Platform.Tools.csproj" />
     <Project Path="src\Nexus.Platform.Identity\Nexus.Platform.Identity.csproj" />
     <Project Path="src\Nexus.Platform.Persistence\Nexus.Platform.Persistence.csproj" />
+    <Project Path="src\Nexus.Delivery.Contracts\Nexus.Delivery.Contracts.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests\Nexus.Platform.Tests\Nexus.Platform.Tests.csproj" />

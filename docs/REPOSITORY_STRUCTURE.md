@@ -58,7 +58,7 @@ layer's short name, lowercase.
 | 05 | AUTOMATION | `Nexus.Platform` | `automation` | none |
 | 06 | PRODUCT CORE | `Nexus.Platform` | `product_core` | none |
 | 07 | DEVELOPER | `Nexus.Developer` | `developer` | none — the repository does not exist |
-| 08 | DELIVERY | `Nexus.Platform` + per-repo pipelines | `delivery` | none |
+| 08 | DELIVERY | `Nexus.Platform` + per-repo pipelines | `delivery` | `Nexus.Delivery.Contracts` |
 | 09 | ASSURANCE | `Nexus.Platform` | `assurance` | none |
 | 10 | OPERATIONS | `Nexus.Platform` | `operations` | none |
 | 11 | EXPERIENCE | `Nexus.Experience` | `experience` | `Nexus.Experience.Client` (frontend only; the engine does not exist) |

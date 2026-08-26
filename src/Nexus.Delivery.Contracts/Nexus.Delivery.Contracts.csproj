@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Nexus.Delivery.Contracts</RootNamespace>
+    <AssemblyName>Nexus.Delivery.Contracts</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>Nexus.Delivery.Contracts</PackageId>
+    <Authors>PRT</Authors>
+    <Description>Nexus V2 - Nexus.Delivery.Contracts</Description>
+  </PropertyGroup>
+
+</Project>
