@@ -38,6 +38,10 @@ jobs:
       - name: Build
         run: dotnet build Nexus.Platform.slnx -c Release --no-restore
 
+      # M-08-1.4: the whole slnx is tested with no --filter, so
+      # tests/Nexus.Platform.Architecture.Tests (NetArchTest boundary rules) runs
+      # in this same step. Do not add a filter that could silently drop the
+      # architecture-test project - it is the hard boundary gate for this repo.
       - name: Test
         run: dotnet test Nexus.Platform.slnx -c Release --no-build --logger trx --results-directory ./artifacts/test-results
 
