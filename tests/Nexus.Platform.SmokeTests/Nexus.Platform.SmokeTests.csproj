@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Nexus.Platform.SmokeTests</RootNamespace>
+    <AssemblyName>Nexus.Platform.SmokeTests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\samples\Nexus.Platform.SmokeHost\Nexus.Platform.SmokeHost.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.1" />
+  </ItemGroup>
+
+  <!-- The restart smoke test launches the SmokeHost as a child process. ProjectReference
+       copies only the host dll, so also copy its runtime config / deps / apphost into the
+       test output so `dotnet Nexus.Platform.SmokeHost.dll` can actually start. -->
+  <Target Name="CopySmokeHostRuntime" AfterTargets="Build">
+    <ItemGroup>
+      <_HostFiles Include="..\..\samples\Nexus.Platform.SmokeHost\bin\$(Configuration)\net10.0\Nexus.Platform.SmokeHost.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_HostFiles)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>
