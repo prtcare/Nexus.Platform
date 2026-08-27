@@ -1,6 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
 using Nexus.ProductCore.Contracts;
-using Nexus.ProductCore.Scope.Registration;
 
 namespace Nexus.ProductCore.Scope;
 

@@ -1,5 +1,4 @@
 using Nexus.ProductCore.Contracts;
-using Nexus.ProductCore.Scope.Registration;
 using Xunit;
 
 namespace Nexus.ProductCore.Scope.Tests;
