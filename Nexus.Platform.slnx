@@ -1,4 +1,4 @@
-﻿<Solution>
+<Solution>
   <Folder Name="/src/">
     <Project Path="src\Nexus.Platform.Contracts\Nexus.Platform.Contracts.csproj" />
     <Project Path="src\Nexus.Platform.Core\Nexus.Platform.Core.csproj" />
@@ -8,9 +8,12 @@
     <Project Path="src\Nexus.Platform.Identity\Nexus.Platform.Identity.csproj" />
     <Project Path="src\Nexus.Platform.Persistence\Nexus.Platform.Persistence.csproj" />
     <Project Path="src\Nexus.Delivery.Contracts\Nexus.Delivery.Contracts.csproj" />
+    <Project Path="src\Nexus.ProductCore.Contracts\Nexus.ProductCore.Contracts.csproj" />
+    <Project Path="src\Nexus.ProductCore.Scope\Nexus.ProductCore.Scope.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests\Nexus.Platform.Tests\Nexus.Platform.Tests.csproj" />
     <Project Path="tests\Nexus.Platform.Architecture.Tests\Nexus.Platform.Architecture.Tests.csproj" />
+    <Project Path="tests\Nexus.ProductCore.Scope.Tests\Nexus.ProductCore.Scope.Tests.csproj" />
   </Folder>
 </Solution>
