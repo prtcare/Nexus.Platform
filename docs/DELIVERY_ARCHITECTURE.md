@@ -5,7 +5,8 @@ environment, deployment and infrastructure halves do not exist at all.** Every g
 milestone that closes it
 **Owner:** Durai
 **Last updated:** 2026-08-21
-**Layer:** 08 DELIVERY — contracts and records in `Nexus.Platform`, pipelines per repository, schema
+**Layer:** 07 DELIVERY (v2.2, was 08 DELIVERY under v2.1 — see `LAYER_MODEL.md` §2.2) — contracts
+and records in `Nexus.Platform`, pipelines per repository, schema
 `delivery`
 **Authoritative for:** the shape and boundaries of the DELIVERY layer — repositories, branches, tags
 and commits as records; where pipelines live and why; how build and test execution produces results

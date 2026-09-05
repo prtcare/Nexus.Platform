@@ -5,7 +5,8 @@
 closes it
 **Owner:** Durai
 **Last updated:** 2026-08-21
-**Layer:** 09 ASSURANCE — repository `Nexus.Platform`, schema `assurance`, cross-cutting
+**Layer:** 08 ASSURANCE (v2.2, was 09 ASSURANCE under v2.1 — see `LAYER_MODEL.md` §2.2) —
+repository `Nexus.Platform`, schema `assurance`, cross-cutting
 **Authoritative for:** the shape and boundaries of the ASSURANCE layer — the traceability chain as a
 chain of rows, the entity model, where acceptance criteria attach, the separation of verification
 from validation, the inspection model for physical work, evaluation as a verification method,

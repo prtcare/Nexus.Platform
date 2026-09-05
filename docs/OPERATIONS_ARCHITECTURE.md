@@ -5,7 +5,8 @@
 selected. Each gap names the milestone that closes it
 **Owner:** Durai
 **Last updated:** 2026-08-21
-**Layer:** 10 OPERATIONS — repository `Nexus.Platform`, schema `operations`, cross-cutting
+**Layer:** 09 OPERATIONS (v2.2, was 10 OPERATIONS under v2.1 — see `LAYER_MODEL.md` §2.2) —
+repository `Nexus.Platform`, schema `operations`, cross-cutting
 **Authoritative for:** the shape and boundaries of the OPERATIONS layer — what runtime ownership
 means, the entity model, the boundary with DELIVERY and ASSURANCE, the observability progression from
 correlation to metrics to tracing, health, incidents and alerts, performance, cost and capacity,

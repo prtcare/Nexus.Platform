@@ -5,7 +5,8 @@ product (`Nexus.Products.Chat`) and must become a layer (`Nexus.Experience`). No
 project exists yet. Each gap names the milestone that closes it
 **Owner:** Durai
 **Last updated:** 2026-08-21
-**Layer:** 11 EXPERIENCE — repository `Nexus.Experience`, schema `experience`
+**Layer:** 10 EXPERIENCE (v2.2, was 11 EXPERIENCE under v2.1 — see `LAYER_MODEL.md` §2.2) —
+repository `Nexus.Experience`, schema `experience`
 **Authoritative for:** the shape and boundaries of the EXPERIENCE layer — the conversation engine and
 its entity model, `ScopeRef` and its opacity, `IScopeResolver` and the context handoff, scope kind
 registration, the reusable interaction surfaces, commands, approvals and notification UX, and the
