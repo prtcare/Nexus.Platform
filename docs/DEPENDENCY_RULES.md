@@ -1,5 +1,19 @@
 # Dependency Rules
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's dependency
+> direction, ownership lines, and 12x12 matrix are built on the v2.1 twelve-layer
+> model, in which 07 DEVELOPER was a numbered Platform layer and DELIVERY/ASSURANCE/
+> OPERATIONS/EXPERIENCE were numbered 08/09/10/11. Per the approved v2.2 renumbering
+> (`LAYER_MODEL.md` §2.2, §4a), Nexus Forge and Nexus Developer (the product) now sit
+> OUTSIDE the ten numbered Platform layers, and DELIVERY/ASSURANCE/OPERATIONS/EXPERIENCE
+> are renumbered 07/08/09/10. The dependency reasoning below (who may depend on whom,
+> the cross-cutting exception, the AI seam, product isolation) remains historically
+> accurate engineering judgment and is not being discarded. Re-deriving the full matrix,
+> ownership lines, and forbidden-reference lists against the v2.2 numbering (and against
+> the Forge/Nexus-Developer-Product split) is Wave-D-adjacent decision work and is
+> explicitly NOT done in this batch. Read the numbers below as v2.1-numbering history
+> until that re-derivation happens.
+
 **Status:** TRANSITION — the rules are settled; enforcement exists in three test files that no
 pipeline runs, because there is no pipeline
 **Owner:** DEVELOPER (Layer 07) defines; ASSURANCE (Layer 09) proves; DELIVERY (Layer 08) gates

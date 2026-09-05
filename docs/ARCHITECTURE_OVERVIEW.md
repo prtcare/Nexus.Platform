@@ -1,5 +1,16 @@
 # Architecture Overview
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** The "twelve layers at one line each"
+> summary below reflects the v2.1 numbering, in which 07 DEVELOPER was a numbered
+> Platform layer and DELIVERY/ASSURANCE/OPERATIONS/EXPERIENCE were numbered 08/09/10/11.
+> Per the approved v2.2 renumbering (`LAYER_MODEL.md` §2.2, §4a), Nexus Forge and Nexus
+> Developer (the product) now sit OUTSIDE the ten numbered Platform layers, and
+> DELIVERY/ASSURANCE/OPERATIONS/EXPERIENCE are renumbered 07/08/09/10. The "which layer
+> does this belong to" placement logic below remains a historically accurate reference
+> for how the reasoning was built; re-deriving the one-line-per-layer summary and the
+> placement checklist against the v2.2 numbering is Wave-D-adjacent decision work and is
+> explicitly NOT done in this batch.
+
 **Status:** Active — describes the target architecture and the current system side by side, and
 never silently conflates them
 **Owner:** Durai, with each layer's owner responsible for its own row
