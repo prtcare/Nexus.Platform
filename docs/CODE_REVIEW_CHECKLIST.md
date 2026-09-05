@@ -1,5 +1,16 @@
 # Code Review Checklist
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's own header
+> (`**Owner:** DEVELOPER (Layer 07)`, `**Layer:** 07 DEVELOPER, applied to every
+> layer`) reflects the v2.1 twelve-layer model, in which 07 DEVELOPER was a
+> numbered Platform layer. Per the approved v2.2 renumbering (`LAYER_MODEL.md`
+> §2.2, §4a), Nexus Forge and Nexus Developer (the product) now sit OUTSIDE the
+> ten numbered Platform layers. The checklist content itself remains valid.
+> Re-deriving this document's own ownership header against the v2.2 model
+> (including who should own a cross-cutting review checklist once DEVELOPER is
+> not a numbered layer) is Wave-D-adjacent decision work and is explicitly NOT
+> done in this batch.
+
 **Status:** Active
 **Owner:** DEVELOPER (Layer 07)
 **Last updated:** 2026-08-21

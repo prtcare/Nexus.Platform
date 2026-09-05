@@ -1,5 +1,16 @@
 # Database Standards
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's layer-to-schema
+> table and "Layer 12 PRODUCTS" wording are built on the v2.1 twelve-layer
+> model, in which 07 DEVELOPER and 12 PRODUCTS were numbered Platform layers.
+> Per the approved v2.2 renumbering (`LAYER_MODEL.md` §2.2, §4a), Nexus Forge,
+> Nexus Developer (the product), and Products all now sit OUTSIDE the ten
+> numbered Platform layers, and DELIVERY/ASSURANCE/OPERATIONS/EXPERIENCE are
+> renumbered 07/08/09/10. The schema-per-layer convention and the cross-cutting
+> dependency rule (08/09/10 in the old numbering -- now 07/08/09) remain valid.
+> Re-deriving the layer-to-schema table against the v2.2 numbering is
+> Wave-D-adjacent decision work and is explicitly NOT done in this batch.
+
 **Status:** Active
 **Owner:** DATA (Layer 02)
 **Last updated:** 2026-08-21

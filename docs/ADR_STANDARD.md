@@ -1,5 +1,16 @@
 # ADR Standard
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's own header
+> (`**Owner:** DEVELOPER (Layer 07); custodianship passes to DATA (Layer 02)...`)
+> and its worked examples (`02 DATA, 08 DELIVERY`) reflect the v2.1 twelve-layer
+> model, in which 07 DEVELOPER was a numbered Platform layer and DELIVERY was
+> numbered 08. Per the approved v2.2 renumbering (`LAYER_MODEL.md` §2.2, §4a),
+> Nexus Forge and Nexus Developer (the product) now sit OUTSIDE the ten
+> numbered Platform layers, and DELIVERY is renumbered 07 (from 08). The ADR
+> process itself remains valid. Re-deriving this document's own ownership
+> header and examples against the v2.2 model is Wave-D-adjacent decision work
+> and is explicitly NOT done in this batch.
+
 **Status:** Active
 **Owner:** DEVELOPER (Layer 07); custodianship passes to DATA (Layer 02) when documents become
 `Document` records at **M-02-2.1**

@@ -1,9 +1,9 @@
 # Assurance Standards
 
 **Status:** Active
-**Owner:** ASSURANCE (Layer 09)
+**Owner:** ASSURANCE (Layer 08 -- renumbered from 09, see LAYER_MODEL.md §2.2)
 **Last updated:** 2026-08-21
-**Layer:** 09 ASSURANCE — cross-cutting
+**Layer:** 08 ASSURANCE — cross-cutting (renumbered from 09, see LAYER_MODEL.md §2.2)
 **Authoritative for:** unit, integration, contract, architecture, UI, performance and security
 testing; regression; AI evaluation; machine inspection; validation; verification; acceptance;
 evidence; defects; nonconformance; quality gates; release qualification; assurance profiles; test

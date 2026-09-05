@@ -1,9 +1,9 @@
 # Stack Version Policy
 
 > **Status:** TRANSITION — the pinning mechanisms exist in all three repositories; the enforcement that makes them meaningful does not exist yet
-> **Owner:** Layer 08 DELIVERY (enforcement) / Layer 03 GOVERNANCE (record)
+> **Owner:** Layer 07 DELIVERY (enforcement, renumbered from 08 -- see LAYER_MODEL.md §2.2) / Layer 03 GOVERNANCE (record)
 > **Last updated:** 2026-08-21
-> **Layer:** Cross-cutting (08 DELIVERY)
+> **Layer:** Cross-cutting (07 DELIVERY, renumbered from 08 -- see LAYER_MODEL.md §2.2)
 > **Authoritative for:** how .NET SDK, NuGet package and npm package versions are pinned, when they are upgraded, what a breaking upgrade requires, how security patches are handled, how a technology is deprecated, and how obsolete stack use is detected
 
 *Which* technologies are approved is **TECHNOLOGY_STACK.md**. This document is only about their versions.
@@ -33,7 +33,7 @@ Three files per repository do the work. All three exist in Nexus.Platform, Nexus
 | **What it does** | Fixes which .NET SDK the `dotnet` CLI selects for that repository, regardless of what else is installed on the machine. |
 | **State** | CURRENT — one exists per repository. |
 | **Policy** | Pin the SDK **version** with a **`rollForward` of `latestPatch`**. Patch-level drift is safe and carries security fixes; feature-band drift changes compiler and MSBuild behaviour between two developers on the same commit. |
-| **Who changes it** | 08 DELIVERY, in a work item that touches nothing else. Never bundled with feature work. |
+| **Who changes it** | 07 DELIVERY, in a work item that touches nothing else. Never bundled with feature work. |
 | **Non-negotiable** | All three repositories move to the same SDK version in the same change. Nexus.Experience consumes packages produced by Nexus.Platform and Nexus.Intelligence; divergent SDKs produce divergent output for identical source. |
 
 ### `Directory.Build.props` — one place for shared MSBuild properties
@@ -99,7 +99,7 @@ Documentation is **not** on this list. TECHNOLOGY_STACK.md describes what is pin
 | **Minor** | Swashbuckle 6.5 → 6.6 | Take it after the build passes and the two behaviour tests run. Read the release notes for the word *obsolete*. | Reviewer. |
 | **Major** | React 18 → 19, EF Core 9 → 10 | Its own work item. Nothing else in the change. Follow §5. | Explicit decision; ADR if it changes how code is written. |
 | **Prerelease** | any `-preview`, `-rc`, `-beta` | **Not permitted on `main`.** Allowed on a `work/<id>` branch for evaluation only. | Never merged to `main`. |
-| **SDK band** | .NET 10.0.1xx → 10.0.2xx | Coordinated across all three repositories in one change. | 08 DELIVERY. |
+| **SDK band** | .NET 10.0.1xx → 10.0.2xx | Coordinated across all three repositories in one change. | 07 DELIVERY. |
 
 ---
 
@@ -107,9 +107,9 @@ Documentation is **not** on this list. TECHNOLOGY_STACK.md describes what is pin
 
 | Cadence | Scope | Owner |
 |---|---|---|
-| **Every milestone boundary** | Patch-level updates across all three repositories. Milestone boundaries are already the natural checkpoint — the 2026-08-20 recovery produced the lesson *push at every stage boundary, not every milestone*, and version hygiene attaches to the same rhythm. | 08 DELIVERY |
-| **Every phase boundary** | Minor updates; review whether any *unpinned* entry in TECHNOLOGY_STACK.md has become pinnable. | 08 DELIVERY |
-| **On demand** | Security patches — see §6. No waiting for a cadence. | 08 DELIVERY |
+| **Every milestone boundary** | Patch-level updates across all three repositories. Milestone boundaries are already the natural checkpoint — the 2026-08-20 recovery produced the lesson *push at every stage boundary, not every milestone*, and version hygiene attaches to the same rhythm. | 07 DELIVERY |
+| **Every phase boundary** | Minor updates; review whether any *unpinned* entry in TECHNOLOGY_STACK.md has become pinnable. | 07 DELIVERY |
+| **On demand** | Security patches — see §6. No waiting for a cadence. | 07 DELIVERY |
 | **Deliberately scheduled** | Majors. Planned into a milestone with capacity, never absorbed. | Milestone owner |
 | **Never** | "Update everything to latest" as a routine action. It converts a diagnosable single failure into an undiagnosable compound one. | — |
 

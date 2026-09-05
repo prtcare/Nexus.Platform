@@ -1,5 +1,15 @@
 # Code Conventions
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's own header
+> (`**Owner:** Layer 07 DEVELOPER (definition) / Layer 09 ASSURANCE
+> (conformance)`) reflects the v2.1 twelve-layer model, in which 07 DEVELOPER
+> was a numbered Platform layer. Per the approved v2.2 renumbering
+> (`LAYER_MODEL.md` §2.2, §4a), Nexus Forge and Nexus Developer (the product)
+> now sit OUTSIDE the ten numbered Platform layers, and ASSURANCE is renumbered
+> 08 (from 09). The coding conventions themselves remain valid. Re-deriving
+> this document's own ownership header against the v2.2 model is
+> Wave-D-adjacent decision work and is explicitly NOT done in this batch.
+
 > **Status:** TRANSITION — the rules hold across all languages; several categories have no implementation in Nexus yet and are marked TARGET with the milestone that closes them
 > **Owner:** Layer 07 DEVELOPER (definition) / Layer 09 ASSURANCE (conformance)
 > **Last updated:** 2026-08-21

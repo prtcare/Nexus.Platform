@@ -2,9 +2,9 @@
 
 **Status:** CURRENT — this is the exact local topology on 2026-08-21. Every transitional decision is
 marked TRANSITION with the milestone that ends it
-**Owner:** DELIVERY (Layer 08)
+**Owner:** DELIVERY (Layer 07 -- renumbered from 08, see LAYER_MODEL.md §2.2)
 **Last updated:** 2026-08-21
-**Layer:** 08 DELIVERY
+**Layer:** 07 DELIVERY (renumbered from 08, see LAYER_MODEL.md §2.2)
 **Authoritative for:** the local machine topology — where the repositories sit, how packages flow,
 which ports are bound, how the database is reached, where local secrets come from, how the processes
 communicate, the order they start in, how to stop and restart them, how to debug across them, and

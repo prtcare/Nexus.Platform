@@ -1,5 +1,17 @@
 # Product Development Guide
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's own header
+> (`**Owner:** PRODUCTS (Layer 12)`, `**Layer:** 12 PRODUCTS`) and its
+> per-layer capability table (07 DEVELOPER, 08 DELIVERY, 09 ASSURANCE,
+> 10 OPERATIONS, 11 EXPERIENCE) reflect the v2.1 twelve-layer model, in which
+> 07 DEVELOPER and 12 PRODUCTS were numbered Platform layers. Per the approved
+> v2.2 renumbering (`LAYER_MODEL.md` §2.2, §4a), Products (and Nexus Forge /
+> Nexus Developer, the product) now sit OUTSIDE the ten numbered Platform
+> layers entirely, and DELIVERY/ASSURANCE/OPERATIONS/EXPERIENCE are renumbered
+> 07/08/09/10. The guidance itself remains valid. Re-deriving this document's
+> own header and capability table against the v2.2 model is Wave-D-adjacent
+> decision work and is explicitly NOT done in this batch.
+
 **Status:** TARGET — one product exists (Chat) and it predates this path; every step below is
 composition rather than construction, and the milestone that makes each step real is named
 **Owner:** PRODUCTS (Layer 12), with GOVERNANCE (03) owning registration and PRODUCT CORE (06)

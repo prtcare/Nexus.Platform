@@ -1,5 +1,17 @@
 # Development Workflow
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's own header
+> (`**Owner:** DEVELOPER (Layer 07)`) and its four-question ownership table
+> (07 DEVELOPER / 08 DELIVERY / 09 ASSURANCE / 10 OPERATIONS) reflect the v2.1
+> twelve-layer model, in which 07 DEVELOPER and 12 PRODUCTS were numbered
+> Platform layers. Per the approved v2.2 renumbering (`LAYER_MODEL.md` §2.2,
+> §4a), Nexus Forge and Nexus Developer (the product) now sit OUTSIDE the ten
+> numbered Platform layers, and DELIVERY/ASSURANCE/OPERATIONS/EXPERIENCE are
+> renumbered 07/08/09/10. The workflow questions themselves ("what must be
+> proven", "did it run", etc.) remain valid engineering framing. Re-deriving
+> this document's own header and table against the v2.2 model is
+> Wave-D-adjacent decision work and is explicitly NOT done in this batch.
+
 **Status:** Active
 **Owner:** DEVELOPER (Layer 07)
 **Last updated:** 2026-08-21

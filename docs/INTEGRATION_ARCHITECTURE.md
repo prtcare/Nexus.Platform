@@ -1,5 +1,14 @@
 # Integration Architecture
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's "Layer 12 --
+> one database per product" row reflects the v2.1 twelve-layer model, in which
+> 12 PRODUCTS was a numbered Platform layer. Per the approved v2.2 renumbering
+> (`LAYER_MODEL.md` §2.2, §4a), Products now sit OUTSIDE the ten numbered
+> Platform layers entirely -- Products is no longer "Layer 12" at all. The
+> one-database-per-product rule itself remains valid. Re-deriving this
+> reference against the v2.2 model is Wave-D-adjacent decision work and is
+> explicitly NOT done in this batch.
+
 **Status:** TRANSITION — **five integration points exist today and all five work**; everything else in
 this document is the shape the sixth onward must take. Each gap names the milestone that closes it
 **Owner:** Durai; each layer owns the contract it publishes

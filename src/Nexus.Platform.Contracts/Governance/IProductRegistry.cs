@@ -1,4 +1,4 @@
-namespace Nexus.Platform.Contracts.Identity;
+namespace Nexus.Platform.Contracts.Governance;
 
 public interface IProductRegistry
 {

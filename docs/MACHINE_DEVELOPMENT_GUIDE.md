@@ -1,5 +1,15 @@
 # Machine Development Guide
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's own header
+> (`**Owner:** PRODUCTS (Layer 12) for the machine itself; ASSURANCE (09) for
+> inspection...`, `**Layer:** 12 PRODUCTS, with 09 ASSURANCE cross-cutting`)
+> reflects the v2.1 twelve-layer model, in which 12 PRODUCTS was a numbered
+> Platform layer. Per the approved v2.2 renumbering (`LAYER_MODEL.md` §2.2,
+> §4a), Products now sit OUTSIDE the ten numbered Platform layers entirely, and
+> ASSURANCE is renumbered 08 (from 09). The machine-development guidance itself
+> remains valid. Re-deriving this document's own header against the v2.2 model
+> is Wave-D-adjacent decision work and is explicitly NOT done in this batch.
+
 **Status:** TARGET — **no machine domain exists in Nexus.** Nothing described here is implemented.
 This document is written now because retrofitting measurement traceability and safety separation
 into a model designed only for software is expensive, and because the safety rules must be written

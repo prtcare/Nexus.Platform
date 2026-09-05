@@ -1,5 +1,15 @@
 # AI Architecture
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's context-
+> flattening table (rows for `07 DEVELOPER`, `09 ASSURANCE`, `10 OPERATIONS`,
+> `11 EXPERIENCE`) reflects the v2.1 twelve-layer model, in which 07 DEVELOPER
+> was a numbered Platform layer. Per the approved v2.2 renumbering
+> (`LAYER_MODEL.md` §2.2, §4a), Nexus Forge and Nexus Developer (the product)
+> now sit OUTSIDE the ten numbered Platform layers, and
+> ASSURANCE/OPERATIONS/EXPERIENCE are renumbered 08/09/10. The AI architecture
+> content itself remains valid. Re-deriving this table against the v2.2 model
+> is Wave-D-adjacent decision work and is explicitly NOT done in this batch.
+
 **Status:** MIXED, and the mix is the point — **the contracts and the turn pipeline exist, compile and
 run; almost everything stateful behind them is in-memory and does not survive a restart.** Every
 capability below carries one of four maturity bands
