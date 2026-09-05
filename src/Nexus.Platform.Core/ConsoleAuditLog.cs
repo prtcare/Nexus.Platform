@@ -1,6 +1,6 @@
-using Nexus.Platform.Contracts.Governance;
+using Nexus.Platform.Contracts.Core;
 
-namespace Nexus.Platform.Core.Governance;
+namespace Nexus.Platform.Core;
 
 public sealed class ConsoleAuditLog : IAuditLog
 {

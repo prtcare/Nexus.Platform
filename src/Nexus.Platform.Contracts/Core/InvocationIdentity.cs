@@ -1,4 +1,4 @@
-namespace Nexus.Platform.Contracts.Models;
+namespace Nexus.Platform.Contracts.Core;
 
 // The metering key - and deliberately the ONLY identity Platform ever sees.
 // It must never be able to express a product's internal structure.

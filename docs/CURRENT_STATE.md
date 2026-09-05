@@ -19,7 +19,7 @@ Documentation baseline established (this pass). Next: resume roadmap implementat
 |---|---|---|
 | `pack-local.ps1` packs to `C:\Personal\LocalNuGet` | NexusAI (repo root) | `M-08-1.1` |
 | LocalNuGet-referencing `nuget.config` | **Nexus.Int** (not NexusAI) | `M-08-1.1` |
-| `InMemoryUsageMeter`, `PermissiveQuotaPolicy`, `ConsoleAuditLog` | **NexusAI**, `src\Nexus.Platform.Core\Governance\` | Later persistence milestones |
+| `InMemoryUsageMeter` (`src\Nexus.Platform.Core\Models\`, moved from `Governance\` in Batch 06 -- see architecture/NEXUS_V2_EXECUTION_BATCH_06_REPORT.md), `PermissiveQuotaPolicy` (`src\Nexus.Platform.Core\ProductCore\`, moved from `Governance\` in Batch 06), `ConsoleAuditLog` (`src\Nexus.Platform.Core\`, moved from `Governance\` in Batch 07 -- audit reclassified CORE-owned, not Governance-owned -- see architecture/NEXUS_V2_EXECUTION_BATCH_07_REPORT.md) | **NexusAI** | Later persistence milestones |
 | `InMemoryMemoryStore` | Nexus.Int | Later persistence milestones |
 | `ChatTurnIdentity` hardcoded tenant (`nexus-dev`) + fixed permissions (`chat:send-message`), no auth on either API | Nexus.Web | Identity work (decision D-1, per the code's own TODO) |
 | `Nexus.Platform.Persistence`, `.Identity`, `.Tools`, `.Providers.Anthropic` are single-file, ~7–8 line stub scaffolds | NexusAI | Later GATE A/B milestones per layer |

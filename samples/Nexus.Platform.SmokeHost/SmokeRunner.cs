@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Nexus.Platform.Contracts.Governance;
+using Nexus.Platform.Contracts.Core;
 using Nexus.Platform.Contracts.Models;
 using Nexus.Platform.Core;
-using Nexus.Platform.Core.Governance;
+using Nexus.Platform.Core.Models;
 using Nexus.Platform.Providers.OpenAI;
 
 namespace Nexus.Platform.SmokeHost;

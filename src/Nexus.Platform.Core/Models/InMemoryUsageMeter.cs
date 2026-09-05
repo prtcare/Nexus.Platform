@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
-using Nexus.Platform.Contracts.Governance;
+using Nexus.Platform.Contracts.Models;
 
-namespace Nexus.Platform.Core.Governance;
+namespace Nexus.Platform.Core.Models;
 
 public sealed class InMemoryUsageMeter : IUsageMeter
 {

@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Options;
-using Nexus.Platform.Contracts.Governance;
+using Nexus.Platform.Contracts.Core;
 using Nexus.Platform.Contracts.Models;
 using Nexus.Platform.Core.Models;
 using OpenAI.Chat;
