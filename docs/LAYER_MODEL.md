@@ -242,26 +242,63 @@ layer and product, without any consumer's structure leaking into it.
 
 ---
 
-### 06 — PRODUCT CORE
-*reusable product-level capability and scope primitives*
+### 06 — SHARED PLATFORM
+*reusable product-level capability, scope primitives and shared platform services*
 
-**Purpose.** Provide the reusable half of every product — scope, membership, subscriptions,
-entitlements, quotas, settings, onboarding — so no product rebuilds them.
+> **RENAMED (Architecture Rebaseline R02, 2026-09-07):** this layer was previously named
+> PRODUCT CORE. The rename is conceptual only — see
+> `architecture/NEXUS_V2_REBASELINE_R01_REPORT.md` and `_R02_REPORT.md`. No physical project,
+> namespace, schema name, or dependency-matrix cell changed as a result; `Nexus.ProductCore.*`
+> remains the physical project family until a later, separately-authorized physical migration.
+> Every responsibility this layer owned under the old name it still owns in full under the new
+> one — the rename widens how the layer is *described*, not what it *does*.
+
+**Purpose.** Provide the reusable half of every product and every consumer of the numbered
+Platform — scope, membership, subscriptions, entitlements, quotas, settings, onboarding, and
+genuinely common product-facing functions, UI, tools, gateways and SDK/contracts — so nothing
+above it rebuilds them.
+
+**Six internal capability areas** (conceptual groupings within this one layer, not separate
+numbered layers): Shared Functions · Shared UI · Shared Tools · Shared Product Services (the
+scope trunk and entitlement/quota responsibilities below, unchanged from PRODUCT CORE) · Shared
+Gateways · Shared SDK / Contracts.
 
 | | |
 |---|---|
 | **Repository** | `Nexus.Platform` |
-| **Schema** | `product_core` |
-| **Projects (TARGET)** | `Nexus.ProductCore.Contracts`, `.Core`, `.Scope`, `.Infrastructure` |
-| **Today** | Does not exist. `Workspace` and `Project` currently live in `Nexus.Products.Chat.Domain` |
-| **Owns** | The scope trunk `Workspace → Project → Subproject` · product profiles and membership · plans, subscriptions and entitlements · feature flags and quotas · product settings, preferences and onboarding state |
-| **Does NOT own** | Identity (01) · product identity in the registry sense (03) · domain data (Products) · **development structure below Subproject (Nexus Forge)** |
+| **Schema** | `product_core` (unchanged — see rename note above) |
+| **Projects (TARGET)** | `Nexus.ProductCore.Contracts`, `.Core`, `.Scope`, `.Infrastructure` (unchanged; physical rename not performed in this batch) |
+| **Today** | The scope trunk exists (`Nexus.ProductCore.Contracts`, `Nexus.ProductCore.Scope` — `Workspace`/`Project`/`Subproject`, `ScopeKind`, `IScopeKindRegistry`). Everything else in the six areas above (Shared Functions/UI/Tools/Gateways/SDK beyond the scope trunk) does not exist yet |
+| **Owns** | The scope trunk `Workspace → Project → Subproject` · product profiles and membership · plans, subscriptions and entitlements · feature flags and quotas · product settings, preferences and onboarding state · genuinely common product-facing functions, UI primitives, technical tools/modules, storage/service gateways and SDK/contracts, once they exist |
+| **Does NOT own** | Identity (01) · product identity in the registry sense (03) · domain/business behaviour specific to one product (Products) · **development structure below Subproject (Nexus Forge)** · interaction architecture and UX/presentation responsibility (10 EXPERIENCE — see below) · anything Core/Data/Governance/AI/Automation/Delivery/Assurance/Operations already own — this layer composes and re-exposes, it does not duplicate |
 | **Minimum before the gate** | **Only the scope primitives** — `Workspace`, `Project`, `Subproject`, plus extensible scope-kind registration so a consumer can declare its own hierarchy without modifying this layer |
-| **Deferred** | Membership, profiles, subscriptions, entitlements, quotas, settings, onboarding — all P3, waiting for a second product and a second user |
+| **Deferred** | Membership, profiles, subscriptions, entitlements, quotas, settings, onboarding, and every non-scope-trunk area above — all P3, waiting for a second product and a second user |
 
-**The distinction from CORE is the point.** CORE owns *who you are* — one Nexus identity. PRODUCT
-CORE owns *who you are within a product* — your Vault profile, your Developer profile. And an
+**The distinction from CORE is the point.** CORE owns *who you are* — one Nexus identity. SHARED
+PLATFORM owns *who you are within a product* — your Vault profile, your Developer profile. And an
 architecture test forbids any branch on product identity inside this layer.
+
+**The distinction from EXPERIENCE.** SHARED PLATFORM may own reusable UI *implementation* —
+components, primitives, hooks, common panels, reusable screens/patterns — when it is genuinely
+common across products. EXPERIENCE owns interaction *architecture* — UX/presentation
+responsibility, experience standards, the product/system interaction model itself. Product-specific
+UX stays product-owned either way. This layer does not collapse into EXPERIENCE, and EXPERIENCE
+does not collapse into it.
+
+**The distinction from Forge.** Forge and Nexus Developer (the product) may consume the same
+Shared Platform implementation Forge itself does not become Shared-Platform-owned by doing so, and
+Forge's authority over development governance is unaffected by what it happens to reuse. **Shared
+implementation does not imply shared authority.** A Forge recovery/bootstrap-critical capability
+must remain usable without requiring a healthy running Shared Platform (or any other numbered-layer)
+service — a reusable package or library may be shared; a hard runtime dependency that would break
+Forge's ability to recover Nexus must not be. (Full BOOTSTRAP_SAFE / RUNTIME_DEPENDENT /
+PRODUCT_ONLY classification is deferred to R04 — see the Nexus Forge section above and the
+Rebaseline reports.)
+
+**Not a dumping ground.** Reuse when genuinely common; local ownership when genuinely specific.
+Contract ownership follows responsibility and valid dependency direction — a type is not moved
+here merely because more than one consumer happens to use it, and this layer does not absorb
+product/domain business behaviour.
 
 **Why the trunk lives here and not in a product.** With conversation becoming a layer, `Workspace`
 and `Project` can no longer belong to one product: Nexus Forge, a plain conversation and machine
@@ -416,6 +453,26 @@ and **scope creep here is the single highest risk in the plan**.
 Developer is the human-facing console/UX over it — a Product (below), not part of Forge, reaching
 Forge only through Forge's own versioned API/contract, never direct database access. See the
 approved decision in `NEXUS_V1_TO_V2_DEEP_RECONCILIATION_REPORT.md` §27.
+
+**Bootstrap-safe reuse (Rebaseline R02, recorded here; full classification deferred to R04).** Forge
+may consume shared implementation from SHARED PLATFORM or any lower numbered layer, but anything
+Forge genuinely needs for Nexus recovery/bootstrap must remain usable without requiring a healthy
+running Nexus runtime — shared implementation does not imply shared authority (see 06 SHARED
+PLATFORM, "The distinction from Forge," above). The working classification is `BOOTSTRAP_SAFE` /
+`RUNTIME_DEPENDENT` / `PRODUCT_ONLY`; exact names may be refined, the rule is fixed.
+
+**External development intelligence (Rebaseline R02).** ChatGPT, Claude, Grok Bot and other
+external AI tools are optional, replaceable, external development/R&D assistance — never a runtime
+dependency of Forge, any numbered layer, or any product, and never a source of production or
+merge/deployment authority. Useful discoveries from them become governed Nexus requirements through
+the normal human/Forge process, not through any automatic pipeline.
+
+**Historical note on DevBridge.** Prior DevBridge documentation (`DevTools-ForgeV2/DevBridge/docs/
+DEVBRIDGE_RETIREMENT_PLAN.md` and related files) describes DevBridge as temporary scaffolding to be
+retired once a product replaces it. That framing is **superseded historical guidance** — it predates
+this document's "Forge is permanent" position (above) and must not be read as current direction. The
+DevBridge documents themselves are not rewritten by this note; a future Forge-specific documentation
+batch may add explicit historical banners to them.
 
 ---
 

@@ -14,6 +14,17 @@
 > explicitly NOT done in this batch. Read the numbers below as v2.1-numbering history
 > until that re-derivation happens.
 
+> **SHARED PLATFORM RENAME NOTICE (Rebaseline R02, 2026-09-07):** row/column 06, previously
+> labelled PRODUCT CORE throughout this document, is renamed SHARED PLATFORM below. This
+> document was re-read specifically to determine whether the layer's broadened conceptual
+> role (Shared Functions/UI/Tools/Product Services/Gateways/SDK, not just scope/entitlement
+> primitives) requires any actual dependency-rule change. It does not: every `●`/`—`/`▲`/`○`
+> cell for row and column 06 is unchanged, the forbidden-reference list for 06 is unchanged,
+> and the "assembly placement does not bypass architectural dependency restrictions" principle
+> this whole document exists to enforce applies identically under the new name. This is a
+> terminology-only update — see `architecture/NEXUS_V2_REBASELINE_R01_REPORT.md` and
+> `_R02_REPORT.md`.
+
 **Status:** TRANSITION — the rules are settled; enforcement exists in three test files that no
 pipeline runs, because there is no pipeline
 **Owner:** DEVELOPER (Layer 07) defines; ASSURANCE (Layer 09) proves; DELIVERY (Layer 08) gates
@@ -124,12 +135,14 @@ behaviour test covering the flattening.
 No `if (Product == X)` anywhere in a shared layer. Capability packs are **declared**, not coded. A
 product that needs different behaviour registers a different implementation; it does not add a case
 to a switch in a layer that is supposed to be product-neutral. The same rule bans branching on
-product identity inside PRODUCT CORE and inside ASSURANCE.
+product identity inside SHARED PLATFORM (06, renamed from PRODUCT CORE -- Rebaseline R02, terminology
+only, no dependency-substance change; see architecture/NEXUS_V2_REBASELINE_R02_REPORT.md) and inside
+ASSURANCE.
 
 **Enforced:** no. **TARGET — `M-12-1.2` Capability pack composition** makes it a build failure
 across the solution. **TARGET — `M-09-7.1` Profile definition and selection** adds the ASSURANCE
 variant. `M-11-1.2` adds the EXPERIENCE variant: the conversation core fails the build if it
-references any PRODUCT CORE, DEVELOPER or PRODUCTS assembly.
+references any SHARED PLATFORM, DEVELOPER or PRODUCTS assembly.
 
 ### Rule 7 — Structure is not conversation
 
@@ -162,7 +175,7 @@ Rows depend on columns. Read a row as "what may this layer reference".
 | **03 GOVERNANCE** | ● | ● | — | — | — | — | — | ○ | ○ | ○ | — | — |
 | **04 AI** | ● | ● | — | — | — | — | — | ○ | ○ | ○ | — | — |
 | **05 AUTOMATION** | ● | ● | ● | — | — | — | — | ○ | ○ | ○ | — | — |
-| **06 PRODUCT CORE** | ● | ● | ● | — | — | — | — | ○ | ○ | ○ | — | — |
+| **06 SHARED PLATFORM** | ● | ● | ● | — | — | — | — | ○ | ○ | ○ | — | — |
 | **07 DEVELOPER** | ● | ● | ● | ● | ● | ● | — | ● | ▲ | ○ | ▲ | — |
 | **08 DELIVERY** | ● | — | ● | — | — | — | — | — | ○ | ○ | — | — |
 | **09 ASSURANCE** | ● | ● | ● | — | — | — | — | ○ | — | ○ | — | — |
@@ -209,7 +222,7 @@ Assembly-level statements. Each is the thing a NetArchTest rule for that layer s
 | **03 GOVERNANCE** | 04–12 · any product type. `Product` here is a registry row, never a product's domain type |
 | **04 AI** | Any `Nexus.Products.*` · `Nexus.Experience.*` · `Nexus.Developer.*` · 03, 05–12 generally. **The hard one:** no AI type may name `Workspace`, `Project`, `Milestone`, `WorkItem` or any other consumer concept |
 | **05 AUTOMATION** | 04 and above · any product type. It runs a process; it does not know what the process means |
-| **06 PRODUCT CORE** | 07–12 · any product type · **any branch on product identity**, tested rather than reviewed |
+| **06 SHARED PLATFORM** | 07–12 · any product type · **any branch on product identity**, tested rather than reviewed |
 | **07 DEVELOPER** | 12 PRODUCTS · a product's `DbContext` · a product database connection string. It references a `ProductId` from GOVERNANCE, never a product |
 | **08 DELIVERY** | 02, 04–07, 09–12. A pipeline knows repositories and artifacts; it does not know what a milestone is |
 | **09 ASSURANCE** | 04–08, 10–12 · **any branch on product identity** (`M-09-7.1`). It holds a polymorphic reference to what it verifies, not a typed one |

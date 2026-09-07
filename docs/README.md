@@ -2,6 +2,17 @@
 
 Canonical documentation for all three Nexus repositories. Last reviewed 2026-08-20.
 
+> **Document authority (Architecture Rebaseline R02, 2026-09-07):** `Nexus.Platform\docs\`
+> (this tree) is the authoritative CURRENT Nexus V2 architecture/documentation set.
+> `C:\Personal\Documentation\docs\` is a stale, historical snapshot -- most of its files
+> diverge from this tree's (missing every Batch 04-09 and Rebaseline R01/R02 correction) and
+> must not be treated as current or edited as if it were a second live copy. It remains useful
+> as migration evidence/history. See `architecture/NEXUS_V2_REBASELINE_R01_REPORT.md` §2 for
+> the full inventory this finding is based on. This note describes documentation only, not the
+> three-solution narrative below -- that narrative predates the ten-numbered-layer/Nexus-Forge
+> model in `LAYER_MODEL.md`, which is authoritative for the current architecture; a broader
+> refresh of this file is deferred, not performed in this batch.
+
 Nexus is a persistent, structured AI system for turning conversations into organised
 projects, decisions, knowledge, work and reusable outputs. It is built as three layers, each
 its own repository and solution:

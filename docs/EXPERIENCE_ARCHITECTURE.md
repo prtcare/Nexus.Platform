@@ -14,7 +14,7 @@ future scope of voice and realtime interaction.
 
 **Not authoritative for:** the `ContextBundle` and `ContextItem` types, ranking, prompt assembly or
 anything the AI layer does with what it receives — `AI_ARCHITECTURE.md` and
-`AI_DEVELOPMENT_STANDARDS.md`. `Workspace`, `Project` and `Subproject` — PRODUCT CORE. The work-graph
+`AI_DEVELOPMENT_STANDARDS.md`. `Workspace`, `Project` and `Subproject` — SHARED PLATFORM. The work-graph
 structure a DEVELOPER conversation is held against — `DEVELOPER_ARCHITECTURE.md`. Frontend code
 rules — `TYPESCRIPT_REACT_STANDARDS.md`. Which layer owns which entity — `DATA_OWNERSHIP.md`.
 
@@ -71,7 +71,7 @@ product — forbidden — or build its own.
 **TARGET.** The layer absorbs it. `M-11-1.1` moves `Conversation` and `ConversationMessage` out of the
 Chat domain, renames `ConversationMessage` to `Message` in the layer namespace, and migrates the
 schema from `conversation` to `experience` — *preserving existing rows; this is a rename, not a
-rebuild.* Chat's other aggregates disperse: `Workspace` and `Project` to PRODUCT CORE, `WorkItem`,
+rebuild.* Chat's other aggregates disperse: `Workspace` and `Project` to SHARED PLATFORM, `WorkItem`,
 `Adr`, `Branch`, `Snapshot`, `Artifact` and `Session` to DEVELOPER, DELIVERY and DATA per
 `DATA_OWNERSHIP.md` §7.
 
@@ -143,7 +143,7 @@ One engine, three consumers, three completely different structures, zero shared 
 
 ### Consumer 1 — DEVELOPER (`M-07-6.1`, P2)
 
-Scope kinds: `Milestone`, `Feature`, `WorkItem`, `Task`, registered with PRODUCT CORE at `M-07-1.1`.
+Scope kinds: `Milestone`, `Feature`, `WorkItem`, `Task`, registered with SHARED PLATFORM at `M-07-1.1`.
 The trunk runs the full depth:
 
 ```
@@ -368,7 +368,7 @@ and that is where the modality earns its cost.
 
 | Layer | The seam |
 |---|---|
-| 06 PRODUCT CORE | Owns `Workspace`, `Project`, `Subproject` and the scope kind registry (`M-06-1.2`). EXPERIENCE registers against it |
+| 06 SHARED PLATFORM | Owns `Workspace`, `Project`, `Subproject` and the scope kind registry (`M-06-1.2`). EXPERIENCE registers against it |
 | 07 DEVELOPER | Implements `IScopeResolver` (`M-07-6.1`). EXPERIENCE learns nothing about milestones |
 | 04 AI | Receives the `ContextBundle` untouched. `ScopeRef` is opaque to both layers |
 | 02 DATA | Documents and knowledge are DATA's; EXPERIENCE holds a `KnowledgeReference` |

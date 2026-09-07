@@ -87,7 +87,7 @@ Ten entities in four groups. `DATA_OWNERSHIP.md` §4 holds the canonical list.
 | Efficiency | `PerformanceRecord`, `CapacityRecord`, `CostRecord` | `M-10-4.1`, `M-10-4.2` |
 | Runtime control | `FeatureFlagState` | `M-10-5.1` |
 
-One name appears twice across layers and the split is deliberate. `FeatureFlag` (06 PRODUCT CORE) is
+One name appears twice across layers and the split is deliberate. `FeatureFlag` (06 SHARED PLATFORM) is
 the **definition** — this product has this flag. `FeatureFlagState` (10 OPERATIONS) is the **runtime
 value** in a given environment. Same word, two facts, two layers. A flag that exists but has no state
 in an environment is a product capability nobody has enabled; a state with no definition is orphan
@@ -250,7 +250,7 @@ objectives are not yet stated, which is a prerequisite this milestone inherits.
 **`M-10-5.1` Runtime feature flags**, P3. Behaviour can be enabled per environment, tenant or member
 without redeploying, and a flag change takes effect without a restart and is audited. This decouples
 *deploying code* from *releasing behaviour*, which is what lets a risky change ship dark. The
-definition lives in PRODUCT CORE; only the runtime value lives here.
+definition lives in SHARED PLATFORM; only the runtime value lives here.
 
 **`M-10-6.1` Security signal detection**, P4. Authentication anomalies and privilege escalation
 attempts raise alerts — specifically, repeated cross-tenant access attempts raise an alert naming the
@@ -319,7 +319,7 @@ never pause or block it. A business system waiting for tracing is a scheduling e
 | 09 ASSURANCE | ASSURANCE proved the requirement was satisfied before release; OPERATIONS proves the system stays healthy after |
 | 07 DEVELOPER | An `Incident` produces a `WorkItem` without retyping context (`M-10-3.2`); at P5 incidents feed `M-07-9.1` |
 | 04 AI | Per-turn cost attribution (`M-04-4.1`) feeds `CostRecord`; the turn pipeline is where tracing spans attach |
-| 06 PRODUCT CORE | `FeatureFlag` is the definition there; `FeatureFlagState` is the runtime value here |
+| 06 SHARED PLATFORM | `FeatureFlag` is the definition there; `FeatureFlagState` is the runtime value here |
 | 01 CORE | Correlation depends on identity (`M-01-1.1`); alert delivery uses the notification transport (`M-01-8.2`) |
 
 ---

@@ -458,7 +458,7 @@ achieves.
 | No product branching | No `if (Product == X)` anywhere. Capability packs are declared, not coded |
 | Chat is not the engine | A standalone Chat application, if released, is a Layer 12 product consuming EXPERIENCE |
 
-The scope hierarchy: **PRODUCT CORE owns Workspace → Project → Subproject. DEVELOPER extends
+The scope hierarchy: **SHARED PLATFORM owns Workspace → Project → Subproject. DEVELOPER extends
 Subproject → Release → Milestone → Feature → WorkItem → Task.** DEVELOPER does not redefine
 Workspace; it extends downward from Subproject.
 
