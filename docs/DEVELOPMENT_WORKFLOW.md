@@ -99,6 +99,8 @@ artefact someone else could inspect, not an assertion.
 | 15 | **Delivered** | The integration branch merged to `main` and an artefact was produced and deployed | Artefact with retention; deployment record. **TARGET — M-08-3.1, M-08-5.1** | DELIVERY |
 | 16 | **Operating** | The deployed system reports healthy and is observable | Health check passing; correlation-traceable request. **TARGET — M-10-1.1, M-10-2.1** | OPERATIONS |
 
+See `WORK_UNIVERSE.md` §7 for the Release & Deployment terminology and traceability expectations frozen for SP2 (Release → Deployment → DeploymentStep; BUILD ONCE → VERIFY → VERSIONED ARTIFACT → DEV → TEST → PROD).
+
 ### 2.2 Rules that govern every transition
 
 | Rule | Statement |

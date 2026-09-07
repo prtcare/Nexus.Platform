@@ -1,6 +1,6 @@
 # Documentation Index
 
-> **Status** Authoritative · **Owner** Durai · **Last updated** 2026-08-21 · **Architecture version** v2.2
+> **Status** Authoritative · **Owner** Durai · **Last updated** 2026-09-07 · **Architecture version** v2.3
 > **Authoritative for** what every Nexus document is, who owns it, when it must change, and what must never be duplicated.
 
 This index is the entry point. If you are new — human or agent — read [DEVELOPER_ONBOARDING.md](DEVELOPER_ONBOARDING.md) first, then come back here.
@@ -58,6 +58,7 @@ Three consequences:
 | [NEXUS_MASTER_ARCHITECTURE.md](../NEXUS_MASTER_ARCHITECTURE.md) | The whole-architecture summary — current state, the 10 numbered layers, responsibility and data-ownership matrices, Gate A/Gate B, entity migration — subordinate to the specialized docs below wherever they conflict (see §0). | A layer's responsibility changes, a gate moves, or a decision in Part 21 is revisited |
 | [ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md) | The short version. What Nexus is in ten minutes. | The master architecture changes materially |
 | [LAYER_MODEL.md](LAYER_MODEL.md) | The 10 numbered layers in detail — short and long names, purpose, what each owns and does not own, repository, schema, projects, minimum-before-the-gate scope, and the old-name mapping. | A layer is added, renamed or merged, or a layer's scope or gate slice changes |
+| [WORK_UNIVERSE.md](WORK_UNIVERSE.md) | The Work Universe cross-domain relationship model — domains, lifecycle, final object map (KEEP/EXTEND/NEW-SP1/ARCHITECTURE-ONLY-SP2/DEFER), and what it reuses vs. adds to existing V2.3 concepts. | A Work Universe domain, relationship, or SP1/SP2 classification changes |
 | [DEPENDENCY_RULES.md](DEPENDENCY_RULES.md) | What may depend on what, and how it is enforced. | A dependency rule changes or a new architecture test is added |
 | [DATA_OWNERSHIP.md](DATA_OWNERSHIP.md) | Which layer owns which structured fact. The domain-owns-the-fact rule, the complete entity-to-layer mapping, and the migration matrix for every entity that exists today. | An entity moves layer, or a new entity's home is decided |
 | [DATABASE_ARCHITECTURE.md](DATABASE_ARCHITECTURE.md) | Physical database strategy — one platform database, schema per layer, one database per product. | The physical strategy changes or a layer splits to its own database |

@@ -502,6 +502,8 @@ A future Task Resolver ("what work is next") is likewise a **thin composition** 
 pieces — DevelopmentControl work-item eligibility, dependency state, reservation/preflight,
 governance gates and Forge's classification/routing — not a large new engine.
 
+**Work Universe (v2.3, WU-02).** A cross-domain relationship model — Product, Feature, Planning, Chat & Context, Development, Outcome, Release & Deployment — is frozen in `WORK_UNIVERSE.md`. It reuses the layer/product concepts named throughout this document; it does not add a numbered layer or change any dependency rule beyond the Nexus Developer → 08 ASSURANCE resolution recorded in `DEPENDENCY_RULES.md` §4.
+
 **Three distinct routing/model-selection concerns — never collapsed.** (1) **01 CORE**'s model
 gateway (`AI_ARCHITECTURE.md` §4) is low-level provider/model access infrastructure used by every
 consumer. (2) **Nexus Forge's Worker/Model Router** (the `router/` module above) chooses which

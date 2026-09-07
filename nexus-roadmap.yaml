@@ -6215,3 +6215,29 @@ strategic_phases:
     name: Business OS and demand-driven Platform expansion
     intent: Business OS / consumer products are built and the Platform expands on demand from real 
       product need. Corresponds primarily to roadmap_phase P4-P5.
+work_universe:
+  version: '1.0'
+  frozen_by: WU-02
+  frozen_date: '2026-09-07'
+  domains:
+  - Product
+  - Feature
+  - Planning
+  - Chat & Context
+  - Development
+  - Outcome
+  - Release & Deployment
+  lifecycle:
+  - Idea
+  - Product
+  - Feature
+  - Planning
+  - Development
+  - Verification
+  - Outcome
+  - Release
+  - Deployment
+  - Operations/Feedback
+  reference_doc: docs/WORK_UNIVERSE.md
+  note: Cross-domain relationship model, not a numbered layer. See docs/WORK_UNIVERSE.md for the 
+    full object map.
