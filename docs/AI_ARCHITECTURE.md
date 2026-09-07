@@ -135,6 +135,17 @@ an existing one.
 `Azure.Identity` and `Azure.Core` are present in the solution but arrived with Dataverse. **Do not
 treat them as a chosen authentication path** until something selects them.
 
+**This layer's routing is not the only routing in Nexus, and the three must never collapse into
+one concept (Rebaseline R05).** (1) This section's model gateway/`RoutingModelGateway` is low-level
+provider/model access — authentication, request shape, usage metering — available to any consumer,
+not just AI. (2) **Nexus Forge's own Worker/Model Router** (`DevTools-ForgeV2/DevBridge/scripts/
+ai-routing/router/*`, real and working) chooses which AI provider/model performs a Forge-governed
+*development* task — writing, reviewing or planning Nexus's own code — entirely outside this layer,
+recommendation-only, never itself invoking a provider. (3) **This layer's own role→model assignment**
+(`Nexus.Intelligence.Core.Roles` — `AiRole`, `AiRoleResolver`, seeded with a `"Discussion"` role)
+chooses which model handles a *runtime end-user conversation turn*, sitting on top of (1). See
+`LAYER_MODEL.md`'s Nexus Forge section for the full three-way distinction.
+
 ---
 
 ## 6. The context seam — the best boundary in the system

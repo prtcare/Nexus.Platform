@@ -7,6 +7,15 @@ This index is the entry point. If you are new — human or agent — read [DEVEL
 
 ---
 
+## 0. Authority hierarchy (v2.3, fixed 2026-09-07, R06.1)
+
+1. **`Nexus.Platform/docs/*`** (this directory) is authoritative for the detailed, current architecture — layer model, dependency rules, data ownership, delivery/assurance/operations/experience/AI architecture, standards and process. When any other document conflicts with a specialized doc in this directory, the doc in this directory wins.
+2. **`Nexus.Platform/nexus-roadmap.yaml`** (repository root, git-tracked, v2.3) is authoritative for the structured development roadmap — features, milestones, work items, tasks, subtasks, dependencies, gates and phases — until `M-07-1.1` imports it into DEVELOPER.
+3. **`Nexus.Platform/NEXUS_MASTER_ARCHITECTURE.md`** is a derived master summary/reference — retained as canonical at the whole-architecture-summary level, but **subordinate to the specialized docs in `docs/*`** (item 1). It must not become a second, competing source of detailed architecture; where it conflicts with a specialized doc, the specialized doc governs.
+4. **`C:\Personal\Roadmaps\nexus-roadmap.yaml`** and **`C:\Personal\Roadmaps\NEXUS_MASTER_ARCHITECTURE.md`** are historical, non-authoritative snapshots outside this repository. They are preserved for the decision record only and must never be read as a current source — use items 1–3 above instead.
+
+---
+
 ## 1. The rule that makes this index worth having
 
 **One subject, one document.** If a document restates something another owns, the restatement is wrong the day the owner changes. Every entry below names exactly what it is authoritative for. If you need to write something and cannot find its owner here, that is a gap — add a document and add a row. Do not append it to whatever document you happen to be editing.
@@ -42,13 +51,13 @@ Three consequences:
 
 ## 3. Architecture — what Nexus is
 
-**Two gates (v2.2).** GATE A *Development Ready* is the earliest safe point at which internal business systems can begin; GATE B *Foundation Ready* confirms the broader reusable foundation. GATE B work runs in parallel with business development and never blocks it. See `NEXUS_MASTER_ARCHITECTURE.md` §12.
+**Two gates (v2.3).** GATE A *Development Ready* is the earliest safe point at which internal business systems can begin; GATE B *Foundation Ready* confirms the broader reusable foundation. GATE B work runs in parallel with business development and never blocks it. See `NEXUS_MASTER_ARCHITECTURE.md` §12.
 
 | Document | Authoritative for | Update when |
 |---|---|---|
-| [NEXUS_MASTER_ARCHITECTURE.md](../NEXUS_MASTER_ARCHITECTURE.md) | The whole architecture. Current state, the 12 layers, responsibility and data-ownership matrices, Foundation Gate, entity migration. | A layer's responsibility changes, the gate moves, or a decision in Part 21 is revisited |
+| [NEXUS_MASTER_ARCHITECTURE.md](../NEXUS_MASTER_ARCHITECTURE.md) | The whole-architecture summary — current state, the 10 numbered layers, responsibility and data-ownership matrices, Gate A/Gate B, entity migration — subordinate to the specialized docs below wherever they conflict (see §0). | A layer's responsibility changes, a gate moves, or a decision in Part 21 is revisited |
 | [ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md) | The short version. What Nexus is in ten minutes. | The master architecture changes materially |
-| [LAYER_MODEL.md](LAYER_MODEL.md) | The 12 layers in detail — short and long names, purpose, what each owns and does not own, repository, schema, projects, minimum-before-the-gate scope, and the old-name mapping. | A layer is added, renamed or merged, or a layer's scope or gate slice changes |
+| [LAYER_MODEL.md](LAYER_MODEL.md) | The 10 numbered layers in detail — short and long names, purpose, what each owns and does not own, repository, schema, projects, minimum-before-the-gate scope, and the old-name mapping. | A layer is added, renamed or merged, or a layer's scope or gate slice changes |
 | [DEPENDENCY_RULES.md](DEPENDENCY_RULES.md) | What may depend on what, and how it is enforced. | A dependency rule changes or a new architecture test is added |
 | [DATA_OWNERSHIP.md](DATA_OWNERSHIP.md) | Which layer owns which structured fact. The domain-owns-the-fact rule, the complete entity-to-layer mapping, and the migration matrix for every entity that exists today. | An entity moves layer, or a new entity's home is decided |
 | [DATABASE_ARCHITECTURE.md](DATABASE_ARCHITECTURE.md) | Physical database strategy — one platform database, schema per layer, one database per product. | The physical strategy changes or a layer splits to its own database |
@@ -63,7 +72,7 @@ Three consequences:
 | [OPERATIONS_ARCHITECTURE.md](OPERATIONS_ARCHITECTURE.md) | Runtime ownership and the boundary with DELIVERY and ASSURANCE. | An observability or incident mechanism changes |
 | [EXPERIENCE_ARCHITECTURE.md](EXPERIENCE_ARCHITECTURE.md) | The conversation engine, ScopeRef, IScopeResolver, the context handoff. | The conversation core or scope resolution changes |
 | [AI_ARCHITECTURE.md](AI_ARCHITECTURE.md) | The current Nexus.Intelligence.* technical architecture — turn pipeline, context seam, provider abstraction. | The Intelligence contract surface or pipeline changes |
-| `nexus-roadmap.yaml` | All structured work: features, milestones, work items, tasks, subtasks, dependencies, phases. | Any work is added, rephased, or completed — until `M-07-1.1` imports it |
+| `nexus-roadmap.yaml` (this repository, root — see §0 item 2) | All structured work: features, milestones, work items, tasks, subtasks, dependencies, phases, gates. | Any work is added, rephased, or completed — until `M-07-1.1` imports it |
 
 ---
 

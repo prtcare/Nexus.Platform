@@ -36,7 +36,7 @@ from every neighbouring layer:
 
 | Layer | Question |
 |---|---|
-| 07 DEVELOPER | What must be proven, and which work item is it attached to |
+| Nexus Forge (outside numbered Platform, v2.2 — was 07 DEVELOPER, see `LAYER_MODEL.md` §2.2) | What must be proven, and which work item is it attached to |
 | 08 DELIVERY | Did it build, and did the tests execute |
 | **09 ASSURANCE** | **Was the requirement actually satisfied** |
 | 10 OPERATIONS | Does the running system stay healthy |
@@ -102,7 +102,7 @@ The rest of the boundaries:
 
 | Not owned | Owner |
 |---|---|
-| What needs testing, and which work item it belongs to | 07 DEVELOPER |
+| What needs testing, and which work item it belongs to | Nexus Forge (outside numbered Platform, v2.2 — was 07 DEVELOPER) |
 | Executing build and test pipelines | 08 DELIVERY |
 | Runtime health of a deployed system | 10 OPERATIONS |
 | The formal test report **document** | 02 DATA — ASSURANCE owns the *result*, DATA owns the document |
@@ -438,7 +438,7 @@ it should be read as the motivation for the layer rather than as a criticism of 
 
 | Layer | The seam |
 |---|---|
-| 07 DEVELOPER | Owns `Requirement`; ASSURANCE owns `AcceptanceCriterion`. ASSURANCE blocks `IntegrationRun` |
+| Nexus Forge (outside numbered Platform, v2.2 — was 07 DEVELOPER) | Owns `Requirement`; ASSURANCE owns `AcceptanceCriterion`. ASSURANCE blocks `IntegrationRun` |
 | 08 DELIVERY | A `PipelineRun` becomes `Evidence`. ASSURANCE blocks promotion to Production |
 | 10 OPERATIONS | ASSURANCE proved the requirement was satisfied; OPERATIONS proves it stays healthy in production |
 | 04 AI | AI runs the evaluation harness; ASSURANCE records its score as `Evidence` against a criterion |

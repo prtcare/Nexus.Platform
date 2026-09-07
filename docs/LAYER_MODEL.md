@@ -21,7 +21,7 @@ named entity (`DATA_OWNERSHIP.md`), or the physical database layout (`DATABASE_A
 A layer model that has to be looked up has failed. This is the test:
 
 > **Identity belongs to CORE. Documents belong to DATA. Trademark belongs to GOVERNANCE. Agents
-> belong to AI. Workflow belongs to AUTOMATION. Subscriptions belong to PRODUCT CORE. Git and
+> belong to AI. Workflow belongs to AUTOMATION. Subscriptions belong to SHARED PLATFORM. Git and
 > deployment belong to DELIVERY. Acceptance belongs to ASSURANCE. Runtime health belongs to
 > OPERATIONS. Conversation belongs to EXPERIENCE. Milestones belong to Nexus Forge. ERP and every
 > other product belong to Products.**
@@ -53,7 +53,7 @@ descriptions, not identifiers, and appear only where genuinely clarifying.
 | 03 | **GOVERNANCE** | registries of products, technology, brand, compliance |
 | 04 | **AI** | reasoning, agents, context, models |
 | 05 | **AUTOMATION** | workflow and process execution |
-| 06 | **PRODUCT CORE** | reusable product-level capability and scope primitives |
+| 06 | **SHARED PLATFORM** | reusable product-level capability and scope primitives |
 | 07 | **DELIVERY** | source, build, environments, deployment, infrastructure |
 | 08 | **ASSURANCE** | prove that requirements have actually been satisfied |
 | 09 | **OPERATIONS** | run and observe deployed systems |
@@ -79,7 +79,7 @@ old reference without this table produces the wrong layer.
 | 03 GOVERNANCE | Governance & Registry | 03 | `governance` | — |
 | 04 AI | Intelligence | 04 | `intel` | Every assembly: `Nexus.Intelligence.*`; the repository `Nexus.Intelligence`; the route `/intelligence/v1`. **TARGET** is `Nexus.AI.*` — a rename that is its own work item, never bundled with a behaviour change |
 | 05 AUTOMATION | Automation & Workflow | 05 | `automation` | — |
-| 06 PRODUCT CORE | Shared Product Foundation | 06 | `product` | — |
+| 06 SHARED PLATFORM | Shared Product Foundation, then PRODUCT CORE (Rebaseline R02 renamed PRODUCT CORE to SHARED PLATFORM; physical `Nexus.ProductCore.*` projects unchanged) | 06 | `product` | — |
 | 07 DEVELOPER | Developer | 07 | `dev` | — |
 | 08 DELIVERY | Delivery & Infrastructure | 08 | `delivery` | — |
 | 09 ASSURANCE | *did not exist* | — | — | Nothing. **New in v2.1**; inserting it renumbered the three layers above |
@@ -291,9 +291,20 @@ Forge's authority over development governance is unaffected by what it happens t
 implementation does not imply shared authority.** A Forge recovery/bootstrap-critical capability
 must remain usable without requiring a healthy running Shared Platform (or any other numbered-layer)
 service — a reusable package or library may be shared; a hard runtime dependency that would break
-Forge's ability to recover Nexus must not be. (Full BOOTSTRAP_SAFE / RUNTIME_DEPENDENT /
-PRODUCT_ONLY classification is deferred to R04 — see the Nexus Forge section above and the
-Rebaseline reports.)
+Forge's ability to recover Nexus must not be. **BOOTSTRAP_SAFE / RUNTIME_DEPENDENT / PRODUCT_ONLY
+classification (Rebaseline R03/R04, frozen R06).** Three classes, not a spectrum: `BOOTSTRAP_SAFE`
+(zero-IO, no dependency on this layer's own product-specific types — Forge may consume it even when
+Nexus's runtime/Shared Platform is down), `RUNTIME_DEPENDENT` (fine for Shared Platform's own use,
+never for anything Forge needs during recovery), `PRODUCT_ONLY` (a single product's concern, never
+shared). A real, evidenced example from Nexus.Developer's own codebase: its DevelopmentControl
+contract/protocol types and concurrency-guard subsystem are a proven-zero-IO `BOOTSTRAP_SAFE`
+candidate; its Excel workbook adapter is `RUNTIME_DEPENDENT` (ClosedXML-bound, by design the only
+place that dependency may live); its runtime product-scope registration (`DeveloperScopeKinds`) is
+`PRODUCT_ONLY`. The planned **Git Workspace Tool** (a thin `git worktree` wrapper — `CreateWorktree`
+/ `ValidateWorktree` / `ListWorktrees` / `RemoveWorktree` / `GetWorktreeStatus`, no automatic merge,
+approval or human-gate bypass) is a further `BOOTSTRAP_SAFE` example: it belongs under this layer's
+Shared Tools area, bundled locally with Forge rather than requiring a running Shared Platform
+service, and is design-only today — not yet implemented.
 
 **Not a dumping ground.** Reuse when genuinely common; local ownership when genuinely specific.
 Contract ownership follows responsibility and valid dependency direction — a type is not moved
@@ -442,7 +453,7 @@ product (including Nexus Developer, below) is available.
 | **Deferred** | Autonomous dispatch (V1b), model assignment and per-run cost, requirements and releases, the product and schema designers, capability packs, dashboards |
 
 **Forge consumes numbered layers; it does not absorb them.** It does not implement chat — it
-registers its scope hierarchy with PRODUCT CORE and implements EXPERIENCE's scope resolver. It does
+registers its scope hierarchy with SHARED PLATFORM and implements EXPERIENCE's scope resolver. It does
 not run CI — DELIVERY produces a build and Forge interprets whether it satisfies a work item. It
 does not own documents. These three constraints are what stop the layer becoming a dumping ground,
 and **scope creep here is the single highest risk in the plan**.
@@ -454,12 +465,61 @@ Developer is the human-facing console/UX over it — a Product (below), not part
 Forge only through Forge's own versioned API/contract, never direct database access. See the
 approved decision in `NEXUS_V1_TO_V2_DEEP_RECONCILIATION_REPORT.md` §27.
 
-**Bootstrap-safe reuse (Rebaseline R02, recorded here; full classification deferred to R04).** Forge
-may consume shared implementation from SHARED PLATFORM or any lower numbered layer, but anything
-Forge genuinely needs for Nexus recovery/bootstrap must remain usable without requiring a healthy
-running Nexus runtime — shared implementation does not imply shared authority (see 06 SHARED
-PLATFORM, "The distinction from Forge," above). The working classification is `BOOTSTRAP_SAFE` /
-`RUNTIME_DEPENDENT` / `PRODUCT_ONLY`; exact names may be refined, the rule is fixed.
+**Bootstrap-safe reuse (Rebaseline R02; classification frozen R03/R04/R06).** Forge may consume
+shared implementation from SHARED PLATFORM or any lower numbered layer, but anything Forge genuinely
+needs for Nexus recovery/bootstrap must remain usable without requiring a healthy running Nexus
+runtime — shared implementation does not imply shared authority (see 06 SHARED PLATFORM, "The
+distinction from Forge," above). The classification is `BOOTSTRAP_SAFE` / `RUNTIME_DEPENDENT` /
+`PRODUCT_ONLY` — see 06 SHARED PLATFORM's "The distinction from Forge" paragraph above for the
+definitions and a worked example.
+
+**Development-control target model (Rebaseline R03/R04/R05, design frozen R06 — not yet
+implemented).** Two workbooks, same governed schema, duplicate schema not duplicate records: a
+record lives in the workbook that owns the work — `NEXUS_FOUNDATION_DEVELOPMENT_CONTROL.xlsx` for
+the numbered-layer/Forge roadmap, `NEXUS_PRODUCTS_DEVELOPMENT_CONTROL.xlsx` for Nexus Developer and
+Products work; no third central workbook. The permanent cross-workbook address is
+`DevelopmentControlAddress { DevelopmentControlRole Role; NodeId Id; }` — `Role` is `Foundation` or
+`Products`, never a routing decision made from a node-ID prefix (prefixes are migration-discovery
+evidence only, never routing authority). A `DevelopmentRun` is one execution attempt — the design
+explicitly rejects a separate `WorkerAssignment` type; worker/model/branch/worktree/build-test-result
+fields expand `DevelopmentRun` directly. `ActiveChange` remains the governed change/reservation
+envelope and `PreflightDeclaration` the declared scope/safety envelope a change is checked against —
+these three do not collapse into one another. Physical migration to two workbooks, and the
+writer-lock protocol both sides must observe (a deterministic workbook-identity lock file with an
+OS-level exclusive open, callable from both Forge's PowerShell and Nexus.Developer's C#), are
+designed but **not implemented** as of this freeze.
+
+**Dependency/Context Resolver and Task Resolver (Rebaseline R05, frozen R06).** Forge already has
+real, working modules under `DevTools-ForgeV2/DevBridge/scripts/ai-routing/` — `DependencyLineage.ps1`
+(dependency-graph traversal, cycle detection, historical-evidence reconciliation),
+`ContextPackage.ps1` (deterministic context assembly with secret redaction and token budgeting),
+`TaskClassification.ps1` (rules-based task type/complexity/risk classification), and a `router/`
+module (model/provider eligibility and cost/performance-weighted ranking for Forge's own governed
+development work). The future cross-workbook-aware Context Resolver **extends these**, it is not a
+green-field build — the missing piece is narrow: `DevelopmentControlAddress` awareness,
+cross-workbook resolution, task-eligibility composition, and general DevelopmentControl integration.
+A future Task Resolver ("what work is next") is likewise a **thin composition** over existing
+pieces — DevelopmentControl work-item eligibility, dependency state, reservation/preflight,
+governance gates and Forge's classification/routing — not a large new engine.
+
+**Three distinct routing/model-selection concerns — never collapsed.** (1) **01 CORE**'s model
+gateway (`AI_ARCHITECTURE.md` §4) is low-level provider/model access infrastructure used by every
+consumer. (2) **Nexus Forge's Worker/Model Router** (the `router/` module above) chooses which
+AI provider/model performs a *Forge-governed development task* — writing, reviewing or planning
+Nexus's own code — never a runtime end-user request. (3) **04 AI**'s own role→model assignment
+(`Nexus.Intelligence.Core.Roles`, `AiRole`/`AiRoleResolver`) chooses which model handles a *runtime
+end-user conversation turn*. All three are real, independently evidenced, and must never be
+described as one concept.
+
+**Gate A and Gate B.** GATE A is *Development Ready* — the earliest safe point business systems can
+begin (`ASSURANCE_ARCHITECTURE.md` §13). Its mandatory acceptance evidence is
+`PARALLEL_EXECUTION_PROOF` — nine criteria: three independent work items; three distinct workers;
+three isolated Git worktrees; overlapping execution; independent build/test evidence per worker; one
+worker deliberately fails; unrelated workers continue unaffected; controlled integration; and final
+integration verification. GATE B is *Foundation Ready* — the broader reusable-foundation-complete
+gate (durable AI memory, usage metering, autonomous dispatch, automated deployment, reusable
+Experience components, and similar durable/production-grade capability) — and runs in **parallel**
+with business development; it must never block or pause it.
 
 **External development intelligence (Rebaseline R02).** ChatGPT, Claude, Grok Bot and other
 external AI tools are optional, replaceable, external development/R&D assistance — never a runtime

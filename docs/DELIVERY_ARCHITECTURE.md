@@ -128,6 +128,16 @@ enforce at allocation time and `GIT_WORKFLOW.md` §5.1 owns the reasoning; it ap
 because it is the constraint that makes three simultaneous pipeline runs possible from one
 repository.
 
+**The mechanical git operations are a shared, bootstrap-safe tool, not DELIVERY- or Forge-specific
+code (Rebaseline R05, design frozen R06, not yet implemented).** The Git Workspace Tool — a thin
+wrapper over plain `git worktree` commands (`CreateWorktree`/`ValidateWorktree`/`ListWorktrees`/
+`RemoveWorktree`/`GetWorktreeStatus`, no automatic merge, approval or human-gate bypass) — belongs
+under `06 SHARED PLATFORM` → Shared Tools (`LAYER_MODEL.md`), bundled locally so it works even when
+Shared Platform's runtime is unavailable. DELIVERY keeps the broader architectural responsibility
+for branch/build/worktree mechanics described in this section; Forge calls the tool under its own
+governed-scheduling authority; the tool itself performs no merge and never bypasses a human git
+gate.
+
 ### 4.3 Tags and commits
 
 `Tag` and `Commit` are records, not mechanisms — DELIVERY stores what git already knows so that an
@@ -245,7 +255,7 @@ second.
 
 | Axis | Values | Owner |
 |---|---|---|
-| **Release maturity** | Idea → … → End of Life | 07 DEVELOPER, `M-07-7.2` |
+| **Release maturity** | Idea → … → End of Life | Nexus Forge (outside numbered Platform, v2.2 — was 07 DEVELOPER), `M-07-7.2` |
 | **Environment** | Local, Development, Integration, Staging, Pre-Production, Production | 08 DELIVERY, `M-08-4.1` |
 
 `Environment` carries no maturity field. Maturity carries no environment field. **`Dev`/`Test`/`Prod`
@@ -387,7 +397,7 @@ the system can be deployed by hand while `M-08-5.1` is built.
 
 | Layer | The seam |
 |---|---|
-| 07 DEVELOPER | DELIVERY emits `PipelineRun`; DEVELOPER interprets it as `BuildRecord`. Branch name is the join key |
+| Nexus Forge (outside numbered Platform, v2.2 — was 07 DEVELOPER) | DELIVERY emits `PipelineRun`; Forge interprets it as `BuildRecord`. Branch name is the join key |
 | 09 ASSURANCE | A `PipelineRun` becomes `Evidence` at `M-09-1.2`. ASSURANCE blocks promotion via `M-09-5.1` |
 | 10 OPERATIONS | DELIVERY ships it; OPERATIONS proves it stays healthy. `M-10-2.3` correlates a deployment with its effect on health |
 | 03 GOVERNANCE | `Environment` and provisioning reference a `ProductId`. DELIVERY never names a product |

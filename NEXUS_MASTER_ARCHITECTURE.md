@@ -1,5 +1,32 @@
 # Nexus — Master Architecture, Purpose and Execution Roadmap
 
+> **AUTHORITY NOTICE (Rebaseline R06.1, 2026-09-07, Architecture Baseline v2.3).**
+> This document is a consolidated V2.3 master summary/reference. Detailed
+> authoritative architecture is maintained in `Nexus.Platform/docs/*`.
+> Structured roadmap authority is `Nexus.Platform/nexus-roadmap.yaml`. Where
+> this summary conflicts with the specialized authoritative docs, the
+> specialized docs govern. See `docs/DOCUMENTATION_INDEX.md` §0 for the full
+> authority hierarchy.
+>
+> **Superseded numbering below, not yet renumbered in this file's body:**
+> most of this document (written 2026-08-21, v2.2) still presents an
+> eleven/twelve-layer model with `07 DEVELOPER` and `12 PRODUCTS` as
+> numbered Platform layers. Per the current fixed v2.3 architecture, the
+> numbered Platform is ten layers (`01 CORE ... 06 SHARED PLATFORM ·
+> 07 DELIVERY · 08 ASSURANCE · 09 OPERATIONS · 10 EXPERIENCE`), and
+> Nexus Developer (the product) and Products sit **outside** numbered
+> Platform as consumers, alongside Nexus Forge in `development_plane:`.
+> `PRODUCT CORE` has been corrected to `SHARED PLATFORM` throughout this
+> file (terminology-only, per the existing R02 rename). The deeper
+> renumbering of `07 DEVELOPER`/`08-11 DELIVERY-EXPERIENCE`/`12 PRODUCTS`
+> to the current `07-10`/outside-Platform scheme is **not** applied
+> throughout this large document's body (diagrams, cross-references and
+> detailed tables) — that would be a full rewrite, out of scope for a
+> conservative correction. Read `LAYER_MODEL.md` and `DEPENDENCY_RULES.md`
+> §4 for the current, authoritative ten-layer model and matrix; treat any
+> layer-number claim in the body of this file below as v2.2-numbering
+> history unless it is about `01`-`06`, whose numbers are unchanged.
+
 **Version:** 2.2 — two gates. Development Ready brought forward so business systems start earlier.
 **Status:** Architecture accepted. No code changed, no migrations run, no entities deleted, no repositories restructured.
 **Date:** 2026-08-21
@@ -218,7 +245,7 @@ Nexus.<Layer>.Api              HTTP surface, only where called remotely
 | 03 | **GOVERNANCE** | registries of products, technology, brand, compliance | `Nexus.Platform` | `governance` | `IProductRegistry` interface only |
 | 04 | **AI** | reasoning, agents, context, models | `Nexus.Intelligence` | `ai` | Strongest layer in the system |
 | 05 | **AUTOMATION** | workflow and process execution | `Nexus.Platform` | `automation` | Does not exist |
-| 06 | **PRODUCT CORE** | reusable product capability and scope primitives | `Nexus.Platform` | `product_core` | Does not exist |
+| 06 | **SHARED PLATFORM** | reusable product capability and scope primitives | `Nexus.Platform` | `product_core` | Does not exist |
 | 07 | **DEVELOPER** | define, plan and build software | `Nexus.Developer` | `developer` | Six aggregates exist, misplaced in Chat |
 | 08 | **DELIVERY** | source, build, environments, deployment, infrastructure | `Nexus.Platform` + per-repo pipelines | `delivery` | Does not exist |
 | 09 | **ASSURANCE** | prove that requirements have been satisfied | `Nexus.Platform` | `assurance` | **New in v2.1.** Does not exist |
@@ -228,7 +255,7 @@ Nexus.<Layer>.Api              HTTP surface, only where called remotely
 
 **Short names are primary.** They appear in documentation, roadmaps, diagrams, schema names, project names and DEVELOPER data. Long descriptions appear in parentheses only where genuinely useful. The test is that every developer can immediately place a thing:
 
-> Identity belongs to CORE. Documents belong to DATA. Trademark belongs to GOVERNANCE. Agents belong to AI. Workflow belongs to AUTOMATION. Subscriptions belong to PRODUCT CORE. Milestones belong to DEVELOPER. Git and deployment belong to DELIVERY. Acceptance belongs to ASSURANCE. Runtime health belongs to OPERATIONS. Conversation belongs to EXPERIENCE. ERP belongs to PRODUCTS.
+> Identity belongs to CORE. Documents belong to DATA. Trademark belongs to GOVERNANCE. Agents belong to AI. Workflow belongs to AUTOMATION. Subscriptions belong to SHARED PLATFORM. Milestones belong to DEVELOPER. Git and deployment belong to DELIVERY. Acceptance belongs to ASSURANCE. Runtime health belongs to OPERATIONS. Conversation belongs to EXPERIENCE. ERP belongs to PRODUCTS.
 
 **Why five repositories and not twelve.** Repositories are versioning and release units, not organisational ones. Twelve means twelve CI pipelines, cross-repository pull requests for a single feature, and diamond version dependencies on every contract change. These five each have a genuinely distinct release cadence:
 
@@ -269,7 +296,7 @@ Two splits are predicted but **not decided**: `operations` (time-series, differe
                              │
         ┌────────────────────┼────────────────────┐
         ▼                    ▼                    ▼
-  11 EXPERIENCE       06 PRODUCT CORE       07 DEVELOPER
+  11 EXPERIENCE       06 SHARED PLATFORM       07 DEVELOPER
         │                    │                    │
         └────────────────────┼────────────────────┘
                              ▼
@@ -390,7 +417,7 @@ Worked examples:
 | **03 GOVERNANCE** | Product, ProductOwnership, ProductLifecycleState, TechnologyRegistryEntry, Brand, Trademark, Domain, Certificate, ComplianceProfile, Licence, ExternalService, ConfigurationRegistryEntry | What is being built (07). How it ships (08). Whether it passed (09). How it runs (10). |
 | **04 AI** | Agent, AgentCapability, Prompt, PromptVersion, ModelRoute, MemoryRecord, TurnTrace, Evaluation, Guardrail, ResultReport | Product data. Conversation storage (11). Documents (02). Provider credentials (01). |
 | **05 AUTOMATION** | WorkflowDefinition, WorkflowInstance, Rule, Trigger, Schedule, Job, Queue, Approval, Escalation, WorkflowResult | The business meaning of what it runs. |
-| **06 PRODUCT CORE** | **Workspace, Project, Subproject**, ProductProfile, ProductMembership, Plan, Subscription, Entitlement, FeatureFlag, Quota, ProductSetting, Preference, OnboardingState | Identity (01). Product identity in the registry sense (03). Domain data (12). Structure below Subproject (07 and other consumers). |
+| **06 SHARED PLATFORM** | **Workspace, Project, Subproject**, ProductProfile, ProductMembership, Plan, Subscription, Entitlement, FeatureFlag, Quota, ProductSetting, Preference, OnboardingState | Identity (01). Product identity in the registry sense (03). Domain data (12). Structure below Subproject (07 and other consumers). |
 | **07 DEVELOPER** | ProductDevelopment, Module, Requirement, Feature, Release, Milestone, WorkItem, Task, Subtask, Dependency, ScopeDeclaration, Worker, WorkerAssignment, DevelopmentRun, BuildRecord, TestReference, Review, IntegrationRun, DevelopmentResult, ProgressState, StatusHistory | Product identity (03). Scope trunk (06). Repository and CI mechanics (08). Whether a requirement was satisfied (09). Runtime health (10). Conversation storage (11). Specification documents (02). |
 | **08 DELIVERY** | Repository, GitBranch, Tag, Commit, BuildArtifact, Pipeline, PipelineRun, Environment, Deployment, InfrastructureResource, BackupRecord, RestorePoint | The *meaning* of a build (07 interprets it). Whether it satisfied a requirement (09). Runtime health (10). |
 | **09 ASSURANCE** | QualityPlan, VerificationPlan, ValidationPlan, TestPlan, TestCase, InspectionPlan, InspectionCharacteristic, AcceptanceCriterion, VerificationMethod, ValidationMethod, VerificationRun, ValidationRun, InspectionRun, Evidence, Defect, Deviation, NonConformance, CorrectiveAction, QualityGate, QualificationResult, TraceabilityLink | What needs testing (07). Executing pipelines (08). Runtime health (10). The test report *document* (02). The Requirement itself (07). |
@@ -552,7 +579,7 @@ Worked examples:
 
 ---
 
-### 7.6 Layer 06 — PRODUCT CORE
+### 7.6 Layer 06 — SHARED PLATFORM
 
 **Purpose.** Provide reusable product-level capability — scope, membership, subscriptions, entitlements, quotas, settings, onboarding — so no product rebuilds them.
 
@@ -758,7 +785,7 @@ Developer's resolver maps a milestone's outcome to `Kind = Objective`, its block
 
 ```
 Product
-├── Product Core            domain-specific identity, context, settings, state
+├── Shared Platform            domain-specific identity, context, settings, state
 ├── Domain Modules          the actual business capability
 └── Capability Integrations how this product consumes layers 01-10
 ```
@@ -991,7 +1018,7 @@ BUSINESS DEVELOPMENT          NEXUS CONTINUATION
 ERP / Business OS             remaining foundation work
 CRM / Field Data              AI durability
 Engine Works                  EXPERIENCE
-Transport                     PRODUCT CORE expansion
+Transport                     SHARED PLATFORM expansion
 Retreads                      GOVERNANCE · AUTOMATION
 Knowledge Systems             DELIVERY · ASSURANCE
 Machine Development           OPERATIONS
@@ -1020,7 +1047,7 @@ Closes at `M-07-5.3`. Its nine acceptance criteria are unchanged from v2.1 excep
 | **DELIVERY** | Git integration · branch/worktree rules · CI build · automated test execution · branch protection · results available to DEVELOPER · source backup minimum | Artifacts · environments · deployment · promotion · IaC · DR |
 | **ASSURANCE** | Acceptance Criterion · Verification Method · Evidence · Pass/Fail · Basic quality gate | Plans · specifications · inspection · AI evaluation · profiles · certification |
 | **GOVERNANCE** | Product identity only — DEVELOPER's work graph needs a real `ProductId` | Every other registry |
-| **PRODUCT CORE** | Workspace · Project · Subproject only — DEVELOPER's scope trunk | Membership · subscriptions · entitlements · quotas · settings · onboarding |
+| **SHARED PLATFORM** | Workspace · Project · Subproject only — DEVELOPER's scope trunk | Membership · subscriptions · entitlements · quotas · settings · onboarding |
 | **EXPERIENCE** | **Nothing** | The entire layer |
 | **AUTOMATION** | **Nothing** | The entire layer |
 | **OPERATIONS** | Structured logging with correlation only | Everything else |
@@ -1191,8 +1218,8 @@ Every existing entity classified per §35. **`KEEP` dominates: nothing needs to 
 
 | Entity | Target layer | Action | Reasoning |
 |---|---|---|---|
-| `Workspace` | 06 PRODUCT CORE | **MOVE** | A reusable scope primitive, not a product's. DEVELOPER, a plain conversation and every future product consume the same trunk. Not CORE's `Organisation` — that is tenancy; this is a workspace. |
-| `Project` | 06 PRODUCT CORE | **MOVE** | Same reasoning as `Workspace`. DEVELOPER extends below `Subproject`. |
+| `Workspace` | 06 SHARED PLATFORM | **MOVE** | A reusable scope primitive, not a product's. DEVELOPER, a plain conversation and every future product consume the same trunk. Not CORE's `Organisation` — that is tenancy; this is a workspace. |
+| `Project` | 06 SHARED PLATFORM | **MOVE** | Same reasoning as `Workspace`. DEVELOPER extends below `Subproject`. |
 | `Conversation` | 11 EXPERIENCE (core) + 11 (Chat specifics) | **SPLIT** | Universal core to Layer 10 per §23; `ConversationType`, `ConversationVisibility` stay in Chat. Do it when Developer needs conversations, not before. |
 | `ConversationMessage` | 11 EXPERIENCE | **MOVE** | Part of the universal conversation core. |
 | `Knowledge` | 02 DATA | **MOVE** | Knowledge is explicitly a Layer 02 concept. Currently a Chat aggregate because Chat was the only product. |

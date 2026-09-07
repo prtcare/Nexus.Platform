@@ -369,11 +369,11 @@ and that is where the modality earns its cost.
 | Layer | The seam |
 |---|---|
 | 06 SHARED PLATFORM | Owns `Workspace`, `Project`, `Subproject` and the scope kind registry (`M-06-1.2`). EXPERIENCE registers against it |
-| 07 DEVELOPER | Implements `IScopeResolver` (`M-07-6.1`). EXPERIENCE learns nothing about milestones |
+| Nexus Forge (outside numbered Platform, v2.2 — was 07 DEVELOPER under v2.1, see `LAYER_MODEL.md` §2.2) | Implements `IScopeResolver` (`M-07-6.1`). EXPERIENCE learns nothing about milestones |
 | 04 AI | Receives the `ContextBundle` untouched. `ScopeRef` is opaque to both layers |
 | 02 DATA | Documents and knowledge are DATA's; EXPERIENCE holds a `KnowledgeReference` |
 | 01 CORE | A `Participant` is a CORE `User` or an AI `Agent`; notification transport is `M-01-8.2` |
-| 12 PRODUCTS | A Nexus Chat *application*, if ever built, is a product that consumes this layer |
+| Products (outside numbered Platform, v2.2 — was 12 PRODUCTS under v2.1, see `LAYER_MODEL.md` §2.2) | A Nexus Chat *application*, if ever built, is a product that consumes this layer |
 
 ---
 

@@ -14,6 +14,21 @@
   unchanged. Prior DevBridge retirement/temporary-scaffolding wording is superseded historical
   guidance; the current, fixed decision is that Nexus Forge is permanent external
   foundation-development/recovery infrastructure (`LAYER_MODEL.md` §4a).
+- Architecture Rebaseline R03–R06 (development-control reconciliation, Forge/Nexus.Developer
+  existing-code audit, roadmap re-derivation, authoritative doc finalization) -- see
+  `architecture/NEXUS_V2_REBASELINE_R03_REPORT.md` through `_R06_REPORT.md`. Design-only, nothing
+  physically implemented yet: the two-workbook target model (`NEXUS_FOUNDATION_DEVELOPMENT_CONTROL
+  .xlsx` / `NEXUS_PRODUCTS_DEVELOPMENT_CONTROL.xlsx`) and `DevelopmentControlAddress`; the
+  `DevelopmentRun` field-expansion spec (no separate `WorkerAssignment` type); the cross-process
+  writer-lock protocol; the Git Workspace Tool (`06 SHARED PLATFORM` → Shared Tools,
+  `BOOTSTRAP_SAFE`); and the SP1/SP2/SP3 strategic-phase vocabulary, kept distinct from the
+  roadmap's own `roadmap_phase` P0-P5 (`DEVELOPMENT_WORKFLOW.md` §10). Confirmed with real,
+  evidenced code: Forge already has a working Dependency/Context-Resolver foundation
+  (`DependencyLineage.ps1`/`ContextPackage.ps1`/`TaskClassification.ps1`) to extend, not rebuild;
+  and Forge's Worker/Model Router, 01 CORE's model gateway, and 04 AI's `AiRole` runtime router are
+  three distinct, real, independently-evidenced routing concerns (`LAYER_MODEL.md`, Nexus Forge
+  section; `AI_ARCHITECTURE.md` §5). Roadmap-YAML edits (the `roadmap_phase`/`strategic_phase` field
+  split, Gate A/B disambiguation) are tracked separately and not part of this documentation pass.
 - V2.1 three-solution restructure (NexusAI / Nexus.Int / Nexus.Web split).
 - Frontend F0 — single HTTP path through `ApiClient`, dead `products` feature removed. Verified live as commit `79d42ed` in Nexus.Web ("F0: single HTTP path, /api/v1 base, dead products feature removed"). An earlier reference to this work cited commit `267b4b7` — that object was lost in the 2026-08-20 incident and survives only in `.git-broken\logs\HEAD`; `79d42ed` is the live equivalent and the one to cite going forward.
 - v2.2 documentation bundle landed into NexusAI (2026-08-23), non-destructively, alongside the pre-existing documentation set. See `docs\DOCUMENTATION_INDEX.md` for what's reconciled and what's still gapped.

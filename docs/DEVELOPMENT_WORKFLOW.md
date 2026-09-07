@@ -406,6 +406,16 @@ broken something real. `ASSURANCE_STANDARDS.md` owns what to add and in what ord
 Work is scheduled by phase. Phases cut across layers; a layer's milestones scatter across phases by
 dependency and value and are never grouped into one block.
 
+**This is `roadmap_phase` (execution order), not `strategic_phase` (business priority).** The P0–P5
+below are the roadmap's own scheduling phases — a different, deliberately separate dimension from
+the newly-approved SP1/SP2/SP3 strategic-development-phase vocabulary (Rebaseline R01/R02/R05):
+SP1 = Excel → Forge → minimum Platform → Nexus Developer → 80-90% governed development autonomy;
+SP2 = migration, refactoring, standardization, hardening, productionization; SP3 = Business OS and
+demand-driven Platform expansion. The two vocabularies intentionally reuse the short strings
+"P1"/"P2"/"P3" for different meanings and must never be merged into one ID namespace or collapsed
+into one field — human prose may say "Strategic Phase 1/2/3", but a bare "P1" here always means the
+roadmap phase below.
+
 | Phase | Name | Intent | Streams |
 |---|---|---|---|
 | **P0** | Groundwork | Make the current system safe, verifiable and single-stack. Nothing new is designed | Single |
@@ -429,8 +439,11 @@ Governing principles that constrain scheduling:
 
 P1 exits when, and only when:
 
-- the Foundation Gate acceptance test passes — three workers, isolated, evidenced, reviewed,
-  integrated;
+- the Foundation Gate acceptance test passes — `PARALLEL_EXECUTION_PROOF`
+  (`ASSURANCE_ARCHITECTURE.md` §13): three independent work items, three distinct workers, three
+  isolated Git worktrees, overlapping execution, independent build/test evidence per worker, one
+  worker deliberately fails while unrelated workers continue unaffected, controlled integration, and
+  final integration verification;
 - every action is attributable to a real user in an enforced tenant;
 - conversation is a layer, consumable by any product with its own scope;
 - a work item cannot integrate while a mandatory acceptance criterion is unverified.
