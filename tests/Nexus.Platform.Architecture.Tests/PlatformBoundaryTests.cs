@@ -150,12 +150,15 @@ public sealed class PlatformBoundaryTests
     // Added in the InvocationIdentity follow-up correction: the neutral CORE boundary
     // only stays neutral if nothing inside it reaches back up into a layer that
     // depends on it. If a future edit reintroduced a provider/model-infrastructure-
-    // owned or Product-Core-owned type dependency into Nexus.Platform.Contracts.Core,
-    // this fails immediately rather than waiting for a human to notice during the
-    // next physical move. Renamed in Batch 09: the forbidden namespaces checked below
-    // (Contracts.Models, Contracts.Tools, Contracts.Governance, Contracts.ProductCore,
-    // Nexus.Products) are all non-neutral relative to Contracts.Core; none of them is
-    // "L04 AI" -- see architecture/NEXUS_V2_EXECUTION_BATCH_08_REPORT.md.
+    // owned, Product-Core-owned, or GOVERNANCE-owned type dependency into
+    // Nexus.Platform.Contracts.Core, this fails immediately rather than waiting for a
+    // human to notice during the next physical move. Renamed in Batch 09: the forbidden
+    // namespaces checked below are all non-neutral relative to Contracts.Core; none of
+    // them is "L04 AI" -- see architecture/NEXUS_V2_EXECUTION_BATCH_08_REPORT.md.
+    // M-03-1.2 (SP1-P01) removed the old Governance namespace from this assembly
+    // (IProductRegistry relocated to the Nexus.Governance.* leaf assemblies), so the
+    // GOVERNANCE guard is now the "Nexus.Governance" prefix: Contracts.Core must never
+    // reach up into L03 GOVERNANCE in any physical assembly.
     [Fact]
     public void ContractsCoreNamespace_MustNotDependOn_NonCoreNeutralNamespaces()
     {
@@ -169,7 +172,7 @@ public sealed class PlatformBoundaryTests
                 "Nexus.Platform.Contracts.Models",
                 "Nexus.Platform.Contracts.ProductCore",
                 "Nexus.Platform.Contracts.Tools",
-                "Nexus.Platform.Contracts.Governance",
+                "Nexus.Governance",
                 "Nexus.Products")
             .GetResult();
 
@@ -265,10 +268,12 @@ public sealed class PlatformBoundaryTests
     // itself was correct either way; only the layer label was wrong (see
     // architecture/NEXUS_V2_EXECUTION_BATCH_08_REPORT.md and _BATCH_09_REPORT.md).
     // This is the negative half of that fix, enforced continuously: no type in the
-    // OpenAI provider assembly may depend on the (now audit-free) Governance
-    // namespace -- catching a future accidental reintroduction, e.g. if a real
-    // IProductRegistry implementation appears there and something in this provider
-    // infrastructure reaches for it directly instead of going through a lower-layer
+    // OpenAI provider assembly may depend on L03 GOVERNANCE-owned code. M-03-1.2
+    // (SP1-P01) relocated IProductRegistry out of this repository's CORE assemblies
+    // into the Nexus.Governance.* leaf assemblies, so the guard below now names the
+    // "Nexus.Governance" prefix -- catching a future accidental reintroduction, e.g. if
+    // a ProductRegistryService implementation were added and something in this provider
+    // infrastructure reached for it directly instead of going through a lower-layer
     // contract.
     [Fact]
     public void OpenAiProviderAssembly_MustNotHaveTypeDependencyOn_GovernanceOwnedNamespaces()
@@ -277,7 +282,7 @@ public sealed class PlatformBoundaryTests
 
         var result = Types.InAssembly(openAiAssembly)
             .ShouldNot()
-            .HaveDependencyOnAny("Nexus.Platform.Contracts.Governance", "Nexus.Platform.Core.Governance")
+            .HaveDependencyOnAny("Nexus.Governance")
             .GetResult();
 
         Assert.True(
@@ -323,5 +328,29 @@ public sealed class PlatformBoundaryTests
 
         Assert.True(implementsAuditLog, "Expected ConsoleAuditLog to implement IAuditLog.");
         Assert.Equal("Nexus.Platform.Contracts.Core", typeof(Nexus.Platform.Contracts.Core.IAuditLog).Namespace);
+    }
+
+    // M-03-1.2 (SP1-P01) work item WI-03-1.2.2 / subtask S-03-1.2.2.1.2: a layering test
+    // asserting L01 CORE (Nexus.Platform.*) does not reference L03 GOVERNANCE
+    // (Nexus.Governance.*). Product identity has relocated out of Nexus.Platform.Contracts
+    // into its own GOVERNANCE leaf assembly set; CORE must never take a reference on it
+    // (DEPENDENCY_RULES.md row 01 CORE has no "may reference" cell for column 03
+    // GOVERNANCE). This guards the CORE -> GOVERNANCE direction across every Platform
+    // assembly the repository ships today.
+    [Fact]
+    public void Platform_MustNotReference_Governance()
+    {
+        foreach (var assembly in PlatformAssemblies)
+        {
+            var result = Types.InAssembly(assembly)
+                .ShouldNot()
+                .HaveDependencyOnAny("Nexus.Governance")
+                .GetResult();
+
+            Assert.True(
+                result.IsSuccessful,
+                $"{assembly.GetName().Name} has a forbidden dependency on GOVERNANCE: " +
+                string.Join(", ", result.FailingTypeNames ?? []));
+        }
     }
 }

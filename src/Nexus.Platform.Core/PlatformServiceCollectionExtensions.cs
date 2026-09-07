@@ -72,15 +72,18 @@ public static class PlatformServiceCollectionExtensions
     }
 
     /// <summary>
-    /// L03 Governance registrations. Currently empty: Governance's real ownership
-    /// (per LAYER_MODEL.md) is registries -- product, technology, brand, compliance,
-    /// licence, configuration -- none of which have a real implementation yet.
-    /// (Future: IProductRegistry once a real implementation exists -- see
-    /// architecture/NEXUS_V2_EXECUTION_BATCH_05_REPORT.md.) Audit logging, previously
-    /// registered here, moved to AddNexusCore in Batch 07 -- it was never actually
-    /// Governance-owned; see architecture/NEXUS_V2_EXECUTION_BATCH_07_REPORT.md.
-    /// Kept as an explicit method (rather than removed) so AddNexusPlatform's
-    /// composition shape stays stable as Governance registrations are added.
+    /// L03 GOVERNANCE registrations. This method is an intentional NO-OP: Governance's real
+    /// registrations now live in the L03 GOVERNANCE leaf assembly Nexus.Governance.Core and
+    /// are registered through its own GovernanceServiceCollectionExtensions.AddGovernance
+    /// (M-03-1.1/M-03-1.2; see architecture/SP1_P01_GOVERNANCE_PRODUCT_IDENTITY_REPORT.md).
+    /// CORE cannot call that method from here: DEPENDENCY_RULES.md's matrix gives row 01 CORE
+    /// no "may reference" cell for column 03 GOVERNANCE, so Nexus.Platform.Core must not take
+    /// a project/type reference on Nexus.Governance.*. A host composes CORE and GOVERNANCE at
+    /// the composition root -- AddNexusPlatform(...) for CORE, then AddGovernance(...) for
+    /// GOVERNANCE. Audit logging, previously registered here, moved to AddNexusCore in Batch 07
+    /// -- it was never actually Governance-owned (architecture/NEXUS_V2_EXECUTION_BATCH_07_REPORT.md).
+    /// Kept as an explicit method (rather than removed) so AddNexusPlatform's composition
+    /// shape stays stable as Governance registrations are added.
     /// </summary>
     public static IServiceCollection AddNexusGovernance(this IServiceCollection services, IConfiguration configuration)
     {
