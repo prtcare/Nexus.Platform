@@ -27,9 +27,20 @@ public static class PlatformServiceCollectionExtensions
     }
 
     /// <summary>
-    /// L04 AI registrations: model catalog, model gateway, and usage measurement
-    /// (per-turn usage/cost attribution is AI-owned per LAYER_MODEL.md; see
-    /// architecture/NEXUS_V2_EXECUTION_BATCH_05_REPORT.md and BATCH_06_REPORT.md).
+    /// L01 CORE model/provider infrastructure registrations: model catalog, model
+    /// gateway, and usage measurement. Batch 08/09 correction: this method's name
+    /// ("AddNexusAi") and this comment previously called these registrations
+    /// "L04 AI"/"AI-owned" -- LAYER_MODEL.md and DEPENDENCY_RULES.md are unambiguous
+    /// that L04 AI is Nexus.Intelligence.* in a separate repository, and everything
+    /// registered here (IModelCatalog, IModelGateway, IUsageMeter) is L01 CORE-owned
+    /// provider/model infrastructure per LAYER_MODEL.md's own CORE "Owns" list
+    /// ("usage metering, model gateway and routing") and CORE "Projects (TARGET)"
+    /// list (which names Nexus.Platform.Providers.OpenAI/.Anthropic explicitly) --
+    /// see architecture/NEXUS_V2_EXECUTION_BATCH_08_REPORT.md and
+    /// _BATCH_09_REPORT.md. The method name itself is left unchanged in Batch 09 (a
+    /// public-API rename was not in that batch's scope); renaming it to something
+    /// like AddNexusCoreModelInfrastructure is recorded as a deferred, bounded
+    /// Batch 10 candidate.
     /// </summary>
     public static IServiceCollection AddNexusAi(this IServiceCollection services, IConfiguration configuration)
     {

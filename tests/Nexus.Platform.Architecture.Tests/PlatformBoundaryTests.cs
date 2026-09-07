@@ -51,9 +51,13 @@ public sealed class PlatformBoundaryTests
 
     // Batch 06: lock in the Batch 05/06 ownership decisions so a future accidental
     // move (e.g. back into a Governance folder/namespace) is caught by the build.
-    // See architecture/NEXUS_V2_EXECUTION_BATCH_06_REPORT.md.
+    // See architecture/NEXUS_V2_EXECUTION_BATCH_06_REPORT.md. Renamed in Batch 09:
+    // this asserts CORE-owned model/provider infrastructure placement, not an "AI
+    // layer" -- see architecture/NEXUS_V2_EXECUTION_BATCH_08_REPORT.md and
+    // _BATCH_09_REPORT.md for why "Layer 04 AI" never applied to this code (Layer 04
+    // AI is Nexus.Intelligence.*, a separate repository).
     [Fact]
-    public void UsageMeter_IsOwnedByAiLayer()
+    public void UsageMeter_IsOwnedByCoreModelInfrastructure()
     {
         Assert.Equal("Nexus.Platform.Contracts.Models", typeof(Nexus.Platform.Contracts.Models.IUsageMeter).Namespace);
         Assert.Equal("Nexus.Platform.Contracts.Models", typeof(Nexus.Platform.Contracts.Models.UsageRecord).Namespace);
@@ -79,6 +83,14 @@ public sealed class PlatformBoundaryTests
     // Nexus.Platform.Contracts.Core alongside IQuotaPolicy/QuotaVerdict. IQuotaPolicy
     // now depends only on other types in its own namespace. The entitlement POLICY
     // IMPLEMENTATION remains physically and conceptually Product-Core-owned.
+    //
+    // Batch 09 terminology correction: everywhere above that says "L04 AI"/"AI"
+    // describes what is actually L01 CORE-owned provider/model infrastructure
+    // (Nexus.Platform.Providers.OpenAI, Contracts.Models, Core.Models). L04 AI is
+    // Nexus.Intelligence.* in a separate repository and was never involved in this
+    // boundary. The dependency-direction analysis and fix above remain correct; only
+    // the layer label was wrong -- see
+    // architecture/NEXUS_V2_EXECUTION_BATCH_08_REPORT.md and _BATCH_09_REPORT.md.
     [Fact]
     public void QuotaPolicy_ContractIsNeutralCoreBoundary_ImplementationIsProductCoreOwned()
     {
@@ -106,19 +118,21 @@ public sealed class PlatformBoundaryTests
         Assert.Equal("Nexus.Platform.Core", typeof(Nexus.Platform.Core.ConsoleAuditLog).Namespace);
     }
 
-    // Replaces the Batch 06 test of the same intent, which only asserted that the AI
-    // provider assembly carried no ProjectReference named "Nexus.ProductCore.Contracts"
-    // / "Nexus.ProductCore.Scope" -- TARGET assembly names that do not exist yet in
-    // this pre-split repository, so that assertion passed trivially and proved
-    // nothing about the actual architectural relationship (see
-    // architecture/NEXUS_V2_EXECUTION_BATCH_06_REPORT.md, "Architecture Correction").
-    // This uses NetArchTest's IL-level type-dependency analysis -- the same mechanism
-    // Platform_MustNotReference_IntelligenceOrProducts already relies on -- to assert
-    // the actual forbidden relationship: no type in the AI provider assembly may have
-    // a compile-time dependency on the Product-Core-owned implementation namespace,
-    // regardless of which physical assembly that namespace lives in today.
+    // Replaces the Batch 06 test of the same intent, which only asserted that the
+    // OpenAI provider assembly carried no ProjectReference named
+    // "Nexus.ProductCore.Contracts" / "Nexus.ProductCore.Scope" -- TARGET assembly
+    // names that do not exist yet in this pre-split repository, so that assertion
+    // passed trivially and proved nothing about the actual architectural relationship
+    // (see architecture/NEXUS_V2_EXECUTION_BATCH_06_REPORT.md, "Architecture
+    // Correction"). This uses NetArchTest's IL-level type-dependency analysis -- the
+    // same mechanism Platform_MustNotReference_IntelligenceOrProducts already relies
+    // on -- to assert the actual forbidden relationship: no type in the OpenAI
+    // provider assembly (L01 CORE-owned provider infrastructure, not "L04 AI" -- see
+    // architecture/NEXUS_V2_EXECUTION_BATCH_08_REPORT.md and _BATCH_09_REPORT.md) may
+    // have a compile-time dependency on the Product-Core-owned implementation
+    // namespace, regardless of which physical assembly that namespace lives in today.
     [Fact]
-    public void AiProviderAssembly_MustNotHaveTypeDependencyOn_ProductCoreOwnedNamespaces()
+    public void OpenAiProviderAssembly_MustNotHaveTypeDependencyOn_ProductCoreOwnedNamespaces()
     {
         var openAiAssembly = typeof(Nexus.Platform.Providers.OpenAI.OpenAIModelGateway).Assembly;
 
@@ -135,11 +149,15 @@ public sealed class PlatformBoundaryTests
 
     // Added in the InvocationIdentity follow-up correction: the neutral CORE boundary
     // only stays neutral if nothing inside it reaches back up into a layer that
-    // depends on it. If a future edit reintroduced an AI-owned or Product-Core-owned
-    // type dependency into Nexus.Platform.Contracts.Core, this fails immediately
-    // rather than waiting for a human to notice during the next physical move.
+    // depends on it. If a future edit reintroduced a provider/model-infrastructure-
+    // owned or Product-Core-owned type dependency into Nexus.Platform.Contracts.Core,
+    // this fails immediately rather than waiting for a human to notice during the
+    // next physical move. Renamed in Batch 09: the forbidden namespaces checked below
+    // (Contracts.Models, Contracts.Tools, Contracts.Governance, Contracts.ProductCore,
+    // Nexus.Products) are all non-neutral relative to Contracts.Core; none of them is
+    // "L04 AI" -- see architecture/NEXUS_V2_EXECUTION_BATCH_08_REPORT.md.
     [Fact]
-    public void ContractsCoreNamespace_MustNotDependOn_AiOrProductCoreOwnedNamespaces()
+    public void ContractsCoreNamespace_MustNotDependOn_NonCoreNeutralNamespaces()
     {
         var contractsAssembly = typeof(Nexus.Platform.Contracts.Core.IQuotaPolicy).Assembly;
 
@@ -162,11 +180,15 @@ public sealed class PlatformBoundaryTests
     }
 
     // The quota policy IMPLEMENTATION is conceptually L06 Product Core. It may depend
-    // on the neutral L01 Core contract it implements, but must not reach into any
-    // AI-owned namespace to do so (that would reintroduce the L06 -> L04 problem the
-    // InvocationIdentity move fixed).
+    // on the neutral L01 Core contract it implements, but must not reach into the
+    // CORE-owned model/provider infrastructure namespaces (Contracts.Models,
+    // Core.Models) to do so -- reaching into either would reintroduce an L06 -> L01
+    // dependency on infrastructure the quota policy has no business calling directly.
+    // Renamed in Batch 09: this was never an "L06 -> L04" problem -- both namespaces
+    // checked below are L01 CORE, not L04 AI -- see
+    // architecture/NEXUS_V2_EXECUTION_BATCH_08_REPORT.md.
     [Fact]
-    public void ProductCoreQuotaImplementation_MustNotDependOn_AiOwnedNamespaces()
+    public void ProductCoreQuotaImplementation_MustNotDependOn_CoreModelInfrastructureNamespaces()
     {
         var coreAssembly = typeof(Nexus.Platform.Core.ProductCore.PermissiveQuotaPolicy).Assembly;
 
@@ -183,13 +205,17 @@ public sealed class PlatformBoundaryTests
             string.Join(", ", result.FailingTypeNames ?? []));
     }
 
-    // Positive companions to the two negative tests above: AI and Product Core must
-    // each still be able to legitimately depend on Core -- proving the neutral
-    // boundary actually gets used, not merely that forbidden edges are absent (a
-    // namespace nobody references would pass the ShouldNot tests trivially too).
+    // Positive companions to the two negative tests above: the OpenAI provider and
+    // Product Core must each still be able to legitimately depend on Core -- proving
+    // the neutral boundary actually gets used, not merely that forbidden edges are
+    // absent (a namespace nobody references would pass the ShouldNot tests trivially
+    // too).
     //
-    // Fixed after Windows verification found AiProvider_MayLegitimatelyDependOn_Core
-    // failing (9/10 architecture tests passed; this was the one failure -- see
+    // Fixed after Windows verification found the test below (then named
+    // AiProvider_MayLegitimatelyDependOn_Core; renamed in Batch 09 -- see
+    // architecture/NEXUS_V2_EXECUTION_BATCH_08_REPORT.md and _BATCH_09_REPORT.md for
+    // why "AI" never described this provider's layer) failing (9/10 architecture
+    // tests passed; this was the one failure -- see
     // architecture/NEXUS_V2_EXECUTION_BATCH_06_REPORT.md). Root cause: NetArchTest's
     // namespace-scoped ".Should().HaveDependencyOnAny(...)" requires EVERY type in
     // the matched namespace to satisfy the dependency, not just one of them.
@@ -201,7 +227,7 @@ public sealed class PlatformBoundaryTests
     // assertions instead of a namespace-aggregate NetArchTest check, per the
     // Windows-verification follow-up instruction.
     [Fact]
-    public void AiProvider_MayLegitimatelyDependOn_Core()
+    public void OpenAiProvider_MayLegitimatelyDependOn_Core()
     {
         var constructor = typeof(Nexus.Platform.Providers.OpenAI.OpenAIModelGateway)
             .GetConstructors()
@@ -228,17 +254,24 @@ public sealed class PlatformBoundaryTests
     }
 
     // Batch 07 (see architecture/NEXUS_V2_EXECUTION_BATCH_07_REPORT.md): the
-    // pre-existing OpenAIModelGateway -> IAuditLog dependency was a real L04 AI ->
-    // L03 Governance architectural dependency (matrix cell "-"), same shape as the
-    // Batch 06 quota-policy defect, and is now fixed by reclassifying audit as
-    // CORE-owned rather than Governance-owned (see AuditLog_IsOwnedByCoreLayer).
+    // pre-existing OpenAIModelGateway -> IAuditLog dependency was a real forbidden
+    // architectural dependency (matrix cell "-"), same shape as the Batch 06
+    // quota-policy defect, and is now fixed by reclassifying audit as CORE-owned
+    // rather than Governance-owned (see AuditLog_IsOwnedByCoreLayer). Batch 07's own
+    // text called this "L04 AI -> L03 Governance"; Batch 08/09 determined that label
+    // was wrong -- OpenAIModelGateway is L01 CORE-owned provider infrastructure, not
+    // L04 AI (L04 AI is Nexus.Intelligence.*, a separate repository) -- so the actual
+    // relationship fixed was L01 CORE -> L03 Governance. The dependency-direction fix
+    // itself was correct either way; only the layer label was wrong (see
+    // architecture/NEXUS_V2_EXECUTION_BATCH_08_REPORT.md and _BATCH_09_REPORT.md).
     // This is the negative half of that fix, enforced continuously: no type in the
     // OpenAI provider assembly may depend on the (now audit-free) Governance
     // namespace -- catching a future accidental reintroduction, e.g. if a real
-    // IProductRegistry implementation appears there and something in AI reaches for
-    // it directly instead of going through a lower-layer contract.
+    // IProductRegistry implementation appears there and something in this provider
+    // infrastructure reaches for it directly instead of going through a lower-layer
+    // contract.
     [Fact]
-    public void AiProviderAssembly_MustNotHaveTypeDependencyOn_GovernanceOwnedNamespaces()
+    public void OpenAiProviderAssembly_MustNotHaveTypeDependencyOn_GovernanceOwnedNamespaces()
     {
         var openAiAssembly = typeof(Nexus.Platform.Providers.OpenAI.OpenAIModelGateway).Assembly;
 
@@ -254,12 +287,12 @@ public sealed class PlatformBoundaryTests
     }
 
     // Positive companion, direct/structural rather than a namespace-aggregate
-    // NetArchTest check (see AiProvider_MayLegitimatelyDependOn_Core above for why
-    // that shape of check is unreliable when the namespace holds more than one
+    // NetArchTest check (see OpenAiProvider_MayLegitimatelyDependOn_Core above for
+    // why that shape of check is unreliable when the namespace holds more than one
     // type -- Nexus.Platform.Providers.OpenAI does): confirms OpenAIModelGateway
     // still legitimately emits audit records through the CORE-owned IAuditLog port.
     [Fact]
-    public void AiProvider_MayLegitimatelyEmitThrough_CoreAuditBoundary()
+    public void OpenAiProvider_MayLegitimatelyEmitThrough_CoreAuditBoundary()
     {
         var constructor = typeof(Nexus.Platform.Providers.OpenAI.OpenAIModelGateway)
             .GetConstructors()

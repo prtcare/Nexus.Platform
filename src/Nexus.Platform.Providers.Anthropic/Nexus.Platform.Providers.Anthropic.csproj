@@ -7,7 +7,7 @@
     <IsPackable>true</IsPackable>
     <PackageId>Nexus.Platform.Providers.Anthropic</PackageId>
     <Authors>PRT</Authors>
-    <Description>Nexus V2 - Nexus.Platform.Providers.Anthropic</Description>
+    <Description>Nexus V2 - Layer 01 Core - Nexus.Platform.Providers.Anthropic</Description>
   </PropertyGroup>
 
   <ItemGroup>
