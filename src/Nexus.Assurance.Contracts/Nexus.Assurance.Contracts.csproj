@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Nexus.Assurance.Contracts</RootNamespace>
+    <AssemblyName>Nexus.Assurance.Contracts</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>Nexus.Assurance.Contracts</PackageId>
+    <Authors>PRT</Authors>
+    <Description>Nexus V2 - Layer 08 Assurance - Nexus.Assurance.Contracts (minimum evidence reference seam)</Description>
+  </PropertyGroup>
+
+</Project>
