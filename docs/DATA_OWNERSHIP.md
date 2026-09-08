@@ -1,5 +1,16 @@
 # Data Ownership
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's entity-to-layer mapping
+> and "Does not own" cross-references are built on the v2.1 twelve-layer model, in which
+> 07 DEVELOPER was a numbered Platform layer and DELIVERY/ASSURANCE/OPERATIONS/EXPERIENCE
+> were numbered 08/09/10/11. Per the approved v2.2 renumbering (`LAYER_MODEL.md` §2.2,
+> §4a), Nexus Forge and Nexus Developer (the product) now sit OUTSIDE the ten numbered
+> Platform layers, and DELIVERY/ASSURANCE/OPERATIONS/EXPERIENCE are renumbered
+> 07/08/09/10. The ownership reasoning below (domain-owns-the-fact, the migration matrix)
+> remains historically accurate engineering judgment. Re-deriving the entity-to-layer
+> mapping against the v2.2 numbering (and against the Forge/Nexus-Developer-Product
+> split) is Wave-D-adjacent decision work and is explicitly NOT done in this batch.
+
 **Status:** Active for the rule and the mapping; **TRANSITION** for reality — six of the eleven
 entities that exist today are in the wrong layer, and each row says which milestone moves it
 **Owner:** Durai; each layer's owner maintains its own entity list

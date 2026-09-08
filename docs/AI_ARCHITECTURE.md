@@ -1,5 +1,15 @@
 # AI Architecture
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's context-
+> flattening table (rows for `07 DEVELOPER`, `09 ASSURANCE`, `10 OPERATIONS`,
+> `11 EXPERIENCE`) reflects the v2.1 twelve-layer model, in which 07 DEVELOPER
+> was a numbered Platform layer. Per the approved v2.2 renumbering
+> (`LAYER_MODEL.md` §2.2, §4a), Nexus Forge and Nexus Developer (the product)
+> now sit OUTSIDE the ten numbered Platform layers, and
+> ASSURANCE/OPERATIONS/EXPERIENCE are renumbered 08/09/10. The AI architecture
+> content itself remains valid. Re-deriving this table against the v2.2 model
+> is Wave-D-adjacent decision work and is explicitly NOT done in this batch.
+
 **Status:** MIXED, and the mix is the point — **the contracts and the turn pipeline exist, compile and
 run; almost everything stateful behind them is in-memory and does not survive a restart.** Every
 capability below carries one of four maturity bands
@@ -124,6 +134,17 @@ an existing one.
 
 `Azure.Identity` and `Azure.Core` are present in the solution but arrived with Dataverse. **Do not
 treat them as a chosen authentication path** until something selects them.
+
+**This layer's routing is not the only routing in Nexus, and the three must never collapse into
+one concept (Rebaseline R05).** (1) This section's model gateway/`RoutingModelGateway` is low-level
+provider/model access — authentication, request shape, usage metering — available to any consumer,
+not just AI. (2) **Nexus Forge's own Worker/Model Router** (`DevTools-ForgeV2/DevBridge/scripts/
+ai-routing/router/*`, real and working) chooses which AI provider/model performs a Forge-governed
+*development* task — writing, reviewing or planning Nexus's own code — entirely outside this layer,
+recommendation-only, never itself invoking a provider. (3) **This layer's own role→model assignment**
+(`Nexus.Intelligence.Core.Roles` — `AiRole`, `AiRoleResolver`, seeded with a `"Discussion"` role)
+chooses which model handles a *runtime end-user conversation turn*, sitting on top of (1). See
+`LAYER_MODEL.md`'s Nexus Forge section for the full three-way distinction.
 
 ---
 

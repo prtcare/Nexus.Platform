@@ -1,5 +1,17 @@
 # Product Architecture
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's own header
+> (`**Owner:** PRODUCTS (Layer 12)`, `**Layer:** 12 PRODUCTS`) and its
+> "12 → 07 DEVELOPER" dependency reference reflect the v2.1 twelve-layer
+> model, in which 07 DEVELOPER and 12 PRODUCTS were numbered Platform layers.
+> Per the approved v2.2 renumbering (`LAYER_MODEL.md` §2.2, §4a), Products (and
+> Nexus Forge / Nexus Developer, the product) now sit OUTSIDE the ten numbered
+> Platform layers entirely -- Products is no longer "Layer 12" at all. The
+> product-architecture reasoning below remains valid. Re-deriving this
+> document's own ownership header and dependency references against the v2.2
+> model is Wave-D-adjacent decision work and is explicitly NOT done in this
+> batch.
+
 **Status:** TARGET — **one product exists (Chat, in `Nexus.Experience`) and it predates this shape.** No
 `Product` record exists anywhere, no capability pack is declared, and no product state model exists.
 Each gap names the milestone that closes it

@@ -1,5 +1,18 @@
 # Naming Standards
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's repository/layer
+> table and milestone-ID worked examples (e.g. §1-3, the repository table, the
+> schema table, and the `M-08-1.1` reading example) are built on the v2.1 twelve-
+> layer model, in which 07 DEVELOPER and 12 PRODUCTS were numbered Platform
+> layers. Per the approved v2.2 renumbering (`LAYER_MODEL.md` §2.2, §4a), Nexus
+> Forge, Nexus Developer (the product), and Products all now sit OUTSIDE the ten
+> numbered Platform layers, and DELIVERY/ASSURANCE/OPERATIONS/EXPERIENCE are
+> renumbered 07/08/09/10. The naming rules themselves (casing, "no layer numbers
+> in code", the ID patterns) remain valid and are not being discarded. Re-deriving
+> the repository table, schema table, and worked examples against the v2.2
+> numbering is Wave-D-adjacent decision work and is explicitly NOT done in this
+> batch.
+
 > **Status:** CURRENT for everything that exists; TRANSITION or TARGET is marked per category
 > **Owner:** Layer 07 DEVELOPER (definition) / Layer 09 ASSURANCE (conformance)
 > **Last updated:** 2026-08-21

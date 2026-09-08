@@ -5,7 +5,8 @@
 closes it
 **Owner:** Durai
 **Last updated:** 2026-08-21
-**Layer:** 09 ASSURANCE — repository `Nexus.Platform`, schema `assurance`, cross-cutting
+**Layer:** 08 ASSURANCE (v2.2, was 09 ASSURANCE under v2.1 — see `LAYER_MODEL.md` §2.2) —
+repository `Nexus.Platform`, schema `assurance`, cross-cutting
 **Authoritative for:** the shape and boundaries of the ASSURANCE layer — the traceability chain as a
 chain of rows, the entity model, where acceptance criteria attach, the separation of verification
 from validation, the inspection model for physical work, evaluation as a verification method,
@@ -35,7 +36,7 @@ from every neighbouring layer:
 
 | Layer | Question |
 |---|---|
-| 07 DEVELOPER | What must be proven, and which work item is it attached to |
+| Nexus Forge (outside numbered Platform, v2.2 — was 07 DEVELOPER, see `LAYER_MODEL.md` §2.2) | What must be proven, and which work item is it attached to |
 | 08 DELIVERY | Did it build, and did the tests execute |
 | **09 ASSURANCE** | **Was the requirement actually satisfied** |
 | 10 OPERATIONS | Does the running system stay healthy |
@@ -101,7 +102,7 @@ The rest of the boundaries:
 
 | Not owned | Owner |
 |---|---|
-| What needs testing, and which work item it belongs to | 07 DEVELOPER |
+| What needs testing, and which work item it belongs to | Nexus Forge (outside numbered Platform, v2.2 — was 07 DEVELOPER) |
 | Executing build and test pipelines | 08 DELIVERY |
 | Runtime health of a deployed system | 10 OPERATIONS |
 | The formal test report **document** | 02 DATA — ASSURANCE owns the *result*, DATA owns the document |
@@ -437,7 +438,7 @@ it should be read as the motivation for the layer rather than as a criticism of 
 
 | Layer | The seam |
 |---|---|
-| 07 DEVELOPER | Owns `Requirement`; ASSURANCE owns `AcceptanceCriterion`. ASSURANCE blocks `IntegrationRun` |
+| Nexus Forge (outside numbered Platform, v2.2 — was 07 DEVELOPER) | Owns `Requirement`; ASSURANCE owns `AcceptanceCriterion`. ASSURANCE blocks `IntegrationRun` |
 | 08 DELIVERY | A `PipelineRun` becomes `Evidence`. ASSURANCE blocks promotion to Production |
 | 10 OPERATIONS | ASSURANCE proved the requirement was satisfied; OPERATIONS proves it stays healthy in production |
 | 04 AI | AI runs the evaluation harness; ASSURANCE records its score as `Evidence` against a criterion |

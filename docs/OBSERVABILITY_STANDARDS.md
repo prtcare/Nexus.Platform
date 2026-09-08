@@ -1,9 +1,9 @@
 # Observability Standards
 
 **Status:** Active
-**Owner:** OPERATIONS (Layer 10)
+**Owner:** OPERATIONS (Layer 09 -- renumbered from 10, see LAYER_MODEL.md §2.2)
 **Last updated:** 2026-08-21
-**Layer:** 10 OPERATIONS — cross-cutting
+**Layer:** 09 OPERATIONS — cross-cutting (renumbered from 10, see LAYER_MODEL.md §2.2)
 **Authoritative for:** the shape of a log record, log level semantics and operational consequence,
 the event taxonomy, correlation and trace identifiers as they flow *inside* a process and *between*
 hosts, metrics, health checks, error telemetry, performance telemetry, AI telemetry, build

@@ -1,6 +1,6 @@
-using Nexus.Platform.Contracts.Models;
+using Nexus.Platform.Contracts.Core;
 
-namespace Nexus.Platform.Contracts.Governance;
+namespace Nexus.Platform.Contracts.Models;
 
 public sealed record UsageRecord
 {

@@ -1,5 +1,15 @@
 # Developer Onboarding
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's own header
+> (`**Owner:** DEVELOPER (Layer 07), with DELIVERY (08) owning the tooling it
+> depends on`, `**Layer:** 07 DEVELOPER`) reflects the v2.1 twelve-layer model,
+> in which 07 DEVELOPER was a numbered Platform layer. Per the approved v2.2
+> renumbering (`LAYER_MODEL.md` §2.2, §4a), Nexus Forge and Nexus Developer
+> (the product) now sit OUTSIDE the ten numbered Platform layers, and DELIVERY
+> is renumbered 07 (from 08). The onboarding content itself remains valid.
+> Re-deriving this document's own ownership header against the v2.2 model is
+> Wave-D-adjacent decision work and is explicitly NOT done in this batch.
+
 **Status:** CURRENT — every command below is for the system as it stands on 2026-08-21; steps that
 are not yet automated say so
 **Owner:** DEVELOPER (Layer 07), with DELIVERY (08) owning the tooling it depends on

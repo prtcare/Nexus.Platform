@@ -1,5 +1,17 @@
 # Development Workflow
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's own header
+> (`**Owner:** DEVELOPER (Layer 07)`) and its four-question ownership table
+> (07 DEVELOPER / 08 DELIVERY / 09 ASSURANCE / 10 OPERATIONS) reflect the v2.1
+> twelve-layer model, in which 07 DEVELOPER and 12 PRODUCTS were numbered
+> Platform layers. Per the approved v2.2 renumbering (`LAYER_MODEL.md` §2.2,
+> §4a), Nexus Forge and Nexus Developer (the product) now sit OUTSIDE the ten
+> numbered Platform layers, and DELIVERY/ASSURANCE/OPERATIONS/EXPERIENCE are
+> renumbered 07/08/09/10. The workflow questions themselves ("what must be
+> proven", "did it run", etc.) remain valid engineering framing. Re-deriving
+> this document's own header and table against the v2.2 model is
+> Wave-D-adjacent decision work and is explicitly NOT done in this batch.
+
 **Status:** Active
 **Owner:** DEVELOPER (Layer 07)
 **Last updated:** 2026-08-21
@@ -86,6 +98,8 @@ artefact someone else could inspect, not an assertion.
 | 14 | **Integrated** | Review approved and the integration branch is green | Sequential merge, verified green after the merge, not before | DEVELOPER |
 | 15 | **Delivered** | The integration branch merged to `main` and an artefact was produced and deployed | Artefact with retention; deployment record. **TARGET — M-08-3.1, M-08-5.1** | DELIVERY |
 | 16 | **Operating** | The deployed system reports healthy and is observable | Health check passing; correlation-traceable request. **TARGET — M-10-1.1, M-10-2.1** | OPERATIONS |
+
+See `WORK_UNIVERSE.md` §7 for the Release & Deployment terminology and traceability expectations frozen for SP2 (Release → Deployment → DeploymentStep; BUILD ONCE → VERIFY → VERSIONED ARTIFACT → DEV → TEST → PROD).
 
 ### 2.2 Rules that govern every transition
 
@@ -394,6 +408,16 @@ broken something real. `ASSURANCE_STANDARDS.md` owns what to add and in what ord
 Work is scheduled by phase. Phases cut across layers; a layer's milestones scatter across phases by
 dependency and value and are never grouped into one block.
 
+**This is `roadmap_phase` (execution order), not `strategic_phase` (business priority).** The P0–P5
+below are the roadmap's own scheduling phases — a different, deliberately separate dimension from
+the newly-approved SP1/SP2/SP3 strategic-development-phase vocabulary (Rebaseline R01/R02/R05):
+SP1 = Excel → Forge → minimum Platform → Nexus Developer → 80-90% governed development autonomy;
+SP2 = migration, refactoring, standardization, hardening, productionization; SP3 = Business OS and
+demand-driven Platform expansion. The two vocabularies intentionally reuse the short strings
+"P1"/"P2"/"P3" for different meanings and must never be merged into one ID namespace or collapsed
+into one field — human prose may say "Strategic Phase 1/2/3", but a bare "P1" here always means the
+roadmap phase below.
+
 | Phase | Name | Intent | Streams |
 |---|---|---|---|
 | **P0** | Groundwork | Make the current system safe, verifiable and single-stack. Nothing new is designed | Single |
@@ -417,8 +441,11 @@ Governing principles that constrain scheduling:
 
 P1 exits when, and only when:
 
-- the Foundation Gate acceptance test passes — three workers, isolated, evidenced, reviewed,
-  integrated;
+- the Foundation Gate acceptance test passes — `PARALLEL_EXECUTION_PROOF`
+  (`ASSURANCE_ARCHITECTURE.md` §13): three independent work items, three distinct workers, three
+  isolated Git worktrees, overlapping execution, independent build/test evidence per worker, one
+  worker deliberately fails while unrelated workers continue unaffected, controlled integration, and
+  final integration verification;
 - every action is attributable to a real user in an enforced tenant;
 - conversation is a layer, consumable by any product with its own scope;
 - a work item cannot integrate while a mandatory acceptance criterion is unverified.
@@ -446,7 +473,7 @@ achieves.
 | No product branching | No `if (Product == X)` anywhere. Capability packs are declared, not coded |
 | Chat is not the engine | A standalone Chat application, if released, is a Layer 12 product consuming EXPERIENCE |
 
-The scope hierarchy: **PRODUCT CORE owns Workspace → Project → Subproject. DEVELOPER extends
+The scope hierarchy: **SHARED PLATFORM owns Workspace → Project → Subproject. DEVELOPER extends
 Subproject → Release → Milestone → Feature → WorkItem → Task.** DEVELOPER does not redefine
 Workspace; it extends downward from Subproject.
 

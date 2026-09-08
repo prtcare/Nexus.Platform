@@ -1,4 +1,4 @@
-namespace Nexus.Platform.Contracts.Governance;
+namespace Nexus.Platform.Contracts.Core;
 
 public interface IAuditLog
 {

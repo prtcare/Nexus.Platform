@@ -1,5 +1,17 @@
 # Database Architecture
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's schema-per-layer
+> diagram and "Layer 12 product" wording are built on the v2.1 twelve-layer
+> model, in which 07 DEVELOPER and 12 PRODUCTS were numbered Platform layers.
+> Per the approved v2.2 renumbering (`LAYER_MODEL.md` §2.2, §4a), Nexus Forge,
+> Nexus Developer (the product), and Products all now sit OUTSIDE the ten
+> numbered Platform layers, and DELIVERY/ASSURANCE/OPERATIONS/EXPERIENCE are
+> renumbered 07/08/09/10. The database strategy itself (one platform database,
+> schema per layer; one database per product) remains valid engineering
+> judgment. Re-deriving the schema diagram and layer references against the
+> v2.2 numbering is Wave-D-adjacent decision work and is explicitly NOT done in
+> this batch.
+
 **Status:** TRANSITION — the strategy is decided; the one migration that exists predates it, and
 every gap below names the milestone that closes it
 **Owner:** DATA (Layer 02)

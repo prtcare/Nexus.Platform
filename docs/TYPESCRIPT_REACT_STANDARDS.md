@@ -1,9 +1,9 @@
 # TypeScript and React Standards
 
 > **Status:** CURRENT for structure and data access; **testing is a total gap** and is marked TARGET
-> **Owner:** Layer 11 EXPERIENCE
+> **Owner:** Layer 10 EXPERIENCE (renumbered from 11, see LAYER_MODEL.md §2.2)
 > **Last updated:** 2026-08-21
-> **Layer:** 11 EXPERIENCE
+> **Layer:** 10 EXPERIENCE (renumbered from 11, see LAYER_MODEL.md §2.2)
 > **Authoritative for:** how the Nexus web client is structured and written — folders, components, hooks, API access, types, state, forms, errors, loading, accessibility, routing, styling, testing, cancellation, contracts and telemetry
 
 **Scope.** Cross-language rules are **CODE_CONVENTIONS.md**; names are **NAMING_STANDARDS.md**; the server side of every contract is **CSHARP_STANDARDS.md**. This document is the frontend form only.

@@ -1,4 +1,4 @@
-using Nexus.Platform.Contracts.Models;
+using Nexus.Platform.Contracts.Core;
 
 namespace Nexus.Platform.Contracts.Tools;
 
