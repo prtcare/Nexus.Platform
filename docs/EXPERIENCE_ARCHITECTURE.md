@@ -5,7 +5,8 @@ product (`Nexus.Products.Chat`) and must become a layer (`Nexus.Experience`). No
 project exists yet. Each gap names the milestone that closes it
 **Owner:** Durai
 **Last updated:** 2026-08-21
-**Layer:** 11 EXPERIENCE — repository `Nexus.Experience`, schema `experience`
+**Layer:** 10 EXPERIENCE (v2.2, was 11 EXPERIENCE under v2.1 — see `LAYER_MODEL.md` §2.2) —
+repository `Nexus.Experience`, schema `experience`
 **Authoritative for:** the shape and boundaries of the EXPERIENCE layer — the conversation engine and
 its entity model, `ScopeRef` and its opacity, `IScopeResolver` and the context handoff, scope kind
 registration, the reusable interaction surfaces, commands, approvals and notification UX, and the
@@ -13,7 +14,7 @@ future scope of voice and realtime interaction.
 
 **Not authoritative for:** the `ContextBundle` and `ContextItem` types, ranking, prompt assembly or
 anything the AI layer does with what it receives — `AI_ARCHITECTURE.md` and
-`AI_DEVELOPMENT_STANDARDS.md`. `Workspace`, `Project` and `Subproject` — PRODUCT CORE. The work-graph
+`AI_DEVELOPMENT_STANDARDS.md`. `Workspace`, `Project` and `Subproject` — SHARED PLATFORM. The work-graph
 structure a DEVELOPER conversation is held against — `DEVELOPER_ARCHITECTURE.md`. Frontend code
 rules — `TYPESCRIPT_REACT_STANDARDS.md`. Which layer owns which entity — `DATA_OWNERSHIP.md`.
 
@@ -70,7 +71,7 @@ product — forbidden — or build its own.
 **TARGET.** The layer absorbs it. `M-11-1.1` moves `Conversation` and `ConversationMessage` out of the
 Chat domain, renames `ConversationMessage` to `Message` in the layer namespace, and migrates the
 schema from `conversation` to `experience` — *preserving existing rows; this is a rename, not a
-rebuild.* Chat's other aggregates disperse: `Workspace` and `Project` to PRODUCT CORE, `WorkItem`,
+rebuild.* Chat's other aggregates disperse: `Workspace` and `Project` to SHARED PLATFORM, `WorkItem`,
 `Adr`, `Branch`, `Snapshot`, `Artifact` and `Session` to DEVELOPER, DELIVERY and DATA per
 `DATA_OWNERSHIP.md` §7.
 
@@ -142,7 +143,7 @@ One engine, three consumers, three completely different structures, zero shared 
 
 ### Consumer 1 — DEVELOPER (`M-07-6.1`, P2)
 
-Scope kinds: `Milestone`, `Feature`, `WorkItem`, `Task`, registered with PRODUCT CORE at `M-07-1.1`.
+Scope kinds: `Milestone`, `Feature`, `WorkItem`, `Task`, registered with SHARED PLATFORM at `M-07-1.1`.
 The trunk runs the full depth:
 
 ```
@@ -367,12 +368,12 @@ and that is where the modality earns its cost.
 
 | Layer | The seam |
 |---|---|
-| 06 PRODUCT CORE | Owns `Workspace`, `Project`, `Subproject` and the scope kind registry (`M-06-1.2`). EXPERIENCE registers against it |
-| 07 DEVELOPER | Implements `IScopeResolver` (`M-07-6.1`). EXPERIENCE learns nothing about milestones |
+| 06 SHARED PLATFORM | Owns `Workspace`, `Project`, `Subproject` and the scope kind registry (`M-06-1.2`). EXPERIENCE registers against it |
+| Nexus Forge (outside numbered Platform, v2.2 — was 07 DEVELOPER under v2.1, see `LAYER_MODEL.md` §2.2) | Implements `IScopeResolver` (`M-07-6.1`). EXPERIENCE learns nothing about milestones |
 | 04 AI | Receives the `ContextBundle` untouched. `ScopeRef` is opaque to both layers |
 | 02 DATA | Documents and knowledge are DATA's; EXPERIENCE holds a `KnowledgeReference` |
 | 01 CORE | A `Participant` is a CORE `User` or an AI `Agent`; notification transport is `M-01-8.2` |
-| 12 PRODUCTS | A Nexus Chat *application*, if ever built, is a product that consumes this layer |
+| Products (outside numbered Platform, v2.2 — was 12 PRODUCTS under v2.1, see `LAYER_MODEL.md` §2.2) | A Nexus Chat *application*, if ever built, is a product that consumes this layer |
 
 ---
 

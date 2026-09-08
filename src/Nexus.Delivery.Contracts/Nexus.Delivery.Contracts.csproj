@@ -7,7 +7,7 @@
     <IsPackable>true</IsPackable>
     <PackageId>Nexus.Delivery.Contracts</PackageId>
     <Authors>PRT</Authors>
-    <Description>Nexus V2 - Nexus.Delivery.Contracts</Description>
+    <Description>Nexus V2 - Layer 07 Delivery - Nexus.Delivery.Contracts</Description>
   </PropertyGroup>
 
 </Project>

@@ -1,5 +1,18 @@
 # Repository Structure
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's repository-to-layer
+> mapping and its own `**Layer:** 08 DELIVERY` / `**Owner:** DELIVERY (Layer 08)` header
+> lines reflect the v2.1 numbering, in which 07 DEVELOPER was a numbered Platform layer
+> and DELIVERY/ASSURANCE/OPERATIONS/EXPERIENCE were numbered 08/09/10/11. Per the
+> approved v2.2 renumbering (`LAYER_MODEL.md` §2.2, §4a), Nexus Forge and Nexus
+> Developer (the product) now sit OUTSIDE the ten numbered Platform layers, and
+> DELIVERY/ASSURANCE/OPERATIONS/EXPERIENCE are renumbered 07/08/09/10 (DELIVERY is now
+> 07). The repository set and rename history below (`Nexus.Platform`, `Nexus.Experience`,
+> `Nexus.Developer`, `Nexus.Products.<Name>`) remain historically accurate. Re-deriving
+> the repository-to-layer column and this document's own layer-ownership header against
+> the v2.2 numbering is Wave-D-adjacent decision work and is explicitly NOT done in this
+> batch.
+
 **Status:** TRANSITION — three repositories exist; five are the target; the three-repo rename is **DONE** (2026-08-24)
 **Owner:** DELIVERY (Layer 08), with GOVERNANCE (03) recording the repository set
 **Last updated:** 2026-08-21

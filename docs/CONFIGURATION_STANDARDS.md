@@ -1,9 +1,9 @@
 # Configuration Standards
 
 **Status:** Active
-**Owner:** DELIVERY (Layer 08), with GOVERNANCE (03) owning the registry from M-03-6.1
+**Owner:** DELIVERY (Layer 07 -- renumbered from 08, see LAYER_MODEL.md §2.2), with GOVERNANCE (03) owning the registry from M-03-6.1
 **Last updated:** 2026-08-21
-**Layer:** 08 DELIVERY — binding on every host and every client
+**Layer:** 07 DELIVERY — binding on every host and every client (renumbered from 08, see LAYER_MODEL.md §2.2)
 **Authoritative for:** the configuration hierarchy, `appsettings` files, environment overrides,
 environment variables, secret references, local developer configuration, feature flags, product
 settings, runtime configuration, what may enter Git, what must never enter Git, naming, validation

@@ -5,9 +5,34 @@
 
 ## Completed
 
+- Architecture Rebaseline R01 (assessment) and R02 (authority freeze + core document
+  reconciliation) -- see `architecture/NEXUS_V2_REBASELINE_R01_REPORT.md` and
+  `_R02_REPORT.md`. `Nexus.Platform\docs\` (this tree) is confirmed the authoritative CURRENT
+  documentation set; `C:\Personal\Documentation\docs\` is a stale historical snapshot, not a
+  second live copy. Layer 06 PRODUCT CORE is renamed (conceptually only) to 06 SHARED PLATFORM
+  in `LAYER_MODEL.md`/`DEPENDENCY_RULES.md` -- physical `Nexus.ProductCore.*` projects are
+  unchanged. Prior DevBridge retirement/temporary-scaffolding wording is superseded historical
+  guidance; the current, fixed decision is that Nexus Forge is permanent external
+  foundation-development/recovery infrastructure (`LAYER_MODEL.md` §4a).
+- Architecture Rebaseline R03–R06 (development-control reconciliation, Forge/Nexus.Developer
+  existing-code audit, roadmap re-derivation, authoritative doc finalization) -- see
+  `architecture/NEXUS_V2_REBASELINE_R03_REPORT.md` through `_R06_REPORT.md`. Design-only, nothing
+  physically implemented yet: the two-workbook target model (`NEXUS_FOUNDATION_DEVELOPMENT_CONTROL
+  .xlsx` / `NEXUS_PRODUCTS_DEVELOPMENT_CONTROL.xlsx`) and `DevelopmentControlAddress`; the
+  `DevelopmentRun` field-expansion spec (no separate `WorkerAssignment` type); the cross-process
+  writer-lock protocol; the Git Workspace Tool (`06 SHARED PLATFORM` → Shared Tools,
+  `BOOTSTRAP_SAFE`); and the SP1/SP2/SP3 strategic-phase vocabulary, kept distinct from the
+  roadmap's own `roadmap_phase` P0-P5 (`DEVELOPMENT_WORKFLOW.md` §10). Confirmed with real,
+  evidenced code: Forge already has a working Dependency/Context-Resolver foundation
+  (`DependencyLineage.ps1`/`ContextPackage.ps1`/`TaskClassification.ps1`) to extend, not rebuild;
+  and Forge's Worker/Model Router, 01 CORE's model gateway, and 04 AI's `AiRole` runtime router are
+  three distinct, real, independently-evidenced routing concerns (`LAYER_MODEL.md`, Nexus Forge
+  section; `AI_ARCHITECTURE.md` §5). Roadmap-YAML edits (the `roadmap_phase`/`strategic_phase` field
+  split, Gate A/B disambiguation) are tracked separately and not part of this documentation pass.
 - V2.1 three-solution restructure (NexusAI / Nexus.Int / Nexus.Web split).
 - Frontend F0 — single HTTP path through `ApiClient`, dead `products` feature removed. Verified live as commit `79d42ed` in Nexus.Web ("F0: single HTTP path, /api/v1 base, dead products feature removed"). An earlier reference to this work cited commit `267b4b7` — that object was lost in the 2026-08-20 incident and survives only in `.git-broken\logs\HEAD`; `79d42ed` is the live equivalent and the one to cite going forward.
 - v2.2 documentation bundle landed into NexusAI (2026-08-23), non-destructively, alongside the pre-existing documentation set. See `docs\DOCUMENTATION_INDEX.md` for what's reconciled and what's still gapped.
+- `WORK_UNIVERSE.md` added (v2.3, WU-02) — cross-domain relationship model for Product/Feature/Planning/Chat/Development/Outcome/Release traceability; no new numbered layer; resolves the Nexus Developer → 08 ASSURANCE dependency-rule gap.
 
 ## Current
 
@@ -19,7 +44,7 @@ Documentation baseline established (this pass). Next: resume roadmap implementat
 |---|---|---|
 | `pack-local.ps1` packs to `C:\Personal\LocalNuGet` | NexusAI (repo root) | `M-08-1.1` |
 | LocalNuGet-referencing `nuget.config` | **Nexus.Int** (not NexusAI) | `M-08-1.1` |
-| `InMemoryUsageMeter`, `PermissiveQuotaPolicy`, `ConsoleAuditLog` | **NexusAI**, `src\Nexus.Platform.Core\Governance\` | Later persistence milestones |
+| `InMemoryUsageMeter` (`src\Nexus.Platform.Core\Models\`, moved from `Governance\` in Batch 06 -- see architecture/NEXUS_V2_EXECUTION_BATCH_06_REPORT.md), `PermissiveQuotaPolicy` (`src\Nexus.Platform.Core\ProductCore\`, moved from `Governance\` in Batch 06), `ConsoleAuditLog` (`src\Nexus.Platform.Core\`, moved from `Governance\` in Batch 07 -- audit reclassified CORE-owned, not Governance-owned -- see architecture/NEXUS_V2_EXECUTION_BATCH_07_REPORT.md) | **NexusAI** | Later persistence milestones |
 | `InMemoryMemoryStore` | Nexus.Int | Later persistence milestones |
 | `ChatTurnIdentity` hardcoded tenant (`nexus-dev`) + fixed permissions (`chat:send-message`), no auth on either API | Nexus.Web | Identity work (decision D-1, per the code's own TODO) |
 | `Nexus.Platform.Persistence`, `.Identity`, `.Tools`, `.Providers.Anthropic` are single-file, ~7–8 line stub scaffolds | NexusAI | Later GATE A/B milestones per layer |

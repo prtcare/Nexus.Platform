@@ -1,7 +1,6 @@
-using Nexus.Platform.Contracts.Governance;
-using Nexus.Platform.Contracts.Models;
+using Nexus.Platform.Contracts.Core;
 
-namespace Nexus.Platform.Core.Governance;
+namespace Nexus.Platform.Core.ProductCore;
 
 // Allows every invocation. Replace with a real policy once entitlements exist.
 public sealed class PermissiveQuotaPolicy : IQuotaPolicy

@@ -8,12 +8,17 @@
     <Project Path="src\Nexus.Platform.Identity\Nexus.Platform.Identity.csproj" />
     <Project Path="src\Nexus.Platform.Persistence\Nexus.Platform.Persistence.csproj" />
     <Project Path="src\Nexus.Delivery.Contracts\Nexus.Delivery.Contracts.csproj" />
+    <Project Path="src\Nexus.Governance.Contracts\Nexus.Governance.Contracts.csproj" />
+    <Project Path="src\Nexus.Governance.Core\Nexus.Governance.Core.csproj" />
+    <Project Path="src\Nexus.Assurance.Contracts\Nexus.Assurance.Contracts.csproj" />
     <Project Path="src\Nexus.ProductCore.Contracts\Nexus.ProductCore.Contracts.csproj" />
     <Project Path="src\Nexus.ProductCore.Scope\Nexus.ProductCore.Scope.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests\Nexus.Platform.Tests\Nexus.Platform.Tests.csproj" />
     <Project Path="tests\Nexus.Platform.Architecture.Tests\Nexus.Platform.Architecture.Tests.csproj" />
+    <Project Path="tests\Nexus.Assurance.Tests\Nexus.Assurance.Tests.csproj" />
     <Project Path="tests\Nexus.ProductCore.Scope.Tests\Nexus.ProductCore.Scope.Tests.csproj" />
+    <Project Path="tests\Nexus.Governance.Tests\Nexus.Governance.Tests.csproj" />
   </Folder>
 </Solution>

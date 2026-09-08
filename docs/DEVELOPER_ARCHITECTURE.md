@@ -1,10 +1,27 @@
 # Developer Architecture
 
+> **SUPERSEDED NUMBERING NOTICE (v2.2, approved 2026-09-05) — content below not yet updated.**
+> This document's premise — a numbered Platform layer "07 DEVELOPER" with repository
+> `Nexus.Developer` — is superseded by the approved two-way split: the coordination-engine
+> responsibilities described throughout this document (the work graph, dependency graph, worker
+> and worktree model, review/integration, derived progress) belong to **Nexus Forge**, permanent
+> development-plane infrastructure OUTSIDE numbered Platform, not a numbered layer. A separate,
+> not-yet-written **Nexus Developer** Product owns only the consuming human-facing UX, reaching
+> Forge through a versioned API/contract, never direct database access. See
+> `LAYER_MODEL.md` §2.2 and §4a for the current model, and
+> `NEXUS_V1_TO_V2_DEEP_RECONCILIATION_REPORT.md` §27 for the approved decision and rationale.
+> The full content split of this document into a Forge architecture doc and a Nexus Developer
+> Product architecture doc is **Wave D work — not started, out of scope for this batch.** Every
+> substantive design decision below (entity model, dependency graph, worker model, worktree
+> isolation, review/integration, human governance) remains valid engineering content; only its
+> framing as a numbered "07 DEVELOPER" layer is stale.
+
 **Status:** TARGET — **no `Nexus.Developer` repository exists.** Every structure below is designed
 and none of it is built. Each gap names the milestone that closes it
 **Owner:** Durai
 **Last updated:** 2026-08-21
-**Layer:** 07 DEVELOPER — repository `Nexus.Developer`, schema `developer`
+**Layer:** 07 DEVELOPER — repository `Nexus.Developer`, schema `developer` *(pre-v2.2 framing — see
+notice above)*
 **Authoritative for:** the shape and boundaries of the DEVELOPER layer — its entity model and how
 the pieces relate, the scope extension below `Subproject`, the dependency graph, the data that makes
 parallel safety computable, the worker and run model, worktree allocation, how build and test

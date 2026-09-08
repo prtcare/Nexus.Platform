@@ -1,9 +1,9 @@
 # Git Workflow
 
 **Status:** Active
-**Owner:** DELIVERY (Layer 08)
+**Owner:** DELIVERY (Layer 07 -- renumbered from 08, see LAYER_MODEL.md §2.2)
 **Last updated:** 2026-08-21
-**Layer:** 08 DELIVERY
+**Layer:** 07 DELIVERY (renumbered from 08, see LAYER_MODEL.md §2.2)
 **Authoritative for:** repository rules, main protection, integration branches, work branches,
 worktrees, branch naming, commit standard, push rules, pull requests, reviews, merge strategy,
 conflict resolution, tags, release branches, hotfixes, cleanup, backup, recovery, and parallel

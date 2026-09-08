@@ -1,3 +1,4 @@
+using Nexus.Platform.Contracts.Core;
 using Nexus.Platform.Contracts.Tools;
 
 namespace Nexus.Platform.Contracts.Models;

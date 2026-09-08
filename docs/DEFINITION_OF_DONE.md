@@ -1,5 +1,17 @@
 # Definition of Done
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's own header
+> (`**Owner:** DEVELOPER (Layer 07), enforced by ASSURANCE (Layer 09)`,
+> `**Layer:** 07 DEVELOPER, with ASSURANCE (09) and DELIVERY (08)
+> cross-cutting`) reflects the v2.1 twelve-layer model, in which 07 DEVELOPER
+> was a numbered Platform layer. Per the approved v2.2 renumbering
+> (`LAYER_MODEL.md` §2.2, §4a), Nexus Forge and Nexus Developer (the product)
+> now sit OUTSIDE the ten numbered Platform layers, and
+> ASSURANCE/DELIVERY are renumbered 08/07 (from 09/08). The definition-of-done
+> content itself remains valid. Re-deriving this document's own ownership
+> header against the v2.2 model is Wave-D-adjacent decision work and is
+> explicitly NOT done in this batch.
+
 **Status:** Active
 **Owner:** DEVELOPER (Layer 07), enforced by ASSURANCE (Layer 09)
 **Last updated:** 2026-08-21

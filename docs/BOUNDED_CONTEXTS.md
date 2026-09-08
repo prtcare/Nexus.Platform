@@ -1,5 +1,18 @@
 # Bounded Contexts
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's context map, including
+> the `## 10. 07 DEVELOPER` / `## 11. 08 DELIVERY` / `## 12. 09 ASSURANCE` /
+> `## 13. 10 OPERATIONS` / `## 14. 11 EXPERIENCE` / `## 15. 12 PRODUCTS` sections, is
+> built on the v2.1 twelve-layer model, in which 07 DEVELOPER was a numbered Platform
+> layer. Per the approved v2.2 renumbering (`LAYER_MODEL.md` §2.2, §4a), Nexus Forge and
+> Nexus Developer (the product) now sit OUTSIDE the ten numbered Platform layers, and
+> DELIVERY/ASSURANCE/OPERATIONS/EXPERIENCE are renumbered 07/08/09/10. The bounded-context
+> reasoning below (context ownership, extension points, contested boundaries) remains
+> historically accurate engineering judgment. Re-deriving the section numbering and
+> contested-boundary references against the v2.2 numbering (and against the
+> Forge/Nexus-Developer-Product split) is Wave-D-adjacent decision work and is explicitly
+> NOT done in this batch.
+
 **Status:** MIXED — the context map is settled; **eleven of the twelve layers have no code**, so most
 rows below are TARGET and each names the milestone that makes it real
 **Owner:** Durai; each layer's owner maintains its own block

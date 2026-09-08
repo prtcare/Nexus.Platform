@@ -1,6 +1,4 @@
-using Nexus.Platform.Contracts.Models;
-
-namespace Nexus.Platform.Contracts.Governance;
+namespace Nexus.Platform.Contracts.Core;
 
 public interface IQuotaPolicy
 {

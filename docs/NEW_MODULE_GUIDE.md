@@ -1,5 +1,14 @@
 # New Module Guide
 
+> **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's own header
+> (`**Owner:** DEVELOPER (Layer 07)`, `**Layer:** 07 DEVELOPER`) reflects the
+> v2.1 twelve-layer model, in which 07 DEVELOPER was a numbered Platform layer.
+> Per the approved v2.2 renumbering (`LAYER_MODEL.md` §2.2, §4a), Nexus Forge
+> and Nexus Developer (the product) now sit OUTSIDE the ten numbered Platform
+> layers. The module-creation guidance itself remains valid. Re-deriving this
+> document's own ownership header against the v2.2 model is Wave-D-adjacent
+> decision work and is explicitly NOT done in this batch.
+
 **Status:** CURRENT — every procedure follows a pattern that exists in the repositories today;
 steps that depend on something not yet built are marked TARGET
 **Owner:** DEVELOPER (Layer 07)
