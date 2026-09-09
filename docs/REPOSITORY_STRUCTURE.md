@@ -12,6 +12,14 @@
 > the repository-to-layer column and this document's own layer-ownership header against
 > the v2.2 numbering is Wave-D-adjacent decision work and is explicitly NOT done in this
 > batch.
+>
+> **PHYSICAL-FOLDER ADDENDUM (2026-09-09):** since this document was written, the canonical active
+> root moved from `C:\Personal` to `D:\NEXUS` (Gate A / legacy-root retirement), and this
+> repository's `src/`/`tests/` trees were reorganized so each numbered-layer project physically
+> lives under a `NN-LayerName\` folder (`01-Core`, `03-Governance`, `06-SharedPlatform`,
+> `07-Delivery`, `08-Assurance`). See `PHYSICAL_LAYER_MAP.md` for the current, authoritative
+> physical map — the `src\Nexus.Platform.Contracts\...`-style paths in §3.1 and elsewhere below are
+> pre-reorganization and historical.
 
 **Status:** TRANSITION — three repositories exist; five are the target; the three-repo rename is **DONE** (2026-08-24)
 **Owner:** DELIVERY (Layer 08), with GOVERNANCE (03) recording the repository set

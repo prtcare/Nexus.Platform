@@ -122,7 +122,8 @@ owns `Trademark`, `BuildRecord`, `AcceptanceCriterion` — is `DATA_OWNERSHIP.md
 authority when the two are read together.
 
 `Projects (TARGET)` is the project set the layer will have. `Today` is what is on disk on
-2026-08-21. **Most of the ten numbered layers have no project at all** (Forge and Products,
+2026-08-21 (see the physical folder each currently lives under — `PHYSICAL_LAYER_MAP.md`,
+current as of 2026-09-09 — for where on disk, not just which project name). **Most of the ten numbered layers have no project at all** (Forge and Products,
 outside the numbering, are covered in §4a).
 
 `Minimum before the gate` is the slice required by the Foundation Gate — see

@@ -11,7 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Nexus.Platform.Contracts\Nexus.Platform.Contracts.csproj" />
+    <ProjectReference Include="..\01-Core\Nexus.Platform.Contracts\Nexus.Platform.Contracts.csproj" />
   </ItemGroup>
 
 </Project>
