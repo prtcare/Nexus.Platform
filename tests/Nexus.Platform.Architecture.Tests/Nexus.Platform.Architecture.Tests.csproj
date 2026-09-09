@@ -9,9 +9,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Nexus.Platform.Core\Nexus.Platform.Core.csproj" />
-    <ProjectReference Include="..\..\src\Nexus.Platform.Contracts\Nexus.Platform.Contracts.csproj" />
-    <ProjectReference Include="..\..\src\Nexus.Platform.Providers.OpenAI\Nexus.Platform.Providers.OpenAI.csproj" />
+    <ProjectReference Include="..\..\src\01-Core\Nexus.Platform.Core\Nexus.Platform.Core.csproj" />
+    <ProjectReference Include="..\..\src\01-Core\Nexus.Platform.Contracts\Nexus.Platform.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\01-Core\Nexus.Platform.Providers.OpenAI\Nexus.Platform.Providers.OpenAI.csproj" />
   </ItemGroup>
 
   <ItemGroup>

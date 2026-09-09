@@ -45,10 +45,10 @@ $version = "0.1.0-dev.$(Get-Date -Format yyyyMMddHHmmss)"
 
 Write-Host "packing Nexus.ProductCore.Contracts + Nexus.ProductCore.Scope as $version -> $out" -ForegroundColor Cyan
 
-dotnet pack src\Nexus.ProductCore.Contracts\Nexus.ProductCore.Contracts.csproj -c Release -o $out -p:PackageVersion=$version --nologo
+dotnet pack src\06-SharedPlatform\Nexus.ProductCore.Contracts\Nexus.ProductCore.Contracts.csproj -c Release -o $out -p:PackageVersion=$version --nologo
 if ($LASTEXITCODE -ne 0) { throw 'pack failed: Nexus.ProductCore.Contracts' }
 
-dotnet pack src\Nexus.ProductCore.Scope\Nexus.ProductCore.Scope.csproj -c Release -o $out -p:PackageVersion=$version --nologo
+dotnet pack src\06-SharedPlatform\Nexus.ProductCore.Scope\Nexus.ProductCore.Scope.csproj -c Release -o $out -p:PackageVersion=$version --nologo
 if ($LASTEXITCODE -ne 0) { throw 'pack failed: Nexus.ProductCore.Scope' }
 
 # Push both packages to the GitHub Packages feed for 'prtcare'.
