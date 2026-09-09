@@ -81,12 +81,16 @@ public sealed class StoreSecretResolver : ISecretResolver
         // otherwise fall back to the currently-known id.
         string[] candidateProjectDirs =
         [
-            @"C:\Personal\Nexus.Intelligence\src\Nexus.Intelligence.Api",
-            @"C:\Personal\Nexus.Int\src\Nexus.Intelligence.Api"
+            @"D:\NEXUS\Intelligence\src\Nexus.Intelligence.Api"
         ];
 
         foreach (var dir in candidateProjectDirs)
         {
+            if (!Directory.Exists(dir))
+            {
+                continue;
+            }
+
             var csproj = Directory.EnumerateFiles(dir, "*.csproj", SearchOption.TopDirectoryOnly).FirstOrDefault();
             if (csproj is null)
             {

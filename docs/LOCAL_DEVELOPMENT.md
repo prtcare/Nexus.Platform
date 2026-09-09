@@ -1,9 +1,16 @@
 # Local Development
 
-**Status:** CURRENT — this is the exact local topology on 2026-08-21. Every transitional decision is
-marked TRANSITION with the milestone that ends it
+**Status:** CURRENT, with a correction layered on top. This described the exact local topology on
+2026-08-21, when the canonical root was `C:\Personal\` and package restore depended on a local
+folder-based feed. **Both have since changed: the canonical active root is now `D:\NEXUS\` (`C:\Personal`
+is historical/rollback only — see `POST_GATE_A_C_PERSONAL_RETIREMENT_REPORT.md`), and `M-08-1.1`
+(GitHub Packages feed reachable from CI) is done** — every repository restores `Nexus.Platform.*`/
+`Nexus.Intelligence.*` packages from GitHub Packages, not a local folder. Paths below are corrected;
+the rest of the transitional detail (LocalDB, no event bus, secrets mechanism, etc.) is unaffected
+by the root/feed change and remains as originally written. Every remaining transitional decision is
+still marked TRANSITION with the milestone that ends it.
 **Owner:** DELIVERY (Layer 07 -- renumbered from 08, see LAYER_MODEL.md §2.2)
-**Last updated:** 2026-08-21
+**Last updated:** 2026-09-09 (path/feed correction only; body text otherwise dated 2026-08-21)
 **Layer:** 07 DELIVERY (renumbered from 08, see LAYER_MODEL.md §2.2)
 **Authoritative for:** the local machine topology — where the repositories sit, how packages flow,
 which ports are bound, how the database is reached, where local secrets come from, how the processes
@@ -20,15 +27,14 @@ worktree mechanics — `GIT_WORKFLOW.md` §5.
 ## 1. The topology, in one picture
 
 ```
-                     C:\Personal\
+                     D:\NEXUS\
                         │
   ┌─────────────────────┼──────────────────────┬──────────────────────┐
   │                     │                      │                      │
-NexusAI              Nexus.Int              Nexus.Web            LocalNuGet
-(→ Nexus.Platform)   (→ Nexus.Intelligence) (→ Nexus.Experience)  not a git repo
+Platform             Intelligence         Products\Experience   GitHub Packages
+                                                                  (feed; not local)
   │                     │                      │                      ▲
-  │ pack-local.ps1      │ pack-local.ps1       │ dotnet restore ──────┘
-  └─────────────────────┴──────────────────────┘
+  │ dotnet restore ─────┴──────────────────────┴──────────────────────┘
 
   Browser
      │  http
@@ -48,8 +54,14 @@ NexusAI              Nexus.Int              Nexus.Web            LocalNuGet
   Nexus.Platform.Providers.OpenAI  →  OpenAI  (key via set-openai-key.ps1)
 ```
 
-Three .NET processes at most, one Node process, one LocalDB instance, and a folder pretending to be
-a package feed. Nothing is containerised, nothing is orchestrated, and nothing is deployed anywhere.
+Three .NET processes at most, one Node process, and one LocalDB instance. Nothing is containerised,
+nothing is orchestrated, and nothing is deployed anywhere.
+
+(Historical: before `M-08-1.1`, the package feed was a local folder at `C:\Personal\LocalNuGet`,
+populated by a manual `pack-local.ps1` run per repository — "a folder pretending to be a package
+feed." That folder-feed path is retired for normal use now that GitHub Packages is reachable from
+CI — see §3 — though one interim bridge script, `pack-productcore-local.ps1`, still writes there for
+`Nexus.Developer`'s transition; do not treat it as the canonical flow.)
 
 ---
 
@@ -57,53 +69,55 @@ a package feed. Nothing is containerised, nothing is orchestrated, and nothing i
 
 | Path | Repository | Solution | Purpose locally |
 |---|---|---|---|
-| `C:\Personal\Nexus.Platform` | `github.com/prtcare/Nexus.Platform` | `Nexus.Platform.slnx` | Produces the `Nexus.Platform.*` packages the other two consume |
-| `C:\Personal\Nexus.Intelligence` | `github.com/prtcare/Nexus.Intelligence` | `Nexus.Intelligence.slnx` | Produces `Nexus.Intelligence.*` packages; hosts the Intelligence API |
-| `C:\Personal\Nexus.Experience` | `github.com/prtcare/Nexus.Experience` | `Nexus.Experience.slnx` | Hosts the Chat API and the web client |
-| `C:\Personal\LocalNuGet` | — | — | The package feed. **Never make this a git repository** |
-| `C:\Personal\<Repo>.work\<WI-id>-<letter>\` | — | — | Worktrees, **siblings** of the repository |
+| `D:\NEXUS\Platform` | `github.com/prtcare/Nexus.Platform` | `Nexus.Platform.slnx` | Produces the `Nexus.Platform.*` packages the other two consume |
+| `D:\NEXUS\Intelligence` | `github.com/prtcare/Nexus.Intelligence` | `Nexus.Intelligence.slnx` | Produces `Nexus.Intelligence.*` packages; hosts the Intelligence API |
+| `D:\NEXUS\Products\Experience` | `github.com/prtcare/Nexus.Experience` | `Nexus.Experience.slnx` | Hosts the Chat API and the web client |
+| `D:\NEXUS\Products\Developer` | `github.com/prtcare/Nexus.Developer` | `Nexus.Developer.slnx` | The Developer product; consumes `Nexus.ProductCore.Contracts` |
+| `D:\NEXUS\<Repo>\.forge\worktrees\<name>\` | — | — | Governed worktrees, siblings of the repository's own tree |
 
-**The paths are load-bearing.** `nuget.config` names `C:\Personal\LocalNuGet`, and every worktree
-path in the documentation set is relative to these. Cloning elsewhere works only if you also change
-`nuget.config`, which you then must not commit.
+**`D:\NEXUS` is the canonical active root** (see `POST_GATE_A_C_PERSONAL_RETIREMENT_REPORT.md` for the
+full retirement record). `nuget.config` in each repository now names only `nuget.org` and the
+`github-prtcare` GitHub Packages source — no repository's `nuget.config` names a local machine path.
+Cloning to a different drive/location works normally; nothing in the current setup is path-load-bearing
+the way the old `C:\Personal\LocalNuGet` folder feed was.
 
-`.git-broken\` exists in all three repositories. It is deliberate forensic residue from the
-2026-08-20 incident — do not delete it, do not build from it, and do not let a script walk into it.
+`C:\Personal` itself remains on disk as a historical/rollback copy only (do not develop there); any
+`.git-broken\` forensic-residue folders mentioned in older revisions of this document lived under that
+retired root and are not part of the current `D:\NEXUS` topology.
 
 ---
 
 ## 3. The local package strategy
 
-**CURRENT — TRANSITION, and the transition matters more than the mechanism.**
+**`M-08-1.1` DONE (2026-09-09).** GitHub Packages is the live feed; the local-folder mechanism
+described below is historical context for why the current shape was chosen, not the current
+mechanism.
 
 ```
-NexusAI    ── pack-local.ps1 ──►  C:\Personal\LocalNuGet  ◄── nuget.config ── Nexus.Web
-Nexus.Int  ── pack-local.ps1 ──►                          ◄── nuget.config ── Nexus.Int
+Nexus.Platform      ── dotnet pack + push ──►  GitHub Packages (github-prtcare)  ◄── nuget.config ── Nexus.Developer
+Nexus.Intelligence  ── dotnet pack + push ──►                                    ◄── nuget.config ── Nexus.Experience
 ```
 
 `Nexus.Platform.*` and `Nexus.Intelligence.*` are consumed as **NuGet packages**, not as project
-references across repository boundaries. That is the right shape — it keeps the repositories
-genuinely independent — implemented in the wrong place.
+references across repository boundaries. That keeps the repositories genuinely independent, and it
+is now also reachable from a hosted build agent — the original gap this section described.
 
-| Property | Consequence |
-|---|---|
-| The feed is a folder on one machine | No build agent can see it. **Every pipeline written today fails at restore** |
-| Publishing is a manual script run | Nothing records what was published, when, or from which commit |
-| Versions are whatever the producing repository says | A consumer can silently resolve a stale package |
-| Two workers packing at once race | Packing is a **serialised, announced** operation — `GIT_WORKFLOW.md` §5.3 |
+| Property (historical, pre-`M-08-1.1`) | Consequence | Current state |
+|---|---|---|
+| The feed was a folder on one machine | No build agent could see it | Fixed — GitHub Packages is reachable from every repo's CI |
+| Publishing was a manual script run | Nothing recorded what was published, when, or from which commit | Publishing still happens via a script (`dotnet pack`/`nuget push`, or CI), but the destination is a real, addressable feed with package history |
+| Versions were whatever the producing repository said | A consumer could silently resolve a stale package | Unchanged — still version the package deliberately when you change a public contract |
+| Two workers packing at once raced | Packing was a **serialised, announced** operation — `GIT_WORKFLOW.md` §5.3 | Still good practice; less likely to corrupt a shared folder now that the feed isn't one |
 
-> **TARGET — M-08-1.1 Package feed reachable from CI.** GitHub Packages replaces the folder. It has
-> no dependencies, it is small, and every pipeline milestone is blocked on it. It is the first item
-> in the roadmap proper for exactly that reason.
-
-**Working rule until then:** when you change anything in `Nexus.Platform.*` or
-`Nexus.Intelligence.*` that a consumer uses, you must pack it before the consumer will see it.
-"It works in my solution but not in the other repository" is nearly always an unpacked change.
+**Working rule (unchanged):** when you change anything in `Nexus.Platform.*` or
+`Nexus.Intelligence.*` that a consumer uses, you must pack and push a new version before the consumer
+will see it. "It works in my solution but not in the other repository" is nearly always an unpublished
+change.
 
 ```powershell
-cd C:\Personal\Nexus.Platform   ; .\pack-local.ps1
-cd C:\Personal\Nexus.Intelligence ; .\pack-local.ps1
-cd C:\Personal\Nexus.Experience ; dotnet restore Nexus.Experience.slnx
+cd D:\NEXUS\Platform      ; .\pack-productcore-local.ps1   # or CI's publish step
+cd D:\NEXUS\Intelligence  ; <repo's own pack/publish script>
+cd D:\NEXUS\Products\Experience ; dotnet restore Nexus.Experience.slnx
 ```
 
 ---
@@ -168,7 +182,7 @@ isolation dimension that is missed most often.
 
 | Secret | CURRENT mechanism | TARGET |
 |---|---|---|
-| OpenAI API key | `set-openai-key.ps1` in `C:\Personal\Nexus.Platform` | **M-01-5.1** — resolved through `ISecretResolver` |
+| OpenAI API key | `set-openai-key.ps1` in `D:\NEXUS\Platform` | **M-01-5.1** — resolved through `ISecretResolver` |
 | Anything else | User secrets (`dotnet user-secrets`), per project, never committed | Same |
 | Frontend values | `.env.local`, `VITE_` prefix, never committed | Same |
 
@@ -210,9 +224,9 @@ For the full stack:
 
 1. `sqllocaldb start MSSQLLocalDB`
 2. `dotnet ef database update` — only if migrations have changed since your last run
-3. **Intelligence API** — `dotnet run --project src\Nexus.Intelligence.Api` from `C:\Personal\Nexus.Intelligence`
-4. **Chat API** — `dotnet run --project src\Nexus.Products.Chat.Api` from `C:\Personal\Nexus.Experience`
-5. **Vite** — `npm run dev` from `C:\Personal\Nexus.Experience\src\Nexus.Experience.Client`
+3. **Intelligence API** — `dotnet run --project src\Nexus.Intelligence.Api` from `D:\NEXUS\Intelligence`
+4. **Chat API** — `dotnet run --project src\Nexus.Products.Chat.Api` from `D:\NEXUS\Products\Experience`
+5. **Vite** — `npm run dev` from `D:\NEXUS\Products\Experience\src\Nexus.Experience.Client`
 
 Order 3 before 4 only matters for the first chat turn; the Chat API starts fine without Intelligence
 running and fails at the point a turn is dispatched. That failure mode is worth knowing: **a chat
@@ -303,7 +317,7 @@ settled.
 
 | # | CURRENT | TARGET | Milestone |
 |---|---|---|---|
-| 1 | `nuget.config` → `C:\Personal\LocalNuGet`, packed by hand | GitHub Packages, reachable from CI | **M-08-1.1** |
+| 1 | ~~`nuget.config` → `C:\Personal\LocalNuGet`, packed by hand~~ **DONE** | GitHub Packages, reachable from CI | **M-08-1.1** ✅ 2026-09-09 |
 | 2 | OpenAI key via `set-openai-key.ps1` | Resolved through `ISecretResolver` | **M-01-5.1** |
 | 3 | Migration in schema `org` | One schema per layer; one database per product | **M-02-1.5** |
 | 4 | Dataverse packages still referenced | Azure SQL only; ~7.2 MB of packages removed | ADR-014 **Stage 3** |
