@@ -1,10 +1,14 @@
 # Delivery Architecture
 
-**Status:** TRANSITION — the source-control half exists and is in daily use; **the build,
-environment, deployment and infrastructure halves do not exist at all.** Every gap names the
-milestone that closes it
+**Status:** TRANSITION — the source-control half exists and is in daily use. `M-08-1.1`–`M-08-1.4`
+(package feed, per-repository CI pipelines, machine-readable results, and the NetArchTest
+architecture gate) are now implemented for `Nexus.Platform`, `Nexus.Developer`, `Nexus.Experience`
+and `Nexus.Intelligence` — see each repository's `.github/workflows/build.yml`. **The environment,
+deployment and infrastructure halves remain not built.** Every remaining gap names the milestone
+that closes it.
 **Owner:** Durai
-**Last updated:** 2026-08-21
+**Last updated:** 2026-09-09 (build/pipeline status only; remaining sections below predate this
+correction and should be read as historical detail on the original gap, not current status)
 **Layer:** 07 DELIVERY (v2.2, was 08 DELIVERY under v2.1 — see `LAYER_MODEL.md` §2.2) — contracts
 and records in `Nexus.Platform`, pipelines per repository, schema
 `delivery`
@@ -85,8 +89,10 @@ detects the divergence until a change to one breaks the other in a repository no
 Pipeline definitions live in `.github/workflows/` in the repository they build, version alongside the
 code, and are reviewed in the same pull request that changes what they build.
 
-**CURRENT — TARGET at `M-08-1.2`.** `C:\Personal\NexusAI\.github\workflows\` exists and is empty.
-`Nexus.Web` and `Nexus.Int` have no `.github` directory at all.
+**`M-08-1.2` DONE (2026-09-09).** Every canonical repository under `D:\NEXUS` (`Platform`,
+`Products\Developer`, `Products\Experience`, `Intelligence`) now has a real `.github/workflows/build.yml`
+running restore/build/test on push and pull request. `Forge` (`D:\NEXUS\Forge`) currently has none —
+see the post-Gate-A integrity audit for that specific gap.
 
 ---
 

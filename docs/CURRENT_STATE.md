@@ -2,6 +2,19 @@
 
 > **Status** Authoritative · **Owner** Durai · **Last updated** 2026-08-23 · **Architecture version** v2.2
 > **Authoritative for** what is actually built and running right now, separate from what the roadmap plans. Facts below were verified against the live repositories on 2026-08-23 — see `_incoming\landing-report.md` for full evidence per item.
+>
+> **SUPERSEDED-FACTS NOTICE (2026-09-09):** Everything below predates Gate A's closure and the
+> canonical-root migration. In particular: **Gate A ("Development Ready") has since closed** —
+> `GATE_A_FINAL_ACCEPTED = YES` — with `M-08-1.1` through `M-08-1.4` implemented (see
+> `DELIVERY_ARCHITECTURE.md`'s corrected status and each repository's `.github/workflows/build.yml`);
+> the canonical active root is now `D:\NEXUS` (`Products\Developer\architecture\POST_GATE_A_C_PERSONAL_RETIREMENT_REPORT.md`),
+> not `C:\Personal`; and the repository names below (`NexusAI`, `Nexus.Int`, `Nexus.Web`) are the
+> pre-V2-restructure names — the current repositories are `Nexus.Platform`, `Nexus.Intelligence`,
+> `Nexus.Experience`, and `Nexus.Developer`. This notice corrects only those facts; the historical
+> narrative below (rebaseline history, the 2026-08-20 incident, etc.) is left as originally written
+> and should be read as history, not current status. A full content refresh of this document against
+> the post-Gate-A state is recommended but was judged too large to fold into this correction pass —
+> see `POST_GATE_A_FULL_SYSTEM_INTEGRITY_AUDIT_REPORT.md`.
 
 ## Completed
 

@@ -1,10 +1,12 @@
 # Assurance Architecture
 
-**Status:** TARGET — **nothing in this layer exists.** No `Nexus.Assurance.*` project, no
-`assurance` schema, no acceptance criterion, no evidence record. Each gap names the milestone that
-closes it
+**Status:** TARGET — **the substantive layer still does not exist.** One minimal leaf has landed
+(`Nexus.Assurance.Contracts`: `AssuranceEvidenceId`, an opaque identifier with no verdict/result/
+status/outcome member, plus its boundary/value tests — see commit `84ad217`, 2026-09-08). There is
+still no `assurance` schema, no acceptance-criterion model, no evidence *record* (only an evidence
+*identifier* type), and no quality-gate logic. Each gap below names the milestone that closes it.
 **Owner:** Durai
-**Last updated:** 2026-08-21
+**Last updated:** 2026-09-09 (status line only; remaining sections predate this correction)
 **Layer:** 08 ASSURANCE (v2.2, was 09 ASSURANCE under v2.1 — see `LAYER_MODEL.md` §2.2) —
 repository `Nexus.Platform`, schema `assurance`, cross-cutting
 **Authoritative for:** the shape and boundaries of the ASSURANCE layer — the traceability chain as a
