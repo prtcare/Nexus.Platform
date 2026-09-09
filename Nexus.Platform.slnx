@@ -6,6 +6,7 @@
     <Project Path="src\01-Core\Nexus.Platform.Providers.Anthropic\Nexus.Platform.Providers.Anthropic.csproj" />
     <Project Path="src\01-Core\Nexus.Platform.Tools\Nexus.Platform.Tools.csproj" />
     <Project Path="src\01-Core\Nexus.Platform.Identity\Nexus.Platform.Identity.csproj" />
+    <Project Path="src\01-Core\Nexus.Platform.Persistence\Nexus.Platform.Persistence.csproj" />
   </Folder>
   <Folder Name="/src/03-Governance/">
     <Project Path="src\03-Governance\Nexus.Governance.Contracts\Nexus.Governance.Contracts.csproj" />
@@ -20,14 +21,6 @@
   </Folder>
   <Folder Name="/src/08-Assurance/">
     <Project Path="src\08-Assurance\Nexus.Assurance.Contracts\Nexus.Assurance.Contracts.csproj" />
-  </Folder>
-  <Folder Name="/src/">
-    <!-- Nexus.Platform.Persistence is deliberately NOT yet assigned to a single layer
-         folder: LAYER_MODEL.md documents its ownership as contested/unsplit between
-         01 CORE (hosts CORE's own persistence needs today) and the future 02 DATA
-         layer (its eventual TARGET owner, once Nexus.Data.Persistence exists). See
-         the physical-ownership map in docs/PHYSICAL_LAYER_MAP.md. -->
-    <Project Path="src\Nexus.Platform.Persistence\Nexus.Platform.Persistence.csproj" />
   </Folder>
   <Folder Name="/tests/01-Core/">
     <Project Path="tests\01-Core\Nexus.Platform.Tests\Nexus.Platform.Tests.csproj" />

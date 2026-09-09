@@ -50,7 +50,7 @@ D:\NEXUS\Platform\
             Nexus.Delivery.Contracts\
         08-Assurance\
             Nexus.Assurance.Contracts\
-        Nexus.Platform.Persistence\        <- NOT layer-foldered yet, see §3
+            Nexus.Platform.Persistence\    <- resolved to 01 CORE, see §3
     tests\
         01-Core\
             Nexus.Platform.Tests\
@@ -89,7 +89,7 @@ lands.
 | `Nexus.ProductCore.Scope` | `src/06-SharedPlatform/` | 06 SHARED PLATFORM | SAFE_MOVE_NOW — done |
 | `Nexus.Delivery.Contracts` | `src/07-Delivery/` | 07 DELIVERY | SAFE_MOVE_NOW — done |
 | `Nexus.Assurance.Contracts` | `src/08-Assurance/` | 08 ASSURANCE | SAFE_MOVE_NOW — done |
-| `Nexus.Platform.Persistence` | `src/` (unfoldered) | **CONTESTED — see below** | HUMAN_DECISION |
+| `Nexus.Platform.Persistence` | `src/01-Core/` | 01 CORE | RESOLVED 2026-09-09 — see below |
 | `Nexus.Platform.Tests` | `tests/01-Core/` | 01 CORE (tests `ModelCatalogTests`, a CORE/model-gateway concept) | SAFE_MOVE_NOW — done |
 | `Nexus.Governance.Tests` | `tests/03-Governance/` | 03 GOVERNANCE | SAFE_MOVE_NOW — done |
 | `Nexus.ProductCore.Scope.Tests` | `tests/06-SharedPlatform/` | 06 SHARED PLATFORM | SAFE_MOVE_NOW — done |
@@ -98,14 +98,24 @@ lands.
 | `Nexus.Platform.SmokeTests` | `tests/` (unfoldered) | cross-cutting (live external-provider smoke test; not in the main `.slnx`) | COMPATIBILITY_NAME_KEEP |
 | `Nexus.Platform.SmokeHost` | `samples/` (unchanged) | cross-cutting sample host consuming 01 CORE | ALREADY_CORRECT — `samples/` is its own category, out of scope for the `src/`/`tests/` layer-folder structure |
 
-**`Nexus.Platform.Persistence` — the one HUMAN_DECISION.** `LAYER_MODEL.md` §4 (01 CORE) lists
-`Nexus.Platform.Persistence` in CORE's own `Projects (TARGET)` row (CORE needs it to host identity/
-session/audit data), while §4 (02 DATA) separately describes the *same physical stub* as 02 DATA's
-`Today` state and implies its `Nexus.Data.Persistence` successor is DATA's real `Projects (TARGET)`.
-The authoritative docs have not yet resolved which layer this single 308-byte stub belongs to before
-it is real enough to split — moving it into `01-Core/` or a not-yet-justified `02-Data/` folder would
-assert an ownership call this document set has not made. Left unfoldered at `src/Nexus.Platform.Persistence/`
-pending that decision; `Nexus.Platform.slnx` documents the reason inline.
+**`Nexus.Platform.Persistence` — RESOLVED to 01 CORE (2026-09-09).** File-level inspection (not a
+name-based guess) found the project contains exactly one source file, `PlatformStore.cs`: a single
+empty marker interface, `IPlatformStore`, with **zero implementation** — no repository class, no
+database/storage code, no persistence adapter, no data access, no serialization, no migration, no
+provider-specific persistence code. Its own `TODO` comment scopes its eventual contents to "tenants,
+users, products, entitlements, provider configuration, the usage ledger and the audit log" —
+every one of those is a responsibility 01 CORE's own `Owns` list in `LAYER_MODEL.md` §4 claims
+(identity, tenancy, audit, secrets, usage metering), and **none** overlaps 02 DATA's `Owns` list
+(documents, knowledge, embeddings, retrieval). Per the ownership rule ("CORE owns genuinely
+foundational, provider-neutral interfaces/contracts... DATA owns actual persistence
+implementation"), a zero-implementation contract for CORE-owned entities is a CORE artifact, full
+stop — there is no persistence implementation present to justify placing it in, or splitting it
+with, `02-Data/`. Moved to `src/01-Core/Nexus.Platform.Persistence/` intact (no split needed, since
+there is nothing DATA-owned inside it to split out). When real persistence implementation is later
+built to satisfy `M-02-1.5`, it becomes a **new** project (`Nexus.Data.Persistence`, per
+`LAYER_MODEL.md`'s own 02 DATA target name) under `src/02-Data/` at that time — this project's role
+remains the CORE-side contract, and `02-Data/` is created then, not now (an empty folder today would
+be decorative).
 
 Renaming any project's assembly/namespace to add a layer prefix (e.g. `Nexus.01Core.*`) was
 **not done** — Rule 8 (do not rename stable namespaces for cosmetic consistency) and the fact that
@@ -124,10 +134,11 @@ layer-numbered folder currently holds them.
 ## 5. What moved, and what didn't
 
 **Physically relocated (folder path changed via `git mv`, history preserved; project/assembly/
-namespace unchanged):** all 12 SAFE_MOVE_NOW rows in §3.
+namespace unchanged):** all 12 original SAFE_MOVE_NOW rows in §3, plus `Nexus.Platform.Persistence`
+once its ownership was resolved (13 total).
 
-**Not moved:** `Nexus.Platform.Persistence` (§3, HUMAN_DECISION), the three cross-cutting projects
-(§4), and everything under `samples/` beyond the one entry above (none currently exists). No
+**Not moved:** the three cross-cutting projects (§4), and everything under `samples/` beyond the
+one entry above (none currently exists). No
 duplicate implementation was created anywhere — every move was a rename/relocate, never a copy.
 
 **Updated to match:** `Nexus.Platform.slnx` (solution folders now mirror the physical layer
