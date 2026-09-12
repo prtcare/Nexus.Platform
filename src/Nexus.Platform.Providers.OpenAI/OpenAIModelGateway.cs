@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Options;
 using Nexus.Platform.Contracts.Core;
 using Nexus.Platform.Contracts.Models;
+using Nexus.Platform.Contracts.Secrets;
 using Nexus.Platform.Core.Models;
 using OpenAI.Chat;
 
@@ -13,6 +14,7 @@ public sealed class OpenAIModelGateway : INamedModelGateway
     private readonly IQuotaPolicy _quotaPolicy;
     private readonly IUsageMeter _usageMeter;
     private readonly IAuditLog _auditLog;
+    private readonly ISecretResolver _secrets;
 
     public string Vendor => "openai";
 
@@ -20,13 +22,32 @@ public sealed class OpenAIModelGateway : INamedModelGateway
         IOptions<OpenAIOptions> options,
         IQuotaPolicy quotaPolicy,
         IUsageMeter usageMeter,
-        IAuditLog auditLog)
+        IAuditLog auditLog,
+        ISecretResolver secrets)
     {
         _options = options.Value;
         _quotaPolicy = quotaPolicy;
         _usageMeter = usageMeter;
         _auditLog = auditLog;
+        _secrets = secrets;
     }
+
+    /// <summary>
+    /// W5E / D-14: obtains the credential through the NEUTRAL secret-access boundary
+    /// instead of reading it out of a bound options property.
+    ///
+    /// Resolved at the point of use and NOT cached in a field, for two reasons: a rotated
+    /// secret is then picked up without a host restart, and this assembly never retains
+    /// the value beyond the call that needs it. Returns <c>string.Empty</c> when the
+    /// reference is unset, which preserves the previous behaviour exactly -- the SDK was
+    /// always handed an empty key in that case and surfaced its own error, which the
+    /// existing catch turns into <c>Success = false</c>. No behaviour drift.
+    ///
+    /// The REFERENCE NAME is configuration, not code: this assembly never learns which
+    /// environment variable or store path backs it.
+    /// </summary>
+    private async Task<string> ResolveApiKeyAsync(CancellationToken ct)
+        => await _secrets.ResolveAsync(_options.ApiKeyRef, ct) ?? string.Empty;
 
     public async Task<ModelInvocationResult> InvokeAsync(ModelInvocation invocation, CancellationToken ct = default)
     {
@@ -45,7 +66,8 @@ public sealed class OpenAIModelGateway : INamedModelGateway
 
         try
         {
-            var chatClient = new ChatClient(model: ModelName(invocation.ModelId), apiKey: _options.ApiKey);
+            var apiKey = await ResolveApiKeyAsync(ct);
+            var chatClient = new ChatClient(model: ModelName(invocation.ModelId), apiKey: apiKey);
             var messages = invocation.Messages.Select(ToOpenAIMessage).ToList();
 
             var completion = await chatClient.CompleteChatAsync(messages, cancellationToken: ct);
@@ -94,7 +116,8 @@ public sealed class OpenAIModelGateway : INamedModelGateway
             throw new InvalidOperationException(verdict.Reason ?? "Quota exceeded");
         }
 
-        var chatClient = new ChatClient(model: ModelName(invocation.ModelId), apiKey: _options.ApiKey);
+        var streamingApiKey = await ResolveApiKeyAsync(ct);
+        var chatClient = new ChatClient(model: ModelName(invocation.ModelId), apiKey: streamingApiKey);
         var messages = invocation.Messages.Select(ToOpenAIMessage).ToList();
 
         await foreach (var update in chatClient.CompleteChatStreamingAsync(messages, cancellationToken: ct))

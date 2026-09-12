@@ -1,9 +1,12 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Nexus.Platform.Contracts.Core;
 using Nexus.Platform.Contracts.Models;
+using Nexus.Platform.Contracts.Secrets;
 using Nexus.Platform.Core.Models;
 using Nexus.Platform.Core.ProductCore;
+using Nexus.Platform.Core.Secrets;
 
 namespace Nexus.Platform.Core;
 
@@ -22,6 +25,19 @@ public static class PlatformServiceCollectionExtensions
     public static IServiceCollection AddNexusCore(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton<IAuditLog, ConsoleAuditLog>();
+
+        // W5E / D-14: the NEUTRAL secret-access boundary is registered here, in CORE,
+        // because that is the one layer every consumer may reference.
+        //
+        // TryAdd (not Add) so a host can bind its own ISecretResolver -- the documented
+        // IQuotaPolicy/PermissiveQuotaPolicy composition-root pattern: the port lives in
+        // neutral Contracts, the implementation is chosen by the host. A host that
+        // registers a resolver AFTER this call also wins, because the last registration
+        // is the one GetRequiredService returns.
+        //
+        // The default implementation resolves against the environment and touches no
+        // credential store, so CORE never enters D-14 custody.
+        services.TryAddSingleton<ISecretResolver, EnvironmentSecretResolver>();
 
         return services;
     }
