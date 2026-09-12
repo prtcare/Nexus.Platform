@@ -2,9 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Nexus.Platform.Contracts.Core;
-using Nexus.Platform.Contracts.Models;
 using Nexus.Platform.Contracts.Secrets;
-using Nexus.Platform.Core.Models;
 using Nexus.Platform.Core.ProductCore;
 using Nexus.Platform.Core.Secrets;
 
@@ -42,30 +40,23 @@ public static class PlatformServiceCollectionExtensions
         return services;
     }
 
-    /// <summary>
-    /// L01 CORE model/provider infrastructure registrations: model catalog, model
-    /// gateway, and usage measurement. Batch 08/09 correction: this method's name
-    /// ("AddNexusAi") and this comment previously called these registrations
-    /// "L04 AI"/"AI-owned" -- LAYER_MODEL.md and DEPENDENCY_RULES.md are unambiguous
-    /// that L04 AI is Nexus.Intelligence.* in a separate repository, and everything
-    /// registered here (IModelCatalog, IModelGateway, IUsageMeter) is L01 CORE-owned
-    /// provider/model infrastructure per LAYER_MODEL.md's own CORE "Owns" list
-    /// ("usage metering, model gateway and routing") and CORE "Projects (TARGET)"
-    /// list (which names Nexus.Platform.Providers.OpenAI/.Anthropic explicitly) --
-    /// see architecture/NEXUS_V2_EXECUTION_BATCH_08_REPORT.md and
-    /// _BATCH_09_REPORT.md. The method name itself is left unchanged in Batch 09 (a
-    /// public-API rename was not in that batch's scope); renaming it to something
-    /// like AddNexusCoreModelInfrastructure is recorded as a deferred, bounded
-    /// Batch 10 candidate.
-    /// </summary>
-    public static IServiceCollection AddNexusAi(this IServiceCollection services, IConfiguration configuration)
-    {
-        services.AddSingleton<IModelCatalog, AggregatingModelCatalog>();
-        services.AddSingleton<IModelGateway, RoutingModelGateway>();
-        services.AddSingleton<IUsageMeter, InMemoryUsageMeter>();
-
-        return services;
-    }
+    // AddNexusAi was REMOVED here by W5G (2026-09-12). It registered
+    // IModelCatalog/AggregatingModelCatalog, IModelGateway/RoutingModelGateway and
+    // IUsageMeter/InMemoryUsageMeter.
+    //
+    // OWNER DECISION F-01 relocates the whole model-catalog domain to the AI Head
+    // (D:\NEXUS\AI\Intelligence): the contracts IModelCatalog/IModelCatalogSource/
+    // INamedModelGateway and the implementations AggregatingModelCatalog/
+    // RoutingModelGateway/InMemoryUsageMeter are AI-domain semantics, and Platform may
+    // reach AI only through provider-neutral PL-04 Contract Plane capability contracts.
+    // The types, this method and its call site all leave Nexus.Platform in the same
+    // change; registering them from here would have re-created the duplicate type
+    // identity F-01 exists to remove. The AI Head now registers its own model domain
+    // through NexuIntelligenceServiceCollectionExtensions.AddNexusIntelligence.
+    //
+    // Consequence for hosts: AddNexusPlatform no longer resolves IModelCatalog,
+    // IModelGateway or IUsageMeter. A host that needs the model domain composes the AI
+    // Head at its own composition root, exactly as it already composes GOVERNANCE.
 
     /// <summary>
     /// L06 Product Core registrations: quota/entitlement policy. AI consumes this
@@ -107,14 +98,20 @@ public static class PlatformServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Backward-compatible facade composing the layer-level registration methods
-    /// above. Existing callers of AddNexusPlatform see no behavior change: the same
-    /// services are registered, with the same implementations and lifetimes.
+    /// Facade composing the layer-level registration methods above.
+    ///
+    /// W5G / F-01 BEHAVIOR CHANGE, deliberate and the whole point of the change: this
+    /// method no longer registers the model domain. IModelCatalog, IModelGateway and
+    /// IUsageMeter used to be registered here through AddNexusAi; they are AI-Head
+    /// types as of F-01 and are registered by the AI Head. Callers of
+    /// AddNexusPlatform(...) that need the model domain must now compose the AI Head
+    /// alongside it -- AddNexusPlatform(...) for CORE, then the AI Head's registration.
+    /// Everything else registered here (IAuditLog, ISecretResolver, IQuotaPolicy) is
+    /// unchanged, with the same implementations and lifetimes.
     /// </summary>
     public static IServiceCollection AddNexusPlatform(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddNexusCore(configuration);
-        services.AddNexusAi(configuration);
         services.AddNexusProductCore(configuration);
         services.AddNexusGovernance(configuration);
 

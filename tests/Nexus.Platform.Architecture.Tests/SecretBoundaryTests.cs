@@ -39,9 +39,13 @@ public sealed class SecretBoundaryTests
         typeof(Nexus.Platform.Core.PlatformServiceCollectionExtensions).Assembly
     ];
 
-    /// <summary>The provider-specific adapter. Provider knowledge is correct HERE, and only here.</summary>
-    private static readonly Assembly ProviderAssembly =
-        typeof(Nexus.Platform.Providers.OpenAI.OpenAIModelGateway).Assembly;
+    // W5G / F-01: the former ProviderAssembly field --
+    //     typeof(Nexus.Platform.Providers.OpenAI.OpenAIModelGateway).Assembly
+    // was removed with the provider, which now lives in the AI Head. Its removal is why
+    // this file no longer needs a reference to any provider project. That is the correct
+    // end state for a NEUTRAL-assembly test file: this repository can no longer name a
+    // provider type at all, which is the strongest available form of the neutrality the
+    // file asserts.
 
     /// <summary>
     /// Tokens that can only appear where a PROVIDER-SPECIFIC secret is handled: provider
@@ -175,52 +179,30 @@ public sealed class SecretBoundaryTests
 
     // ---------------------------------------------------------------------------------
     // 3. The AI provider adapter MAY depend on the neutral secret contract.
-    // ---------------------------------------------------------------------------------
-
-    [Fact]
-    public void ProviderAdapter_MayDependOn_NeutralSecretContract()
-    {
-        var ctor = Assert.Single(typeof(Nexus.Platform.Providers.OpenAI.OpenAIModelGateway).GetConstructors());
-
-        Assert.Contains(ctor.GetParameters(), p => p.ParameterType == typeof(ISecretResolver));
-
-        // The adapter must not have regressed to reading the environment itself.
-        Assert.False(
-            AssemblyContainsToken(ProviderAssembly, "OPENAI_API_KEY"),
-            "The OpenAI adapter reads the provider environment variable directly instead of "
-            + "resolving through the neutral ISecretResolver boundary (D-14 regression).");
-    }
-
-    // ---------------------------------------------------------------------------------
     // 4. D-14 regression lock: provider options carry REFERENCES, never VALUES.
+    //
+    // W5G / F-01: both sections were RELOCATED, not deleted. Their tests --
+    //     ProviderAdapter_MayDependOn_NeutralSecretContract
+    //     ProviderOptions_CarrySecretReferences_NeverSecretValues
+    // -- asserted properties of Nexus.Platform.Providers.OpenAI types, which this
+    // repository no longer contains. They now live in
+    // Nexus.Intelligence.Architecture.Tests/RelocatedSecretBoundaryTests.cs, in the same
+    // change, where the provider is.
+    //
+    // This relocation is NOT neutral for D-14 and was treated as a security-control move
+    // rather than a test move. Section 4 was the ONLY continuous regression lock on
+    // W4L-201's blocking reason ("OpenAIOptions carries an ApiKey property and the
+    // provider is the credential consumer"), and section 3 was the lock on the adapter
+    // resolving through ISecretResolver instead of reading OPENAI_API_KEY from the
+    // environment. Both are asserted at COMPILE time in the relocated file, so a
+    // regression there breaks the AI Head's build rather than merely failing a test.
+    //
+    // What stays here, and is deliberately the whole point of the split: the NEUTRAL side
+    // of the D-14 boundary. Sections 1 and 2 above still assert that no provider secret
+    // token can appear in a neutral Platform assembly, and the scanner's non-vacuity proof
+    // still runs against THIS assembly, so this guard cannot become a check that cannot
+    // fail when the provider leaves.
     // ---------------------------------------------------------------------------------
-
-    [Fact]
-    public void ProviderOptions_CarrySecretReferences_NeverSecretValues()
-    {
-        var valueBearing = new[] { "apikey", "key", "secret", "token", "password", "credential" };
-
-        var offenders = typeof(Nexus.Platform.Providers.OpenAI.OpenAIOptions)
-            .GetProperties()
-            .Where(p => valueBearing.Any(bad => p.Name.Equals(bad, StringComparison.OrdinalIgnoreCase)))
-            .Select(p => p.Name)
-            .ToList();
-
-        Assert.True(
-            offenders.Count == 0,
-            "OpenAIOptions has regressed to carrying a secret VALUE. W4L-201's blocking reason was "
-            + "verbatim 'REQUIRES_HUMAN_SECRET_ROTATION - OpenAIOptions carries an ApiKey property and "
-            + "the provider is the credential consumer (D-14, Owner decision #7)'. Offenders: "
-            + string.Join(", ", offenders));
-
-        // Positive half, asserted at COMPILE time: if ApiKeyRef is ever removed this test
-        // assembly stops compiling, which is the hardest form of regression lock available.
-        // The property must be a string holding a reference NAME, never a secret value.
-        var apiKeyRef = new Nexus.Platform.Providers.OpenAI.OpenAIOptions().ApiKeyRef;
-
-        Assert.NotNull(apiKeyRef);
-        Assert.IsType<string>(apiKeyRef);
-    }
 
     // ---------------------------------------------------------------------------------
     // Scanner

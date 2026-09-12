@@ -2,7 +2,9 @@
   <Folder Name="/src/">
     <Project Path="src\Nexus.Platform.Contracts\Nexus.Platform.Contracts.csproj" />
     <Project Path="src\Nexus.Platform.Core\Nexus.Platform.Core.csproj" />
-    <Project Path="src\Nexus.Platform.Providers.OpenAI\Nexus.Platform.Providers.OpenAI.csproj" />
+    <!-- W5G / F-01: Nexus.Platform.Providers.OpenAI moved to the AI Head
+         (D:\NEXUS\AI\Intelligence\src\Nexus.Platform.Providers.OpenAI). Its only
+         Platform.Core dependency was the model domain, which F-01 also moves. -->
     <Project Path="src\Nexus.Platform.Tools\Nexus.Platform.Tools.csproj" />
     <Project Path="src\Nexus.Platform.Identity\Nexus.Platform.Identity.csproj" />
     <Project Path="src\Nexus.Platform.Persistence\Nexus.Platform.Persistence.csproj" />
@@ -13,7 +15,17 @@
     <Project Path="src\Nexus.ProductCore.Scope\Nexus.ProductCore.Scope.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests\Nexus.Platform.Tests\Nexus.Platform.Tests.csproj" />
+    <!-- W5G / F-01: Nexus.Platform.Tests was REMOVED from this solution. Its only
+         source file was ModelCatalogTests.cs (9 tests over AggregatingModelCatalog /
+         IModelCatalogSource / IModelCatalog), which moved to the AI Head with the types
+         it covers. That left the project with ZERO test files while still building a
+         DLL and still being listed here - and `dotnet test` on this solution then exits
+         0 while reporting only "No test is available in ...Nexus.Platform.Tests.dll"
+         (measured, not inferred). A test project that cannot fail is the exact
+         named-safety-check-that-cannot-fail defect this audit keeps finding, so it is
+         not left in place. The project directory is retained on disk so its history is
+         untouched and it can be re-added the moment it has tests again; the coverage
+         gap this exposed is recorded as W5G finding D-13. -->
     <Project Path="tests\Nexus.Platform.Architecture.Tests\Nexus.Platform.Architecture.Tests.csproj" />
     <Project Path="tests\Nexus.ProductCore.Scope.Tests\Nexus.ProductCore.Scope.Tests.csproj" />
     <Project Path="tests\Nexus.Governance.Tests\Nexus.Governance.Tests.csproj" />

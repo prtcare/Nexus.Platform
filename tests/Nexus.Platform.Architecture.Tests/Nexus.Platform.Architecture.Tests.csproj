@@ -11,7 +11,13 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Nexus.Platform.Core\Nexus.Platform.Core.csproj" />
     <ProjectReference Include="..\..\src\Nexus.Platform.Contracts\Nexus.Platform.Contracts.csproj" />
-    <ProjectReference Include="..\..\src\Nexus.Platform.Providers.OpenAI\Nexus.Platform.Providers.OpenAI.csproj" />
+    <!-- W5G / F-01: the Nexus.Platform.Providers.OpenAI ProjectReference was removed here.
+         The provider moved to the AI Head, so this Platform test project can no longer
+         see it; the provider-coupled assertions that used to live in
+         PlatformBoundaryTests.cs and SecretBoundaryTests.cs moved with it to
+         Nexus.Intelligence.Architecture.Tests in the same change. Leaving the reference
+         would have failed the build outright; leaving the assertions without moving them
+         would have silently deleted a live security control. -->
   </ItemGroup>
 
   <ItemGroup>
