@@ -13,6 +13,11 @@
     <Project Path="src\Nexus.Governance.Core\Nexus.Governance.Core.csproj" />
     <Project Path="src\Nexus.ProductCore.Contracts\Nexus.ProductCore.Contracts.csproj" />
     <Project Path="src\Nexus.ProductCore.Scope\Nexus.ProductCore.Scope.csproj" />
+    <!-- W8D-R4 TASK 2 (Owner decision R4-01): the canonical DevelopmentControl
+         reader/writer/locking implementation. Layer 06's implementation assembly, named in
+         docs/LAYER_MODEL.md as a TARGET project; created here to give the lineage moved out
+         of Forge one neutral home. Zero references by construction - see its csproj. -->
+    <Project Path="src\Nexus.ProductCore.Core\Nexus.ProductCore.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <!-- W5G / F-01: Nexus.Platform.Tests was REMOVED from this solution. Its only

@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Nexus.ProductCore.Core</RootNamespace>
+    <AssemblyName>Nexus.ProductCore.Core</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>Nexus.ProductCore.Core</PackageId>
+    <Authors>PRT</Authors>
+    <Description>Nexus V2 - Layer 06 Product Core - Nexus.ProductCore.Core</Description>
+  </PropertyGroup>
+
+  <!--
+    W8D-R4 TASK 2. Layer 06 SHARED PLATFORM - the canonical DevelopmentControl
+    reader/writer/locking implementation, moved here from Forge per Owner decision R4-01.
+
+    ZERO PackageReferences and ZERO ProjectReferences, deliberately and by measurement.
+
+    This is the BOOTSTRAP_SAFE property that LAYER_MODEL.md section 06 requires: "zero-IO, no
+    dependency on this layer's own product-specific types - Forge may consume it even when
+    Nexus's runtime/Shared Platform is down". It is not asserted here, it is constructed:
+    the moved sources use only BCL namespaces (System.IO.Compression, System.Xml.Linq,
+    System.Security.Cryptography, System.Text.Json, System.Runtime.InteropServices) and
+    nothing else. Measured on the source lineage before the move.
+
+    In particular there is NO ClosedXML reference and no OOXML SDK reference. The OOXML
+    reading is done with ZipArchive + XDocument over the BCL. The R4-01 mechanisms therefore
+    need no RUNTIME_DEPENDENT split, and this assembly stays consumable during a Nexus
+    recovery.
+
+    Adding any PackageReference or ProjectReference to this file is an architectural change,
+    not a build tweak: it is the difference between an assembly Forge can always consume and
+    one it cannot. See W8DR4_COMPONENT_OWNERSHIP.md.
+  -->
+
+</Project>
