@@ -11,26 +11,37 @@
   </PropertyGroup>
 
   <!--
-    W8D-R4 TASK 2. Layer 06 SHARED PLATFORM - the canonical DevelopmentControl
-    reader/writer/locking implementation, moved here from Forge per Owner decision R4-01.
+    W8D-R4 TASK 2 + TASK 3. Layer 06 SHARED PLATFORM - the canonical DevelopmentControl
+    reader/writer/locking implementation, moved here from Forge per Owner decision R4-01,
+    and exposed through the shared contract surface in Nexus.ProductCore.Contracts.
 
-    ZERO PackageReferences and ZERO ProjectReferences, deliberately and by measurement.
+    DEPENDENCY POSTURE, stated exactly rather than aspirationally.
 
-    This is the BOOTSTRAP_SAFE property that LAYER_MODEL.md section 06 requires: "zero-IO, no
-    dependency on this layer's own product-specific types - Forge may consume it even when
-    Nexus's runtime/Shared Platform is down". It is not asserted here, it is constructed:
-    the moved sources use only BCL namespaces (System.IO.Compression, System.Xml.Linq,
-    System.Security.Cryptography, System.Text.Json, System.Runtime.InteropServices) and
-    nothing else. Measured on the source lineage before the move.
+    TASK 2 committed this project with zero references of any kind and it built clean; that
+    state is recorded in git. TASK 3 added the single ProjectReference below, because the
+    contract interfaces a caller consumes live in the contracts assembly and this assembly
+    implements them. The dependency is one-way and points at the contract.
 
-    In particular there is NO ClosedXML reference and no OOXML SDK reference. The OOXML
-    reading is done with ZipArchive + XDocument over the BCL. The R4-01 mechanisms therefore
-    need no RUNTIME_DEPENDENT split, and this assembly stays consumable during a Nexus
-    recovery.
+    What that costs: Nexus.ProductCore.Contracts carries a PackageReference on
+    Microsoft.Extensions.DependencyInjection.Abstractions, so this project now inherits it
+    transitively. Measured, that package IS present in the local NuGet cache (10.0.11), so
+    the restore resolves offline.
 
-    Adding any PackageReference or ProjectReference to this file is an architectural change,
-    not a build tweak: it is the difference between an assembly Forge can always consume and
-    one it cannot. See W8DR4_COMPONENT_OWNERSHIP.md.
+    What that does NOT cost: the BOOTSTRAP_SAFE property LAYER_MODEL.md section 06 requires -
+    "zero-IO, no dependency on this layer's own product-specific types - Forge may consume it
+    even when Nexus's runtime/Shared Platform is down". DependencyInjection.Abstractions is a
+    compile-time abstraction with no runtime service behind it; nothing here contacts a host,
+    a database or a feed at run time. There is still NO ClosedXML reference and no OOXML SDK
+    reference: the workbook reading is ZipArchive + XDocument over the BCL. The moved sources
+    use only BCL namespaces.
+
+    Adding any FURTHER reference to this file is an architectural change, not a build tweak:
+    it is the difference between an assembly Forge can always consume and one it cannot. See
+    W8DR4_COMPONENT_OWNERSHIP.md and W8DR4_SHARED_CONTRACT.md.
   -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\Nexus.ProductCore.Contracts\Nexus.ProductCore.Contracts.csproj" />
+  </ItemGroup>
 
 </Project>
