@@ -334,6 +334,27 @@ public static class WorkbookCompatibilityMap
         new("GitLineage",         null, null, null, null, null, null) { V3Name = "13_GitLineage" },
         new("ChangeScopes",       null, null, null, null, null, null) { V3Name = "09_ChangeScopes" },
         new("ChangeRequests",     null, null, null, null, null, null) { V3Name = "19_ChangeRequests" },
+
+        // ---------------------------------------------------------------- W8D TASK 4, continued
+        //
+        // THE TWO SURFACES TASK 4 NAMES THAT HAD NOWHERE TO LAND. TASK 4 requires the shared read
+        // contract to expose "reconciliation disposition" and "archival/history linkage". Neither
+        // existed: `24_V3MigrationMap` and `23_NexusEvolution` are in `KnownUnboundV3Sheets`
+        // below, so neither could be READ through the contract nor APPENDED to through it — and
+        // the append path refuses an unbound sheet by design (proven, with a negative control, in
+        // `Append_Refuses_ASheetTheSchemaDoesNotProject`). That combination is what made W8D
+        // TASK 5 clause (2) — "if it requires creation of a V3 archive/unresolved-decision record,
+        // use the new canonical append path" — unexecutable for its own two named record types.
+        //
+        // Binding them is what makes that clause executable, and it is the same move W8D-R5 TASK 1
+        // made for the three sheets above: a surface the contract cannot name is a surface each
+        // host would otherwise grow its own reader for.
+        //
+        // Both are V3-only. The frozen forms record migration state in prose inside other sheets,
+        // and neither has any notion of an era sequence, so a Legacy/Foundation/Products name here
+        // would again be inventing a sheet.
+        new("MigrationMap",       null, null, null, null, null, null) { V3Name = "24_V3MigrationMap" },
+        new("NexusEvolution",     null, null, null, null, null, null) { V3Name = "23_NexusEvolution" },
     };
 
     /// <summary>
@@ -424,6 +445,42 @@ public static class WorkbookCompatibilityMap
         // change, and it is NOT performed here.
         new("WorkGraph", "FilesGlobs",      false, "Files / Globs"),
         new("WorkGraph", "ContractsApis",   false, "Contracts / APIs"),
+
+        // ---------------------------------------------------------------- W8D TASK 4
+        //
+        // THE WORK-ITEM SURFACE V3 ACTUALLY CARRIES. W8D-R5 scored TASK 4 PARTIAL, and this is
+        // the largest part of what it left: seven populated `07_WorkItems` columns with no V3
+        // binding at all, measured on the candidate as `WorkType` 838 rows, `Owner` 776,
+        // `Priority` 765, `CurrentActivity` 715, `MilestoneId` 347, `PercentComplete` 205.
+        //
+        // These are not decorative. `WorkType` is the column that carries the milestones V3
+        // folded in — the map's own comment above says so — so a contract that cannot read it
+        // cannot read the milestone half of the work-item model at all; and it is the column the
+        // T-3 `ItemType` question is about. `Owner` and `Priority` are the two a scheduler reads.
+        // A host that could not see them would grow exactly the Developer-local parser Owner
+        // decision R4-01 forbids, which is the failure mode this binding set exists to prevent.
+        //
+        // V3-only: the frozen forms carry name, status and dependency edges on the row and put
+        // ownership and priority elsewhere or nowhere, so a Legacy/Foundation/Products name here
+        // would be inventing a column. With those names null these rows are ABSENT_IN_FORM on
+        // every frozen form and the frozen three are bit-for-bit unaffected.
+        //
+        // `Required` and `V3Required` both stay false: these are readings of a surface, and a
+        // workbook where one has moved must report Found=false rather than refuse to load. The
+        // three columns above are marked V3Required precisely because their absence changes what
+        // a gate can decide; these do not.
+        new("WorkGraph", "HeadId",          false, null, null, null) { V3 = "HeadId" },
+        new("WorkGraph", "LayerId",         false, null, null, null) { V3 = "LayerId" },
+        new("WorkGraph", "ScopeId",         false, null, null, null) { V3 = "ScopeId" },
+        new("WorkGraph", "MilestoneId",     false, null, null, null) { V3 = "MilestoneId" },
+        new("WorkGraph", "WorkType",        false, null, null, null) { V3 = "WorkType" },
+        new("WorkGraph", "Owner",           false, null, null, null) { V3 = "Owner" },
+        new("WorkGraph", "Priority",        false, null, null, null) { V3 = "Priority" },
+        new("WorkGraph", "AuthorityProfile",false, null, null, null) { V3 = "AuthorityProfile" },
+        new("WorkGraph", "PercentComplete", false, null, null, null) { V3 = "PercentComplete" },
+        new("WorkGraph", "CurrentActivity", false, null, null, null) { V3 = "CurrentActivity" },
+        new("WorkGraph", "MigrationFlag",   false, null, null, null) { V3 = "MigrationFlag" },
+        new("WorkGraph", "Notes",           false, null, null, null) { V3 = "Notes" },
 
         // Milestones — §3 row 1: the legacy roadmap is SPLIT in two in V2, so this logical sheet
         // carries the sequencing half. Legacy `Phase Plan` is rank-only and never a gate (M1C
@@ -620,6 +677,60 @@ public static class WorkbookCompatibilityMap
         new("ChangeRequests", "EffectiveFrom",          false, null, null, null) { V3 = "EffectiveFrom" },
         new("ChangeRequests", "EnvelopeChangeId",       false, null, null, null) { V3 = "ChangeId" },
         new("ChangeRequests", "SupersedesVersion",      false, null, null, null) { V3 = "SupersedesVersion" },
+
+        // ---------------------------------------------------------------- W8D TASK 4, continued
+        //
+        // `23_NexusEvolution` — the archival/history linkage TASK 4 names. Its shape is an ERA
+        // TRAVERSAL, not a copy of history: EvolutionId | Sequence | Era | Change | FromState |
+        // ToState | EvidenceRef | Status | EffectiveDate | Notes. `EvidenceRef` is the member that
+        // matters, because it is what lets a row point AT the preserved artifact instead of
+        // reproducing it — which is exactly what TASK 8 requires ("Do not duplicate entire legacy
+        // workbooks into rows. Link to preserved evidence/artifacts appropriately.") and what the
+        // alternative, a per-record dump of the legacy revisions, would violate.
+        new("NexusEvolution", "EvolutionId",    true,  null, null, null) { V3 = "EvolutionId" },
+        new("NexusEvolution", "Sequence",       false, null, null, null) { V3 = "Sequence" },
+        new("NexusEvolution", "Era",            false, null, null, null) { V3 = "Era" },
+        new("NexusEvolution", "Change",         false, null, null, null) { V3 = "Change" },
+        new("NexusEvolution", "FromState",      false, null, null, null) { V3 = "FromState" },
+        new("NexusEvolution", "ToState",        false, null, null, null) { V3 = "ToState" },
+        new("NexusEvolution", "EvidenceRef",    false, null, null, null) { V3 = "EvidenceRef" },
+        new("NexusEvolution", "Status",         false, null, null, null) { V3 = "Status" },
+        new("NexusEvolution", "EffectiveDate",  false, null, null, null) { V3 = "EffectiveDate" },
+        new("NexusEvolution", "Notes",          false, null, null, null) { V3 = "Notes" },
+        new("NexusEvolution", "RecordVersion",  false, null, null, null) { V3 = "RecordVersion" },
+        new("NexusEvolution", "IsCurrent",      false, null, null, null) { V3 = "IsCurrent" },
+        new("NexusEvolution", "EffectiveFrom",  false, null, null, null) { V3 = "EffectiveFrom" },
+        new("NexusEvolution", "EnvelopeChangeId", false, null, null, null) { V3 = "ChangeId" },
+        new("NexusEvolution", "SupersedesVersion", false, null, null, null) { V3 = "SupersedesVersion" },
+
+        // `24_V3MigrationMap` — the reconciliation disposition TASK 4 names. The two columns that
+        // make it a disposition rather than a plan are `Status` and `BlockingDecision`: the map
+        // already carried a per-component place to record which decision blocks its migration, and
+        // until this binding existed no host could read it. TASK 5's blockers land here.
+        new("MigrationMap", "MapId",                true,  null, null, null) { V3 = "MapId" },
+        new("MigrationMap", "ComponentId",          false, null, null, null) { V3 = "ComponentId" },
+        new("MigrationMap", "CurrentRepository",    false, null, null, null) { V3 = "CurrentRepository" },
+        new("MigrationMap", "CurrentPath",          false, null, null, null) { V3 = "CurrentPath" },
+        new("MigrationMap", "CurrentOwnership",     false, null, null, null) { V3 = "CurrentOwnership" },
+        new("MigrationMap", "TargetHead",           false, null, null, null) { V3 = "TargetHead" },
+        new("MigrationMap", "TargetLayer",          false, null, null, null) { V3 = "TargetLayer" },
+        new("MigrationMap", "ProposedTargetPath",   false, null, null, null) { V3 = "ProposedTargetPath" },
+        new("MigrationMap", "Action",               false, null, null, null) { V3 = "Action" },
+        new("MigrationMap", "Dependencies",         false, null, null, null) { V3 = "Dependencies" },
+        new("MigrationMap", "Consumers",            false, null, null, null) { V3 = "Consumers" },
+        new("MigrationMap", "Contracts",            false, null, null, null) { V3 = "Contracts" },
+        new("MigrationMap", "Tests",                false, null, null, null) { V3 = "Tests" },
+        new("MigrationMap", "PreservationEvidence", false, null, null, null) { V3 = "PreservationEvidence" },
+        new("MigrationMap", "BlockingDecision",     false, null, null, null) { V3 = "BlockingDecision" },
+        new("MigrationMap", "MigrationLane",        false, null, null, null) { V3 = "MigrationLane" },
+        new("MigrationMap", "VerificationRequirement", false, null, null, null) { V3 = "VerificationRequirement" },
+        new("MigrationMap", "Status",               false, null, null, null) { V3 = "Status" },
+        new("MigrationMap", "Notes",                false, null, null, null) { V3 = "Notes" },
+        new("MigrationMap", "RecordVersion",        false, null, null, null) { V3 = "RecordVersion" },
+        new("MigrationMap", "IsCurrent",            false, null, null, null) { V3 = "IsCurrent" },
+        new("MigrationMap", "EffectiveFrom",        false, null, null, null) { V3 = "EffectiveFrom" },
+        new("MigrationMap", "EnvelopeChangeId",     false, null, null, null) { V3 = "ChangeId" },
+        new("MigrationMap", "SupersedesVersion",    false, null, null, null) { V3 = "SupersedesVersion" },
     };
 
     /// <summary>
@@ -671,6 +782,10 @@ public static class WorkbookCompatibilityMap
     /// make the claim false in the direction that matters, since a reader diffing this list against
     /// reality would conclude the contract still cannot see Git lineage when it can.
     ///
+    /// W8D TASK 4 removed two more for the same reason — `23_NexusEvolution` and
+    /// `24_V3MigrationMap` — because they carry the archival/history linkage and the reconciliation
+    /// disposition that task names, and neither could be read or appended to while unbound.
+    ///
     /// The runtime `UnboundSheets` list is computed from the workbook (reader `:646`), not from
     /// here, so it corrects itself. This one does not, which is exactly why it needed the edit.
     ///
@@ -684,7 +799,7 @@ public static class WorkbookCompatibilityMap
         "11_Reservations", "12_DevelopmentRuns",
         "14_Builds", "15_Releases", "16_Deployments", "17_Evidence",
         "18_Governance", "21_Risks", "22_Exceptions",
-        "23_NexusEvolution", "24_V3MigrationMap", "25_Dashboard",
+        "25_Dashboard",
     };
 
     /// <summary>
@@ -1737,10 +1852,17 @@ public static class WorkbookCompatibilityReader
         return (held, diags);
     }
 
+    /// <summary>
+    /// The kind of a file-scope target. Delegates to the shared contract vocabulary so that the
+    /// rule exists ONCE — W8D TASK 5 found the same rule written here and needed again for the V3
+    /// token <c>FILE_GLOB</c>, and two copies of a rule that selects which collision rules apply
+    /// is the drift the shared-control work exists to remove. The engine-side kind is reached
+    /// through the explicit <see cref="ToEngineKind"/> map rather than a cast, because kind
+    /// silently selecting the wrong collision rules is the failure mode that map exists to stop.
+    /// </summary>
     private static ScopeKind KindOf(string token) =>
-        token.Contains('*') || token.Contains('?') ? ScopeKind.Glob
-        : token.EndsWith('\\') || token.EndsWith('/') ? ScopeKind.DirectorySubtree
-        : ScopeKind.ExactFile;
+        Nexus.ProductCore.Core.DevelopmentControl.DevelopmentControlChangeScopePolicy.ToEngineKind(
+            Nexus.ProductCore.Contracts.DevelopmentControl.DevelopmentControlScopeVocabulary.ClassifyFileTarget(token));
 
     /// <summary>Reservation scope fields are stored pipe-joined by DB-M04; work-item scope is
     /// semicolon-joined. Both are accepted, plus newlines, because a gate that silently read

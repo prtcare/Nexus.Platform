@@ -1172,9 +1172,15 @@ public sealed record DevelopmentControlScopeRow(
     /// <see cref="DevelopmentControlGitLineage.IsCurrent"/>.</summary>
     public bool? IsCurrent => DevelopmentControlFlagVocabulary.Parse(IsCurrentText);
 
-    /// <summary>The declared item kind, or null when <see cref="ItemTypeText"/> is not a member
-    /// of <see cref="ChangeScopeItemKind"/>. Null is "unrecognised", not "unconstrained".</summary>
-    public ChangeScopeItemKind? ItemType => DevelopmentControlScopeVocabulary.ParseItemKind(ItemTypeText);
+    /// <summary>The declared item kind, or null when <see cref="ItemTypeText"/> is neither a
+    /// member of <see cref="ChangeScopeItemKind"/> nor one of the four pre-migration column tokens
+    /// the V3 workbook carries. Null is "unrecognised", not "unconstrained".
+    ///
+    /// <para><see cref="Target"/> is passed because the V3 token <c>FILE_GLOB</c> names a COLUMN
+    /// rather than a kind, and the kind is only recoverable from the target it holds. Reading the
+    /// text alone would resolve three of the four tokens and guess at the fourth.</para></summary>
+    public ChangeScopeItemKind? ItemType =>
+        DevelopmentControlScopeVocabulary.ParseItemKind(ItemTypeText, Target);
 
     /// <summary>The declared access mode, or null when <see cref="AccessText"/> is not a member
     /// of <see cref="ChangeScopeAccessMode"/>.</summary>
@@ -1257,19 +1263,51 @@ public sealed record DevelopmentControlAcceptance(
 /// <see cref="ChangeScopeItemKind.PublicContract"/>, <see cref="ChangeScopeItemKind.DatabaseMigration"/>
 /// and <see cref="ChangeScopeItemKind.ControlStore"/>. <b>Zero of the four V3 values is a member.</b>
 ///
-/// <para>Those parsers therefore return null for every scope row the V3 candidate carries, and
-/// that is the CORRECT answer rather than a defect being introduced: the raw text genuinely is not
-/// a member of the enum, and a parser that mapped it anyway would be inventing a correspondence
-/// the model does not declare. The bridge between the two vocabularies is a semantic decision —
-/// <c>FILE_GLOB</c>→<c>Glob</c> and <c>PROJECT</c>→<c>ProjectResource</c> are near-certain, while
-/// <c>DB_CONTEXT</c> could be either <c>DatabaseMigration</c> or <c>ProjectResource</c> and
-/// <c>CONTRACT</c> does not say whether the contract is public — so it is raised as an Owner
-/// decision rather than applied here. See W8DR5_CHANGESCOPE_ACCEPTANCE_TESTS.md.</para>
+/// <para><b>W8D TASK 5 resolved the <c>ItemType</c> half of that bridge from evidence, and the
+/// evidence is the pre-migration PRODUCER, not a reading of the spelling.</b> The four V3 tokens
+/// name the four legacy scope COLUMNS, and the engine that built scope items from those columns
+/// assigned each one a kind explicitly —
+/// <c>DevBridge.Engine.PreReservationSafety.BuildScope</c> (Forge) and its shipped twin
+/// <c>WorkbookCompatibilityReader.ProjectHeldReservations</c> (Platform) both contain, verbatim:
+/// <c>filesGlobs</c>→<c>KindOf(token)</c>, <c>projects</c>→<c>ScopeKind.ProjectResource</c>,
+/// <c>contractsApis</c>→<c>ScopeKind.PublicContract</c>,
+/// <c>schemaContexts</c>→<c>ScopeKind.DatabaseMigration</c>. Four tokens, four columns, four kinds,
+/// each pinned by the code that produced them. So:</para>
 ///
-/// <para><b>Consequence a caller must not misread:</b> <see cref="DevelopmentControlScopeRow.WellFormed"/>
-/// being false on every row means "the vocabulary bridge is not established", NOT "no scope is
-/// declared". The scope rows are present and fully readable. Readability is
-/// <see cref="DevelopmentControlSurfaceCoverage"/>, which is a different question.</para>
+/// <list type="bullet">
+/// <item><c>PROJECT</c> → <see cref="ChangeScopeItemKind.ProjectResource"/>;</item>
+/// <item><c>CONTRACT</c> → <see cref="ChangeScopeItemKind.PublicContract"/> — the legacy column
+/// assigned <c>PublicContract</c> unconditionally, so "does not say whether the contract is
+/// public" was a question about the WORD, and the producer answers it about the DATA;</item>
+/// <item><c>DB_CONTEXT</c> → <see cref="ChangeScopeItemKind.DatabaseMigration"/>. The V3 targets
+/// are DbContext names (<c>core</c>, 67/67), and
+/// <see cref="ChangeScopeItemKind.DatabaseMigration"/> is documented as "the DbContext / schema the
+/// migration targets";</item>
+/// <item><c>FILE_GLOB</c> → <b>not a kind at all</b>. It is the legacy COLUMN name
+/// (<c>filesGlobs</c>), whose kind the producer derived per-token through <c>KindOf</c>. Measured
+/// over the candidate's 9 rows: 6 subtree targets and 3 bare filenames, and <b>zero containing
+/// <c>*</c> or <c>?</c></b>. A flat <c>FILE_GLOB</c>→<see cref="ChangeScopeItemKind.Glob"/> mapping
+/// would therefore mis-kind every one of the 9, and because kind selects which collision rules
+/// apply, it would reason about a different resource than the one declared. The kind is recovered
+/// from the target instead, by <see cref="DevelopmentControlScopeVocabulary.ClassifyFileTarget"/>.</item>
+/// </list>
+///
+/// <para><b>What is NOT resolved, and must not be read as resolved by the above:</b> the ACCESS
+/// axis. The same producer paired <c>schemaContexts</c> with <c>AccessMode.Migrate</c>, and
+/// <c>AccessMode.Migrate</c> is a first-class member of the engine's vocabulary with its own
+/// collision rule (<c>ChangeScope.cs</c>: two <c>DatabaseMigration</c> items collide only when
+/// both are <c>Migrate</c>). The V3 workbook records <c>WRITE</c> on all 223 rows, including the
+/// 67 <c>DB_CONTEXT</c> rows, and <see cref="ChangeScopeAccessMode"/> cannot represent
+/// <c>Migrate</c> at all — it has two members. So the two artifacts disagree, the contract cannot
+/// hold one of the two values, and neither choosing <c>Write</c> (drops a rule the legacy engine
+/// enforced) nor choosing <c>Migrate</c> (overrides what the workbook says) is established by
+/// evidence. That is a genuine Owner decision and remains open. See W8DR5_CHANGESCOPE_ACCEPTANCE_TESTS.md.</para>
+///
+/// <para><b>Consequence a caller must not misread:</b> before TASK 5, <see cref="DevelopmentControlScopeRow.WellFormed"/>
+/// was false on every V3 row because BOTH fields failed to parse. It is now false only where the
+/// ACCESS text does not parse. A caller reading false as "no scope declared" was wrong then and is
+/// wrong now — the scope rows are present and their targets and kinds are fully readable.
+/// Readability is <see cref="DevelopmentControlSurfaceCoverage"/>, a different question.</para>
 /// </remarks>
 public static class DevelopmentControlScopeVocabulary
 {
@@ -1280,16 +1318,95 @@ public static class DevelopmentControlScopeVocabulary
     public static ChangeScopeItemKind? ParseItemKind(string? text) =>
         Enum.TryParse<ChangeScopeItemKind>(text?.Trim(), ignoreCase: true, out var kind)
         && Enum.IsDefined(kind)
+        && !IsNumericToken(text)
             ? kind
             : null;
 
     /// <summary>
+    /// True when the raw cell text is a number, which must NOT be accepted as an enum name.
+    ///
+    /// <para><c>Enum.TryParse</c> accepts a numeric string and maps it by ORDINAL — <c>"3"</c>
+    /// becomes <see cref="ChangeScopeItemKind.ProjectResource"/> — so without this guard a cell
+    /// holding a stray <c>3</c> would read as a confident item kind. That is the same hazard
+    /// <see cref="DevelopmentControlFlagVocabulary"/> documents and already refuses for
+    /// <c>1</c>→<c>Yes</c>; these two parsers were the inconsistent half. Kind and access select
+    /// which collision rules apply, so a numeric cell silently rerouting them is a scope-safety
+    /// defect, not a formatting one.</para>
+    /// </summary>
+    private static bool IsNumericToken(string? text) =>
+        !string.IsNullOrEmpty(text) && long.TryParse(text.Trim(), out _);
+
+    /// <summary>
+    /// Parses <c>ItemType</c> as EITHER a member of <see cref="ChangeScopeItemKind"/> OR one of the
+    /// four pre-migration column tokens the V3 workbook actually carries, resolving
+    /// <c>FILE_GLOB</c> from the target it names. Returns null when neither reading applies.
+    ///
+    /// <para>The target is a REQUIRED input rather than an optional refinement because
+    /// <c>FILE_GLOB</c> is not decidable without it — see the vocabulary remarks. A caller that
+    /// supplied only the text would get a kind for three of the four tokens and a guess for the
+    /// fourth, which is worse than not offering the overload.</para>
+    /// </summary>
+    public static ChangeScopeItemKind? ParseItemKind(string? text, string? target) =>
+        ParseItemKind(text) ?? TranslateLegacyItemType(text, target);
+
+    /// <summary>
+    /// The four pre-migration scope-column tokens, translated to the kind the engine that produced
+    /// them assigned. Each mapping and its evidence is recorded on the vocabulary remarks; the
+    /// short version is that <c>PROJECT</c>, <c>CONTRACT</c> and <c>DB_CONTEXT</c> are fixed
+    /// because the legacy producer assigned them a constant kind, and <c>FILE_GLOB</c> is derived
+    /// because the producer derived it too.
+    /// </summary>
+    private static ChangeScopeItemKind? TranslateLegacyItemType(string? text, string? target)
+    {
+        var t = text?.Trim();
+        if (string.IsNullOrEmpty(t)) return null;
+
+        if (t.Equals("PROJECT", StringComparison.OrdinalIgnoreCase)) return ChangeScopeItemKind.ProjectResource;
+        if (t.Equals("CONTRACT", StringComparison.OrdinalIgnoreCase)) return ChangeScopeItemKind.PublicContract;
+        if (t.Equals("DB_CONTEXT", StringComparison.OrdinalIgnoreCase)) return ChangeScopeItemKind.DatabaseMigration;
+        if (t.Equals("FILE_GLOB", StringComparison.OrdinalIgnoreCase)) return ClassifyFileTarget(target);
+
+        // Anything else is unrecognised. Null, never a default: defaulting to ExactFile would
+        // narrow a broad declaration and change what a collision check compares.
+        return null;
+    }
+
+    /// <summary>
+    /// The kind of a file-scope target, by the rule the pre-migration engine used verbatim:
+    /// a token containing <c>*</c> or <c>?</c> is a glob, a token ending in a separator is a
+    /// subtree, anything else is one exact file.
+    ///
+    /// <para><b>This is the single implementation of that rule.</b> The rule previously existed
+    /// twice — here and as a private <c>KindOf</c> in the engine — and two copies of a rule that
+    /// selects which collision rules apply is exactly the drift the shared-control work exists to
+    /// remove. The engine's <c>KindOf</c> now delegates here rather than repeating it. A blank
+    /// target is <see cref="ChangeScopeItemKind.ExactFile"/> because an empty token names no
+    /// subtree and no pattern; it is NOT null, because the caller has already established that a
+    /// file-scope item exists and this answers only "which kind".</para>
+    /// </summary>
+    public static ChangeScopeItemKind ClassifyFileTarget(string? target)
+    {
+        var tok = target ?? "";
+        if (tok.Contains('*') || tok.Contains('?')) return ChangeScopeItemKind.Glob;
+        if (tok.EndsWith('\\') || tok.EndsWith('/')) return ChangeScopeItemKind.DirectorySubtree;
+        return ChangeScopeItemKind.ExactFile;
+    }
+
+    /// <summary>
     /// Parses <c>Access</c> case-insensitively. Returns null for anything that is not a member,
     /// including empty text. There is no fallback member by design.
+    ///
+    /// <para><c>READ</c> and <c>WRITE</c> — the two spellings the V3 workbook carries — are read
+    /// here. <c>MIGRATE</c>, <c>CREATE</c> and <c>DELETE</c> are members of the ENGINE's
+    /// <c>AccessMode</c> but are deliberately absent from <see cref="ChangeScopeAccessMode"/>: the
+    /// V3 model declares five access values and this contract has two, so three have nowhere to
+    /// land. Adding them here is a change to the entitlement model and is exactly the open Owner
+    /// question the vocabulary remarks describe — not a parsing gap to be closed locally.</para>
     /// </summary>
     public static ChangeScopeAccessMode? ParseAccessMode(string? text) =>
         Enum.TryParse<ChangeScopeAccessMode>(text?.Trim(), ignoreCase: true, out var mode)
         && Enum.IsDefined(mode)
+        && !IsNumericToken(text)
             ? mode
             : null;
 }
