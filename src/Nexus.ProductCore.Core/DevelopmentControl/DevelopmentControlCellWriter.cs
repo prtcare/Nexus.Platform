@@ -67,16 +67,80 @@ internal static class DevelopmentControlCellWriter
         var partName = ResolveSheetPart(workbookPath, physicalSheetName);
         var columnIndex = ColumnIndex(columnLetter);
 
+        RewriteAtomically(workbookPath, partName,
+            entry => EditSheet(entry, rowNumber, columnIndex, columnLetter, value));
+    }
+
+    /// <summary>
+    /// TASK 1. Appends ONE record to a sheet that already exists, and returns the row it landed on.
+    ///
+    /// <para><b>What "already exists" rules out.</b> This creates a row in a sheet the workbook
+    /// declares. It does not create a sheet, does not create a column, and does not create an
+    /// envelope: the caller supplies values for columns the caller has already resolved against
+    /// the form's bindings and the sheet's own header row, and every one of those resolutions is a
+    /// refusal when it fails. TASK 1 requires the writer not gain arbitrary sheet-creation
+    /// capability, and the mechanism that enforces it is that nothing here can invent structure —
+    /// a column letter this method is handed is a letter some caller located in a header.</para>
+    ///
+    /// <para><b>Every value is written as an inline string.</b> Measured, not assumed: all 47,692
+    /// cells of the V3 candidate are <c>t="s"</c>, so the form stores even <c>RecordVersion</c> and
+    /// <c>IsCurrent</c> as text. A writer that inferred numbers would be introducing a cell type
+    /// the model does not use, and the divergence would be invisible to a reader that decodes both
+    /// forms — it would surface later, in whatever consumer first tried arithmetic on a column and
+    /// found half of it textual.</para>
+    ///
+    /// <para><b>Style is inherited, not defaulted.</b> Every cell in the workbook carries a style
+    /// index, so an appended row that omitted <c>s</c> would render differently from the 47,692
+    /// cells above it. The index is taken from the nearest populated cell ABOVE in the same column,
+    /// which is the row the new record is a continuation of.</para>
+    /// </summary>
+    internal static int AppendRow(
+        string workbookPath, string physicalSheetName, IReadOnlyList<AppendCell> cells)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(workbookPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(physicalSheetName);
+        ArgumentNullException.ThrowIfNull(cells);
+
+        if (cells.Count == 0)
+        {
+            throw new WorkbookDecodeException(
+                "An append carrying no cells would create an empty row, and an empty row in a "
+                + "governed sheet is indistinguishable from a record whose every field is blank. "
+                + "Refused rather than written.");
+        }
+
+        var partName = ResolveSheetPart(workbookPath, physicalSheetName);
+        var appended = -1;
+
+        RewriteAtomically(workbookPath, partName, entry =>
+        {
+            var (bytes, row) = AppendRowToSheet(entry, cells);
+            appended = row;
+            return bytes;
+        });
+
+        return appended;
+    }
+
+    /// <summary>
+    /// Builds the new container beside the target and swaps it in atomically. Shared by the cell
+    /// write and the append, so the two cannot diverge in how they copy, timestamp or replace the
+    /// package: the byte-determinism and atomicity properties the cross-host proof measures are
+    /// properties of THIS method, and two copies of it would be two chances to lose them.
+    /// </summary>
+    private static void RewriteAtomically(
+        string workbookPath, string partName, Func<ZipArchiveEntry, byte[]> edit)
+    {
         var directory = Path.GetDirectoryName(Path.GetFullPath(workbookPath))
             ?? throw new WorkbookDecodeException($"'{workbookPath}' has no containing directory.");
 
         var temp = Path.Combine(directory,
-            Path.GetFileName(workbookPath) + ".w8dr4-" + Guid.NewGuid().ToString("N")[..8] + ".tmp");
+            Path.GetFileName(workbookPath) + ".w8d-" + Guid.NewGuid().ToString("N")[..8] + ".tmp");
         var backup = temp + ".bak";
 
         try
         {
-            RewriteContainer(workbookPath, temp, partName, rowNumber, columnIndex, columnLetter, value);
+            RewriteContainer(workbookPath, temp, partName, edit);
 
             // Atomic swap. File.Replace is the only one of the .NET file APIs that gives
             // all-or-nothing semantics on NTFS with a rollback copy; Move(overwrite) is close but
@@ -97,8 +161,7 @@ internal static class DevelopmentControlCellWriter
     /// which is re-serialised with the one cell changed.
     /// </summary>
     private static void RewriteContainer(
-        string source, string destination, string partName,
-        int rowNumber, int columnIndex, string columnLetter, string value)
+        string source, string destination, string partName, Func<ZipArchiveEntry, byte[]> edit)
     {
         using var input = ZipFile.OpenRead(source);
         using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None);
@@ -128,8 +191,7 @@ internal static class DevelopmentControlCellWriter
 
             if (string.Equals(entry.FullName, partName, StringComparison.OrdinalIgnoreCase))
             {
-                var edited = EditSheet(entry, rowNumber, columnIndex, columnLetter, value);
-                target.Write(edited);
+                target.Write(edit(entry));
             }
             else
             {
@@ -211,6 +273,217 @@ internal static class DevelopmentControlCellWriter
     }
 
     /// <summary>
+    /// Loads the sheet part, appends one row beneath the last one, widens the sheet's
+    /// <c>&lt;dimension&gt;</c> to cover it, and returns the bytes plus the row number used.
+    ///
+    /// <para><b>Three structural properties are maintained rather than assumed.</b> Each was
+    /// measured on the V3 candidate first, because each is the kind of invariant that holds
+    /// silently until the one workbook where it does not:</para>
+    /// <list type="number">
+    /// <item><description><b><c>spans</c>.</b> Every one of the 26 sheets marks every one of its
+    /// <c>&lt;row&gt;</c> elements with <c>spans</c>, and the value always equals the sheet's full
+    /// column width. The new row inherits the last row's <c>spans</c>; omitting it would make the
+    /// appended row the only one without a span hint.</description></item>
+    /// <item><description><b>Style.</b> Every cell in the workbook carries a style index. The new
+    /// cells inherit the index of the nearest populated cell above them in the same column. A cell
+    /// with no styled ancestor above it is written with no index rather than a guessed one, because
+    /// a wrong index restyles the record and a missing one merely renders as the sheet default.</description></item>
+    /// <item><description><b><c>&lt;dimension&gt;</c>.</b> All 26 sheets declare one, and a
+    /// <c>&lt;dimension&gt;</c> that stops short of a row the sheet actually carries is a range
+    /// integrity defect: consumers that trust it — including several that read only the dimension
+    /// to size a sheet — would not see the appended record. The end reference is widened; the start
+    /// reference is left exactly as found.</description></item>
+    /// </list>
+    ///
+    /// <para><b>Merged ranges are checked, not assumed absent.</b> Measured: the V3 candidate
+    /// declares no <c>&lt;mergeCells&gt;</c> at all. The guard is still implemented, because
+    /// appending a row INTO a merged range produces a workbook Excel offers to repair, and that
+    /// damage is invisible to a name-based reader — the record reads back perfectly while the file
+    /// is corrupt. An invariant that is only true of today's artifact is a coincidence, and this is
+    /// the one place the component can turn it into a check.</para>
+    /// </summary>
+    private static (byte[] Bytes, int Row) AppendRowToSheet(
+        ZipArchiveEntry entry, IReadOnlyList<AppendCell> cells)
+    {
+        XDocument doc;
+        using (var stream = entry.Open())
+        {
+            doc = XDocument.Load(stream, LoadOptions.PreserveWhitespace);
+        }
+
+        var root = doc.Root
+            ?? throw new WorkbookDecodeException($"Sheet part '{entry.FullName}' has no root element.");
+
+        var sheetData = root.Element(Ns + "sheetData")
+            ?? throw new WorkbookDecodeException($"Sheet part '{entry.FullName}' has no sheetData element.");
+
+        var rows = sheetData.Elements(Ns + "row").ToList();
+        if (rows.Count == 0)
+        {
+            throw new WorkbookDecodeException(
+                $"Sheet part '{entry.FullName}' carries no rows, so it has no header row for an "
+                + "appended record to sit beneath. A sheet with no header is not a table this "
+                + "writer may add a record to.");
+        }
+
+        var lastRowNumber = rows.Select(ParseRowNumber).Where(n => n is not null)
+            .Select(n => n!.Value).DefaultIfEmpty(0).Max();
+
+        if (lastRowNumber == 0)
+        {
+            throw new WorkbookDecodeException(
+                $"No row in sheet part '{entry.FullName}' declares a row number, so there is no "
+                + "position to append at. The row-number attribute is what the reader locates "
+                + "records by, and inventing one here would desynchronise the two.");
+        }
+
+        var appendedRow = lastRowNumber + 1;
+
+        var merges = root.Element(Ns + "mergeCells");
+        if (merges is not null)
+        {
+            foreach (var merge in merges.Elements(Ns + "mergeCell"))
+            {
+                var range = (string?)merge.Attribute("ref");
+                if (range is null || !RangeContainsRow(range, appendedRow)) continue;
+
+                throw new WorkbookDecodeException(
+                    $"Appending row {appendedRow} to sheet part '{entry.FullName}' would land inside "
+                    + $"merged range '{range}'. A record written into a merged range is a workbook "
+                    + "corruption that still reads back correctly by name, so it is refused rather "
+                    + "than written and detected later.");
+            }
+        }
+
+        var previousRow = rows.First(r => ParseRowNumber(r) == lastRowNumber);
+
+        var newRow = new XElement(Ns + "row", new XAttribute("r", Invariant(appendedRow)));
+
+        var spans = (string?)previousRow.Attribute("spans");
+        if (spans is not null) newRow.SetAttributeValue("spans", spans);
+
+        // Ascending column order is required by OOXML; a row whose cells are out of order is
+        // rejected by stricter consumers even though this reader would resolve it by name.
+        foreach (var cell in cells.OrderBy(c => ColumnIndex(c.ColumnLetter)))
+        {
+            var reference = cell.ColumnLetter.ToUpperInvariant() + Invariant(appendedRow);
+
+            var element = new XElement(Ns + "c",
+                new XAttribute("r", reference),
+                new XAttribute("t", "inlineStr"));
+
+            var style = NearestStyleAbove(rows, cell.ColumnLetter);
+            if (style is not null) element.SetAttributeValue("s", style);
+
+            element.Add(new XElement(Ns + "is", new XElement(Ns + "t", cell.Value)));
+            newRow.Add(element);
+        }
+
+        previousRow.AddAfterSelf(newRow);
+
+        WidenDimension(root, appendedRow,
+            cells.Select(c => ColumnIndex(c.ColumnLetter)).DefaultIfEmpty(0).Max());
+
+        using var buffer = new MemoryStream();
+        doc.Save(buffer, SaveOptions.DisableFormatting);
+        return (buffer.ToArray(), appendedRow);
+    }
+
+    /// <summary>
+    /// Grows the sheet's <c>&lt;dimension&gt;</c> end reference to cover <paramref name="appendedRow"/>
+    /// and <paramref name="appendedColumnIndex"/>, leaving the start reference untouched.
+    ///
+    /// <para>Does nothing when the sheet declares no <c>&lt;dimension&gt;</c>. Creating one would be
+    /// inventing structure in a form that chose not to state it, and the safe direction here is
+    /// asymmetry: a missing dimension costs a consumer a full scan, while a WRONG one makes it
+    /// confidently skip records.</para>
+    /// </summary>
+    private static void WidenDimension(XElement root, int appendedRow, int appendedColumnIndex)
+    {
+        var dimension = root.Element(Ns + "dimension");
+        var reference = (string?)dimension?.Attribute("ref");
+        if (dimension is null || string.IsNullOrWhiteSpace(reference)) return;
+
+        var parts = reference.Split(':');
+        var start = parts[0];
+        var end = parts.Length > 1 ? parts[1] : parts[0];
+
+        var startRow = ParseRowNumberFromReference(start) ?? 1;
+        var endRow = ParseRowNumberFromReference(end) ?? startRow;
+        var startColumn = ColumnLetters(start);
+        var endColumn = ColumnLetters(end);
+
+        var newEndRow = Math.Max(endRow, appendedRow);
+        var newEndColumn = ColumnIndex(endColumn) >= appendedColumnIndex ? endColumn : ColumnLettersOf(appendedColumnIndex);
+
+        dimension.SetAttributeValue("ref",
+            $"{startColumn}{Invariant(startRow)}:{newEndColumn}{Invariant(newEndRow)}");
+    }
+
+    /// <summary>
+    /// The style index of the nearest populated cell ABOVE in the given column, or null when no
+    /// such cell carries one. Scans from the bottom so the appended record continues the styling of
+    /// the row it follows rather than of some earlier era of the sheet.
+    /// </summary>
+    private static string? NearestStyleAbove(IReadOnlyList<XElement> rows, string columnLetter)
+    {
+        for (var i = rows.Count - 1; i >= 0; i--)
+        {
+            foreach (var cell in rows[i].Elements(Ns + "c"))
+            {
+                var reference = (string?)cell.Attribute("r");
+                if (reference is null) continue;
+                if (!string.Equals(ColumnLetters(reference), columnLetter, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (cell.Attribute("s") is { } style) return style.Value;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>True when the A1-style range contains the given row. Used by the merge guard.</summary>
+    private static bool RangeContainsRow(string range, int row)
+    {
+        var parts = range.Split(':');
+        var first = ParseRowNumberFromReference(parts[0]);
+        var last = parts.Length > 1 ? ParseRowNumberFromReference(parts[1]) : first;
+        if (first is null || last is null) return false;
+        return row >= first.Value && row <= last.Value;
+    }
+
+    private static int? ParseRowNumber(XElement row) => ParseRowNumberFromReference((string?)row.Attribute("r"));
+
+    /// <summary>"AB12" → 12. Null when the reference carries no row, which is a malformed sheet.</summary>
+    private static int? ParseRowNumberFromReference(string? reference)
+    {
+        if (string.IsNullOrEmpty(reference)) return null;
+
+        var digits = new string(reference.SkipWhile(char.IsLetter).TakeWhile(char.IsDigit).ToArray());
+        return int.TryParse(digits, System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
+    }
+
+    /// <summary>28 → "AB" (1-based). The inverse of <see cref="ColumnIndex"/>.</summary>
+    internal static string ColumnLettersOf(int columnIndex)
+    {
+        var letters = "";
+        while (columnIndex > 0)
+        {
+            var remainder = (columnIndex - 1) % 26;
+            letters = (char)('A' + remainder) + letters;
+            columnIndex = (columnIndex - 1) / 26;
+        }
+
+        return letters;
+    }
+
+    private static string Invariant(int value) =>
+        value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
     /// Resolves a physical sheet name to its part path by reading <c>xl/workbook.xml</c> and the
     /// relationship map, exactly as the reader does. A sheet the workbook does not declare is an
     /// error, never a guess at a conventional part name.
@@ -283,3 +556,15 @@ internal static class DevelopmentControlCellWriter
         return cellReference[..end];
     }
 }
+
+/// <summary>
+/// One cell of an appended row, addressed by PHYSICAL column letter.
+///
+/// <para>This type is <c>internal</c> and stays behind the contract boundary on purpose. TASK 2
+/// forbids exposing spreadsheet mechanics as a cross-host business contract, and a column letter is
+/// exactly that: it is how this component addresses a cell, not how a caller thinks about a
+/// governance record. The public surface names logical sheets and logical columns and lets the
+/// reservation resolve them; by the time a value reaches this type the resolution has already
+/// happened, and the letter is a resolved fact rather than a caller's guess.</para>
+/// </summary>
+internal sealed record AppendCell(string ColumnLetter, string Value);

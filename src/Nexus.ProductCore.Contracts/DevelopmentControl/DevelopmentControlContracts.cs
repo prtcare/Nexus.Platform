@@ -87,6 +87,59 @@ public sealed record DevelopmentControlRecord(
     /// <summary>The value for a logical column, or null when the column is absent or blank.</summary>
     public string? Get(string logicalColumn) =>
         Values.TryGetValue(logicalColumn, out var v) ? v : null;
+
+    /// <summary>
+    /// TASK 4. Where this record came from, or null when the form carries no migration envelope.
+    ///
+    /// <para>Null is a fact about the FORM, not about the record: the three frozen forms have no
+    /// envelope columns, so provenance is not merely unrecorded there, it is not representable.
+    /// Callers that need to distinguish "this form has no envelope" from "this record's envelope is
+    /// blank" should test this property for null first — a non-null result whose
+    /// <see cref="DevelopmentControlProvenance.SourceForm"/> is blank is a governed V3 record whose
+    /// migration did not record an origin, which is exactly the condition
+    /// <see cref="DevelopmentControlProvenance.IsWellFormed"/> refuses to call well-formed.</para>
+    /// </summary>
+    public DevelopmentControlProvenance? Provenance =>
+        Get(DevelopmentControlEnvelopeColumns.SourceForm) is null
+            ? null
+            : new DevelopmentControlProvenance(
+                Get(DevelopmentControlEnvelopeColumns.SourceForm) ?? "",
+                Get(DevelopmentControlEnvelopeColumns.SourceWorkbook) ?? "",
+                Get(DevelopmentControlEnvelopeColumns.SourceWorkbookHash) ?? "",
+                Get(DevelopmentControlEnvelopeColumns.SourceSheet) ?? "",
+                Get(DevelopmentControlEnvelopeColumns.SourceRecordId) ?? "",
+                Get(DevelopmentControlEnvelopeColumns.SourceRevision) ?? "",
+                Get(DevelopmentControlEnvelopeColumns.SourceArchitectureVersion) ?? "",
+                Get(DevelopmentControlEnvelopeColumns.MigrationTimestamp) ?? "",
+                Get(DevelopmentControlEnvelopeColumns.MigrationTransformation) ?? "");
+
+    /// <summary>
+    /// TASK 4. This record's position in the append-only trail, or null when the form carries no
+    /// governance envelope.
+    ///
+    /// <para><see cref="DevelopmentControlEnvelope.IsCurrent"/> stays <c>bool?</c> here for the same
+    /// reason <c>DevelopmentControlScopeRow.IsCurrent</c> does: a value the flag vocabulary does not
+    /// recognise must surface as unparsed, never defaulted. Defaulting it to false would report a
+    /// live record as superseded, and defaulting it to true would report a superseded record as
+    /// current — and on a trail whose entire purpose is answering "which version is in force", the
+    /// second error is the one that loses work.</para>
+    /// </summary>
+    public DevelopmentControlEnvelope? Envelope =>
+        Get(DevelopmentControlEnvelopeColumns.RecordVersion) is null
+               && Get(DevelopmentControlEnvelopeColumns.IsCurrent) is null
+            ? null
+            : new DevelopmentControlEnvelope(
+                Get(DevelopmentControlEnvelopeColumns.RecordVersion) ?? "",
+                DevelopmentControlFlagVocabulary.Parse(Get(DevelopmentControlEnvelopeColumns.IsCurrent)),
+                DateTimeOffset.TryParse(
+                    Get(DevelopmentControlEnvelopeColumns.EffectiveFrom),
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None,
+                    out var effectiveFrom)
+                    ? effectiveFrom
+                    : null,
+                Get(DevelopmentControlEnvelopeColumns.ChangeId) ?? "",
+                Get(DevelopmentControlEnvelopeColumns.SupersedesVersion) ?? "");
 }
 
 /// <summary>One sheet as it was actually found in the container.</summary>
@@ -305,6 +358,27 @@ public interface IDevelopmentControlWriter
     DevelopmentControlWriteResult Write(
         IDevelopmentControlReservation reservation,
         DevelopmentControlCellWrite write);
+
+    /// <summary>
+    /// TASK 2. Appends ONE record to a sheet that already exists, through the same reservation and
+    /// the same lock as <see cref="Write"/>.
+    ///
+    /// <para>Refuses - never throws - on every condition it cannot satisfy, and
+    /// <see cref="DevelopmentControlAppendResult.Reason"/> names which one. The refusals are the
+    /// point of the operation: this is the only path by which a new governance record enters the
+    /// authoritative workbook, so every way it could enter wrongly is a way it must decline.</para>
+    ///
+    /// <para><b>Why this is not "Write with a bigger payload".</b> A cell write targets a cell the
+    /// caller has already located, and its failure mode is writing the wrong value into a row that
+    /// exists. An append brings a row into existence, so it additionally has to decide what the
+    /// row's structure is: which envelope values it carries, whether its identity collides, whether
+    /// the sheet is one that may take records at all, and whether the declared change scope covers
+    /// the store. Those decisions are made here, under the held lock, against a read taken under
+    /// that same lock.</para>
+    /// </summary>
+    DevelopmentControlAppendResult Append(
+        IDevelopmentControlReservation reservation,
+        DevelopmentControlAppendRecord record);
 }
 
 /// <summary>Why a write was or was not permitted.</summary>
@@ -358,6 +432,288 @@ public sealed record DevelopmentControlWriteResult(
     string Reason,
     string? PreviousValue,
     string? NewValue);
+
+#endregion
+
+#region 2b - Append envelope and the append contract
+
+/// <summary>
+/// The nine-column MIGRATION ENVELOPE a V3 record carries: which legacy artifact the record came
+/// from, and the exact cell within it.
+///
+/// <para><b>Why this is one cross-sheet type rather than twenty-six column bindings.</b> These
+/// nine headers appear with identical spelling on every V3 sheet that has an envelope, and they
+/// are always the LAST nine columns. The reader's own binding table records the decision not to
+/// bind them per logical sheet (<c>WorkbookCompatibilityReader.Columns</c>, the
+/// <c>GitLineage</c> note) and names the correct shape instead: "a projection that wants
+/// provenance wants it for every record, not for lineage records only. That is one cross-sheet
+/// envelope projection". This record is that projection.</para>
+///
+/// <para><b>Provenance is a claim, and a claim that cannot be checked is not evidence.</b>
+/// <see cref="IsWellFormed"/> requires the claim to be internally consistent: a record that
+/// asserts a legacy origin must name the artifact and the cell it came from, and a record that
+/// asserts a V3-native origin must NOT name one, because there is no legacy cell to point at.
+/// Both halves matter. A legacy claim with a blank source is unfalsifiable — nothing can
+/// contradict it, so it cannot support a reconciliation decision. A native record naming a legacy
+/// cell is worse: it points a future reader at a cell that does not contain the record they are
+/// holding.</para>
+/// </summary>
+public sealed record DevelopmentControlProvenance(
+    string SourceForm,
+    string SourceWorkbook,
+    string SourceWorkbookHash,
+    string SourceSheet,
+    string SourceRecordId,
+    string SourceRevision,
+    string SourceArchitectureVersion,
+    string MigrationTimestamp,
+    string MigrationTransformation)
+{
+    /// <summary>
+    /// The <see cref="SourceForm"/> value for a record created in V3, with no legacy source.
+    ///
+    /// <para>The measured V3 vocabulary is <c>L2</c>, <c>V2A</c> and <c>V2B</c> only — 2040 data
+    /// rows, zero natives. A natively-created record therefore has no existing token to reuse, and
+    /// leaving the column blank is not an option: R5-01 forbids an implicit disposition, and a
+    /// blank <c>SourceForm</c> does not read as "native", it reads as "the migration did not fill
+    /// this in". <c>V3N</c> is declared here, once, so the value the writer emits and the value a
+    /// reader tests for cannot drift apart.</para>
+    /// </summary>
+    public const string NativeSourceForm = "V3N";
+
+    /// <summary>The legacy form tokens this estate's migration actually used. A V3-native value is
+    /// deliberately NOT a member: <see cref="NativeSourceForm"/> is a different kind of claim.</summary>
+    public static readonly IReadOnlyList<string> LegacySourceForms = ["L2", "V2A", "V2B"];
+
+    /// <summary>True when this record claims to have been created in V3 with no legacy source.</summary>
+    public bool IsNative => string.Equals(SourceForm, NativeSourceForm, StringComparison.Ordinal);
+
+    /// <summary>
+    /// True when the nine values are internally consistent as a provenance CLAIM. See the type
+    /// doc: the two failure directions are a legacy claim with no source, and a native claim that
+    /// names one.
+    /// </summary>
+    public bool IsWellFormed(out string reason)
+    {
+        if (string.IsNullOrWhiteSpace(SourceForm))
+        {
+            reason = "SourceForm is blank. A blank provenance is not 'native' — it is a migration "
+                   + "that did not record where the record came from, and this estate forbids an "
+                   + "implicit disposition. State either a legacy form ("
+                   + string.Join(", ", LegacySourceForms) + ") or "
+                   + $"'{NativeSourceForm}' for a record created in V3.";
+            return false;
+        }
+
+        if (IsNative)
+        {
+            var named = new List<string>();
+            if (!string.IsNullOrWhiteSpace(SourceWorkbook)) named.Add(nameof(SourceWorkbook));
+            if (!string.IsNullOrWhiteSpace(SourceSheet)) named.Add(nameof(SourceSheet));
+            if (!string.IsNullOrWhiteSpace(SourceRecordId)) named.Add(nameof(SourceRecordId));
+
+            if (named.Count > 0)
+            {
+                reason = $"SourceForm is '{NativeSourceForm}' (created in V3, no legacy source) but "
+                       + $"{string.Join(", ", named)} name a legacy origin. A native record that "
+                       + "points at a legacy cell directs a reader to a cell that does not carry it.";
+                return false;
+            }
+
+            reason = "";
+            return true;
+        }
+
+        var missing = new List<string>();
+        if (string.IsNullOrWhiteSpace(SourceWorkbook)) missing.Add(nameof(SourceWorkbook));
+        if (string.IsNullOrWhiteSpace(SourceSheet)) missing.Add(nameof(SourceSheet));
+        if (string.IsNullOrWhiteSpace(SourceRecordId)) missing.Add(nameof(SourceRecordId));
+
+        if (missing.Count > 0)
+        {
+            reason = $"SourceForm is '{SourceForm}' but {string.Join(", ", missing)} are blank. A "
+                   + "legacy claim that does not name the artifact and the record it came from "
+                   + "cannot be checked against that artifact, so it cannot support a "
+                   + "reconciliation decision.";
+            return false;
+        }
+
+        reason = "";
+        return true;
+    }
+
+    /// <summary>
+    /// Provenance for a record created in V3. Every legacy-locating field is blank BY RULE — see
+    /// <see cref="IsWellFormed"/> — so this factory and that rule cannot disagree.
+    /// </summary>
+    public static DevelopmentControlProvenance Native(DateTimeOffset at, string transformation) =>
+        new(NativeSourceForm, "", "", "", "", "", "",
+            at.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            transformation);
+
+    /// <summary>Provenance for a record carried over from a named legacy artifact.</summary>
+    public static DevelopmentControlProvenance FromLegacy(
+        string sourceForm, string workbook, string workbookHash, string sheet, string sourceRecordId,
+        string revision, string architectureVersion, string transformation,
+        DateTimeOffset at) =>
+        new(sourceForm, workbook, workbookHash, sheet, sourceRecordId, revision, architectureVersion,
+            at.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            transformation);
+}
+
+/// <summary>
+/// The five-column GOVERNANCE ENVELOPE — a record's position in the append-only trail
+/// (<c>RecordVersion | IsCurrent | EffectiveFrom | ChangeId | SupersedesVersion</c>).
+///
+/// <para>The first four are WRITER-OWNED on append: a caller cannot set them through
+/// <see cref="DevelopmentControlAppendRecord.Values"/>, because the whole point of the envelope is
+/// that the writing component, not the caller, states where the record sits in the trail. Only
+/// <see cref="SupersedesVersion"/> is caller-supplied, because only the caller knows whether this
+/// record replaces an earlier one.</para>
+/// </summary>
+public sealed record DevelopmentControlEnvelope(
+    string RecordVersion,
+    bool? IsCurrent,
+    DateTimeOffset? EffectiveFrom,
+    string ChangeId,
+    string SupersedesVersion);
+
+/// <summary>
+/// The logical names of the two envelopes, declared once.
+///
+/// <para><b>Why a class of constants rather than literals.</b> The reader projects these names, the
+/// writer resolves them to physical columns, and a caller reads them back through
+/// <see cref="DevelopmentControlRecord"/>. Three consumers, one vocabulary — and this estate has
+/// already been bitten twice by a name that resolved on one side and not the other (the W8D-R4
+/// TASK 5 lookup that queried five logical names no binding declares, and the W8D-R5 TASK 1 lineage
+/// read that queried three more). Compiling against a constant turns the next such mismatch into a
+/// build failure instead of a lookup that returns empty for every input, silently, forever.</para>
+///
+/// <para><b><see cref="ChangeId"/> is spelled <c>EnvelopeChangeId</c>.</b> That is the name the
+/// reader's binding table already uses for the envelope's originating change on the three sheets
+/// that bind it, and the projection follows the binding rather than the other way round. On a sheet
+/// whose business key is also called <c>ChangeId</c>, the two must not share a name.</para>
+/// </summary>
+public static class DevelopmentControlEnvelopeColumns
+{
+    // The governance envelope — the record's position in the append-only trail.
+    public const string RecordVersion = "RecordVersion";
+    public const string IsCurrent = "IsCurrent";
+    public const string EffectiveFrom = "EffectiveFrom";
+    public const string ChangeId = "EnvelopeChangeId";
+    public const string SupersedesVersion = "SupersedesVersion";
+
+    // The migration envelope — where the record came from.
+    public const string SourceForm = "SourceForm";
+    public const string SourceWorkbook = "SourceWorkbook";
+    public const string SourceWorkbookHash = "SourceWorkbookHash";
+    public const string SourceSheet = "SourceSheet";
+    public const string SourceRecordId = "SourceRecordId";
+    public const string SourceRevision = "SourceRevision";
+    public const string SourceArchitectureVersion = "SourceArchitectureVersion";
+    public const string MigrationTimestamp = "MigrationTimestamp";
+    public const string MigrationTransformation = "MigrationTransformation";
+
+    /// <summary>The five governance columns, in the order the form lays them out.</summary>
+    public static readonly IReadOnlyList<string> Governance =
+        [RecordVersion, IsCurrent, EffectiveFrom, ChangeId, SupersedesVersion];
+
+    /// <summary>The nine migration columns, in the order the form lays them out.</summary>
+    public static readonly IReadOnlyList<string> Migration =
+    [
+        SourceForm, SourceWorkbook, SourceWorkbookHash, SourceSheet, SourceRecordId,
+        SourceRevision, SourceArchitectureVersion, MigrationTimestamp, MigrationTransformation,
+    ];
+
+    /// <summary>Every column either envelope contributes.</summary>
+    public static readonly IReadOnlyList<string> All = [.. Governance, .. Migration];
+}
+
+/// <summary>
+/// TASK 2. Append one record to an EXISTING sheet of a DevelopmentControl workbook.
+///
+/// <para><b>Logical, not physical.</b> The sheet is named by its logical binding name and the
+/// values are keyed by logical column name, exactly as <see cref="DevelopmentControlCellWrite"/>
+/// does. No row number appears anywhere in this type: which row a record lands on is a property of
+/// the structure at the instant of the write, and a caller that supplied one would be asserting a
+/// fact it cannot know. The writer computes the row, under the held lock, and reports it back in
+/// <see cref="DevelopmentControlAppendResult.Row"/>.</para>
+///
+/// <para><b>The workbook must already have the table.</b> This type names a sheet and a set of
+/// columns that must ALREADY EXIST in the form. It cannot create a sheet, cannot create a column,
+/// and cannot create the envelope — see <see cref="DevelopmentControlCellWriter"/>'s
+/// <c>AppendRow</c> for why the writer refuses rather than inventing structure. TASK 1 requires the
+/// writer not gain arbitrary sheet-creation capability; the way that is enforced is that every
+/// target is resolved against bindings and headers the workbook already declares, and an
+/// unresolved one is a refusal.</para>
+/// </summary>
+/// <param name="LogicalSheet">Logical name of the target sheet, which must already be present.</param>
+/// <param name="IdentityColumn">
+/// The logical column that carries this record's IMMUTABLE identity on that sheet — <c>LineageId</c>
+/// on GitLineage, <c>ScopeRecordId</c> on ChangeScopes, <c>RequestId</c> on ChangeRequests, and so
+/// on.
+///
+/// <para><b>Declared, not inferred.</b> The binding table does not mark which column is a sheet's
+/// key, and the one field that looked like a candidate does not work: <c>Required</c> is true for
+/// <c>LineageId</c> and <c>ScopeRecordId</c> but FALSE for <c>DecisionId</c>, so inferring identity
+/// from it would silently skip the duplicate check on some sheets while appearing to run it on
+/// others. A duplicate check that does not run is worse than none, because it is reported as
+/// having passed. Requiring the caller to name the column makes the check a stated precondition,
+/// and lets the writer refuse by name when the declared column is not one the sheet carries.</para>
+/// </param>
+/// <param name="ChangeId">
+/// The change authorising this append. Written into the governance envelope's originating-change
+/// column, which is the envelope's own <c>ChangeId</c> — not any business <c>ChangeId</c> the sheet
+/// may separately carry.
+/// </param>
+/// <param name="Values">
+/// Logical column name to value, for the columns this record populates. Envelope columns are
+/// rejected here rather than merged: see <see cref="DevelopmentControlEnvelope"/>.
+/// </param>
+/// <param name="Provenance">
+/// The nine migration-envelope values. Must be internally consistent — see
+/// <see cref="DevelopmentControlProvenance.IsWellFormed"/>.
+/// </param>
+/// <param name="DeclaredScope">
+/// The scope this change declares. The append refuses unless it covers this control store for
+/// write, which is how "obey ChangeScope" is enforced rather than asserted.
+/// </param>
+public sealed record DevelopmentControlAppendRecord(
+    string LogicalSheet,
+    string IdentityColumn,
+    string ChangeId,
+    IReadOnlyDictionary<string, string> Values,
+    DevelopmentControlProvenance Provenance,
+    ChangeScopeDeclaration DeclaredScope)
+{
+    /// <summary>
+    /// The record version this append writes. Defaults to <c>"1"</c>, which is the only
+    /// <c>RecordVersion</c> value the V3 candidate carries across all 2040 data rows — so a
+    /// promoted default is the measured norm rather than a guess. A superseding append states its
+    /// own.
+    /// </summary>
+    public string RecordVersion { get; init; } = "1";
+
+    /// <summary>The record this one replaces, or blank when it replaces nothing.</summary>
+    public string SupersedesVersion { get; init; } = "";
+
+    /// <summary>
+    /// When the record takes effect. Null means "now, at the instant of the write", which the
+    /// writer stamps — it is the only component that knows when the write actually happened.
+    /// </summary>
+    public DateTimeOffset? EffectiveFrom { get; init; }
+}
+
+/// <summary>The outcome of an attempted append. Refusals name the condition, never a generic
+/// failure: the caller's remedy differs per condition, and a bare failure leaves them unable to
+/// tell "the workbook moved" from "I spelled the column wrong".</summary>
+public sealed record DevelopmentControlAppendResult(
+    bool Appended,
+    string Reason,
+    int? Row,
+    string? RecordKey,
+    DevelopmentControlProvenance? Provenance,
+    DevelopmentControlEnvelope? Envelope);
 
 #endregion
 

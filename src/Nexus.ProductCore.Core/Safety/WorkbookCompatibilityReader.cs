@@ -43,6 +43,10 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Xml.Linq;
 
+// TASK 4. The envelope vocabulary is declared once, in the contracts assembly, and consumed here
+// and by the writer. See DevelopmentControlEnvelopeColumns for why it is not a set of literals.
+using Nexus.ProductCore.Contracts.DevelopmentControl;
+
 namespace Nexus.DevelopmentControl.Safety;
 
 public enum WorkbookForm
@@ -706,6 +710,48 @@ public static class WorkbookCompatibilityMap
         "is carried in-row by the envelope. Whether that satisfies WC-6/ADR-003 is reserved to " +
         "the W3-24 CONTROL_CUTOVER_GATE human decision and is not decided by this reader.";
 
+    /// <summary>
+    /// TASK 4. The two envelopes a governed record carries, projected ACROSS every sheet instead of
+    /// bound per logical sheet.
+    ///
+    /// <para><b>Why this is a separate table and not 26 more binding rows.</b> The nine
+    /// migration-envelope headers appear with identical spelling on every V3 sheet that has an
+    /// envelope, and the five governance-envelope headers precede them. The binding table already
+    /// records the decision and the reason (<c>Columns</c>, the <c>GitLineage</c> note): declaring
+    /// the same nine columns once per logical sheet would be twenty-six declarations of one fact,
+    /// and a projection that wants provenance wants it for every record. This table is that one
+    /// declaration, consulted once per sheet against that sheet's own header row.</para>
+    ///
+    /// <para><b>The header text is the key, and the sheet must actually carry it.</b> A sheet with
+    /// no <c>SourceForm</c> header gets nothing projected, so the frozen forms are unaffected —
+    /// their headers do not spell these names, and a projection that invented the columns because
+    /// the model "should" have them would report provenance for records that never had any.</para>
+    ///
+    /// <para><b><c>ChangeId</c> is projected as <c>EnvelopeChangeId</c>.</b> On sheets that carry
+    /// the name twice — <c>10_Changes</c> binds the business one, and <c>GitLineage</c>,
+    /// <c>ChangeScopes</c> and <c>ChangeRequests</c> already bind the envelope one under this exact
+    /// name — the projection takes the first occurrence NOT already claimed by a binding. That is
+    /// what makes it select the envelope's column rather than silently re-pointing a name at the
+    /// business column, which would have made two different facts answer to one key.</para>
+    /// </summary>
+    public static readonly IReadOnlyList<(string LogicalName, string HeaderText)> EnvelopeProjection =
+    [
+        (DevelopmentControlEnvelopeColumns.RecordVersion,             "RecordVersion"),
+        (DevelopmentControlEnvelopeColumns.IsCurrent,                 "IsCurrent"),
+        (DevelopmentControlEnvelopeColumns.EffectiveFrom,             "EffectiveFrom"),
+        (DevelopmentControlEnvelopeColumns.ChangeId,                  "ChangeId"),
+        (DevelopmentControlEnvelopeColumns.SupersedesVersion,         "SupersedesVersion"),
+        (DevelopmentControlEnvelopeColumns.SourceForm,                "SourceForm"),
+        (DevelopmentControlEnvelopeColumns.SourceWorkbook,            "SourceWorkbook"),
+        (DevelopmentControlEnvelopeColumns.SourceWorkbookHash,        "SourceWorkbookHash"),
+        (DevelopmentControlEnvelopeColumns.SourceSheet,               "SourceSheet"),
+        (DevelopmentControlEnvelopeColumns.SourceRecordId,            "SourceRecordId"),
+        (DevelopmentControlEnvelopeColumns.SourceRevision,            "SourceRevision"),
+        (DevelopmentControlEnvelopeColumns.SourceArchitectureVersion, "SourceArchitectureVersion"),
+        (DevelopmentControlEnvelopeColumns.MigrationTimestamp,        "MigrationTimestamp"),
+        (DevelopmentControlEnvelopeColumns.MigrationTransformation,   "MigrationTransformation"),
+    ];
+
     public static IEnumerable<ColumnBinding> ColumnsFor(string logicalSheet) =>
         Columns.Where(c => c.LogicalSheet == logicalSheet);
 }
@@ -1314,6 +1360,16 @@ public static class WorkbookCompatibilityReader
             diagnostics.Add($"GENERIC_READ: no logical column of the {form} map resolved against sheet '{physical}', " +
                             "so its rows are reported with their physical column letters. Nothing is dropped and nothing is claimed.");
 
+        // --- TASK 4. The cross-sheet envelope projection.
+        //
+        // Deliberately computed AFTER `generic` and kept OUT of `letterFor`. The projection must not
+        // be able to flip a sheet from generic to projected: on an unbound V3 sheet `letterFor` is
+        // empty by construction, so putting the envelope into it would make `generic` false, and the
+        // sheet would stop reporting its physical columns — silently trading every business value it
+        // carries for fourteen envelope ones. That is the "recognised, read the wrong thing, returned
+        // nothing, called it success" failure the GENERIC_READ note above exists to forbid.
+        var envelopeLetters = ProjectEnvelope(headerValues, letterFor, resolutions);
+
         var dataStart = headerRow is int h ? h + 1 : 1;
         var records = new List<WorkbookRecord>();
 
@@ -1339,6 +1395,17 @@ public static class WorkbookCompatibilityReader
                 }
             }
 
+            // The envelope is projected on BOTH paths, including the generic one where the business
+            // columns come through as physical letters. Provenance is a fact about how the record got
+            // here, so it does not stop being true because the sheet's business columns went
+            // unprojected — and on the unbound V3 sheets that is the only logical name a caller gets.
+            foreach (var (logicalName, letter) in envelopeLetters)
+            {
+                var match = cells.FirstOrDefault(c => string.Equals(c.Col, letter, StringComparison.OrdinalIgnoreCase));
+                if (match.Col is not null && !string.IsNullOrEmpty(match.Value))
+                    values[logicalName] = match.Value;
+            }
+
             if (values.Count > 0)
                 records.Add(new WorkbookRecord(logical, n, values));
         }
@@ -1348,6 +1415,48 @@ public static class WorkbookCompatibilityReader
 
         return new SheetRead(logical, SheetPresence.Bound, physical, headerRow, headerRowLocated,
             resolutions, records, decodeFailures, diagnostics, lastRow);
+    }
+
+    /// <summary>
+    /// TASK 4. Resolves the cross-sheet envelope columns against ONE sheet's own header row, and
+    /// records those that resolved as ordinary column resolutions so the contract reports them like
+    /// any other column.
+    ///
+    /// <para><b>Two skips, each preventing a specific wrong answer.</b> A logical name this form
+    /// already binds on this sheet is skipped, because the binding owns the name and a projection
+    /// that shadowed it would make the same key answer to two different columns depending on
+    /// enumeration order. A physical letter some binding already claimed is skipped, and THAT is
+    /// what makes <c>EnvelopeChangeId</c> resolve to the envelope's <c>ChangeId</c> on
+    /// <c>10_Changes</c> — where the name appears twice and the first occurrence is the business
+    /// change identifier — instead of re-pointing the envelope name at the business column.</para>
+    /// </summary>
+    private static List<(string LogicalName, string Letter)> ProjectEnvelope(
+        Dictionary<string, string> headerValues,
+        Dictionary<string, string> letterFor,
+        List<ColumnResolution> resolutions)
+    {
+        var projected = new List<(string, string)>();
+        var taken = new HashSet<string>(letterFor.Values, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (logicalName, headerText) in WorkbookCompatibilityMap.EnvelopeProjection)
+        {
+            if (letterFor.ContainsKey(logicalName)) continue;
+
+            var letter = headerValues
+                .Where(kv => !taken.Contains(kv.Key)
+                          && string.Equals(kv.Value.Trim(), headerText.Trim(), StringComparison.OrdinalIgnoreCase))
+                .OrderBy(kv => ColumnIndex(kv.Key))
+                .Select(kv => kv.Key)
+                .FirstOrDefault();
+
+            if (letter is null) continue;
+
+            taken.Add(letter);
+            projected.Add((logicalName, letter));
+            resolutions.Add(new ColumnResolution(logicalName, headerText, true, false, letter));
+        }
+
+        return projected;
     }
 
     /// <summary>

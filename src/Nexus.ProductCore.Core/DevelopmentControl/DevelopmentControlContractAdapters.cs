@@ -176,6 +176,29 @@ public sealed class DevelopmentControlWriterAuthorizer : IDevelopmentControlWrit
 
         return held.Write(write);
     }
+
+    /// <summary>
+    /// TASK 2. Appends one record to a sheet that already exists.
+    ///
+    /// <para>The reservation check is identical to <see cref="Write"/>'s and for the same reason: a
+    /// reservation from another implementation cannot be verified as holding the canonical lock, so
+    /// accepting it would let a caller perform a governed append while some other writer held the
+    /// authority. The refusal is on the TYPE of the reservation, which no caller can forge by
+    /// implementing the interface — only this component constructs a
+    /// <see cref="DevelopmentControlReservation"/>.</para>
+    /// </summary>
+    public DevelopmentControlAppendResult Append(
+        IDevelopmentControlReservation reservation, DevelopmentControlAppendRecord record)
+    {
+        if (reservation is not DevelopmentControlReservation held)
+            return new DevelopmentControlAppendResult(
+                false,
+                "The reservation was not issued by this component. A reservation from another "
+                + "implementation cannot be verified as holding the canonical lock, and accepting "
+                + "it would defeat the single-writer property.", null, null, null, null);
+
+        return held.Append(record);
+    }
 }
 
 /// <summary>The canonical writer lock, exposed through the shared contract.</summary>
@@ -345,6 +368,303 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
     {
         if (Held) Release();
         _lock.Dispose();
+    }
+
+    /// <summary>
+    /// TASK 1 / TASK 2. Appends one record to a sheet that already exists, under this held
+    /// reservation and the lock behind it.
+    ///
+    /// <para><b>Every refusal here names a condition, and the conditions are ordered by what the
+    /// caller can do about them.</b> Reservation state first, because nothing else is knowable
+    /// without it. Then the declared scope, because a change that does not cover this store has no
+    /// business writing to it whatever the workbook contains — and answering that from the
+    /// declaration alone means a mis-scoped change never even reads the authority. Then the
+    /// request's own internal consistency (identity, provenance). Only then the workbook: sheet,
+    /// envelope, columns, collision. A single generic failure would leave a caller unable to tell
+    /// "I declared the wrong scope" from "the workbook moved".</para>
+    ///
+    /// <para><b>The read happens UNDER the held lock, and so does the read-back.</b> Resolving the
+    /// envelope and the columns against a read taken before the lock was held would let the
+    /// workbook change between resolution and append, so the record would land at a position that
+    /// no longer means what the caller intended. That window is the whole reason the lock exists,
+    /// so it is closed on both sides of the write rather than only the near one.</para>
+    /// </summary>
+    internal DevelopmentControlAppendResult Append(DevelopmentControlAppendRecord record)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+
+        if (!Held)
+            return Refuse("this reservation has already been released, so it no longer excludes "
+                        + "another writer. Acquire a new one.");
+
+        if (_lock.Lease.Expiry <= DateTimeOffset.UtcNow)
+            return Refuse($"the lease expired at {_lock.Lease.Expiry:O}. Appending under an expired "
+                        + "lease means another process may legitimately have reclaimed the lock, so "
+                        + "this record could race a legitimate writer. Heartbeat or re-acquire first.");
+
+        if (!ScopeCoversStore(record.DeclaredScope, out var scopeReason))
+            return Refuse(scopeReason);
+
+        if (string.IsNullOrWhiteSpace(record.IdentityColumn))
+            return Refuse("no identity column was declared. Without it the duplicate-identity check "
+                        + "cannot run, and an append whose collision check silently does not run is "
+                        + "how one immutable id enters the ledger twice.");
+
+        if (string.IsNullOrWhiteSpace(record.ChangeId))
+            return Refuse("no authorising ChangeId was supplied. Every governed record states the "
+                        + "change it belongs to; a record with a blank originating change cannot be "
+                        + "traced back to the decision that authorised it.");
+
+        if (record.Provenance is null)
+            return Refuse("no provenance was supplied. Every governed V3 record states where it came "
+                        + "from — a blank migration envelope is an unfilled field, not a native record.");
+
+        if (!record.Provenance.IsWellFormed(out var provenanceReason))
+            return Refuse("provenance is not well-formed. " + provenanceReason);
+
+        var read = WorkbookCompatibilityReader.Read(_storePath);
+
+        // --- the same write-authorisation gate a cell write passes.
+        //
+        // An append IS a write to the authority, so it is not exempt from the gate that decides
+        // whether this form may be written at all. Without this the two preserved 14-sheet legacy
+        // revisions would be appendable — not because anything about them changed, but because this
+        // path would simply never have asked. The gate is what turns "the V3 model may be written
+        // and the frozen forms may not" from a fact about the caller into a property of the
+        // component.
+        var authorisation = WorkbookCompatibilityReader.AuthorizeWrite(read, WorkbookForm.V3);
+        if (!authorisation.Allowed)
+            return Refuse($"this workbook may not be appended to. {authorisation.Reason}");
+
+        var sheet = read.Sheets.FirstOrDefault(s =>
+            string.Equals(s.LogicalName, record.LogicalSheet, StringComparison.Ordinal));
+
+        if (sheet is null || sheet.Presence != SheetPresence.Bound)
+            return Refuse($"no readable sheet is bound to logical name '{record.LogicalSheet}'. "
+                        + $"Available: {string.Join(", ", read.Sheets.Select(s => s.LogicalName))}.");
+
+        if (sheet.PhysicalName is null)
+            return Refuse($"'{record.LogicalSheet}' resolved to no physical sheet.");
+
+        // --- the envelope, resolved against this sheet's OWN header row.
+        //
+        // Not against a table of assumed column letters: the envelope's position is a convention of
+        // the form, but which columns the form actually spells is a property of the sheet in front
+        // of us, and 25_Dashboard carries no envelope at all. Resolving by name is also what makes a
+        // sheet that has been restructured underneath this code a refusal rather than a write.
+        var envelope = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var missingEnvelope = new List<string>();
+
+        foreach (var logicalName in DevelopmentControlEnvelopeColumns.All)
+        {
+            var column = sheet.Columns.FirstOrDefault(c =>
+                string.Equals(c.LogicalName, logicalName, StringComparison.Ordinal)
+                && c.Found && c.PhysicalColumn is not null);
+
+            if (column?.PhysicalColumn is null) missingEnvelope.Add(logicalName);
+            else envelope[logicalName] = column.PhysicalColumn;
+        }
+
+        if (missingEnvelope.Count > 0)
+            return Refuse($"'{record.LogicalSheet}' does not carry the full governance envelope — "
+                        + $"{string.Join(", ", missingEnvelope)} did not resolve against its header "
+                        + "row. Appending here would create a record with no position in the "
+                        + "append-only trail and no stated origin, which is an implicit disposition.");
+
+        // --- the caller's values.
+        var cells = new List<AppendCell>();
+        var resolved = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (logicalColumn, value) in record.Values ?? new Dictionary<string, string>())
+        {
+            if (DevelopmentControlEnvelopeColumns.All.Contains(logicalColumn, StringComparer.OrdinalIgnoreCase))
+                return Refuse($"'{logicalColumn}' is an envelope column, and the envelope is written "
+                            + "by this component rather than supplied by the caller. A caller able "
+                            + "to set IsCurrent or the originating ChangeId could place a record "
+                            + "anywhere in the trail it chose.");
+
+            var column = sheet.Columns.FirstOrDefault(c =>
+                string.Equals(c.LogicalName, logicalColumn, StringComparison.Ordinal)
+                && c.Found && c.PhysicalColumn is not null);
+
+            if (column?.PhysicalColumn is null)
+                return Refuse($"'{record.LogicalSheet}' has no logical column '{logicalColumn}'. "
+                            + "Available: "
+                            + string.Join(", ", sheet.Columns.Where(c => c is { Found: true, PhysicalColumn: not null })
+                                                            .Select(c => c.LogicalName)) + ".");
+
+            resolved[logicalColumn] = column.PhysicalColumn;
+            cells.Add(new AppendCell(column.PhysicalColumn, value ?? ""));
+        }
+
+        if (!resolved.ContainsKey(record.IdentityColumn))
+            return Refuse($"the declared identity column '{record.IdentityColumn}' is not among the "
+                        + "values supplied, so the record would have no identity and the collision "
+                        + "check would have nothing to compare.");
+
+        var identityValue = record.Values!
+            .First(kv => string.Equals(kv.Key, record.IdentityColumn, StringComparison.OrdinalIgnoreCase))
+            .Value;
+
+        if (string.IsNullOrWhiteSpace(identityValue))
+            return Refuse($"the identity column '{record.IdentityColumn}' was supplied blank. A blank "
+                        + "key collides with every other blank key and identifies nothing.");
+
+        // --- immutable identity. Checked against EVERY row, not only current ones: the point of an
+        // immutable id is that it is never reused, so a superseded row still owns its value.
+        var collision = sheet.Records.FirstOrDefault(r =>
+            string.Equals(r.Get(record.IdentityColumn), identityValue, StringComparison.OrdinalIgnoreCase));
+
+        if (collision is not null)
+            return Refuse($"a record with {record.IdentityColumn} = '{identityValue}' already exists "
+                        + $"on '{record.LogicalSheet}' at row {collision.Row}. Record identity is "
+                        + "immutable, so this is a collision and not an update — the same id must not "
+                        + "name two records.");
+
+        // --- the envelope values this component owns.
+        var effectiveFrom = (record.EffectiveFrom ?? DateTimeOffset.UtcNow).ToUniversalTime();
+        var provenance = record.Provenance;
+
+        var envelopeValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [DevelopmentControlEnvelopeColumns.RecordVersion] = record.RecordVersion,
+            [DevelopmentControlEnvelopeColumns.IsCurrent] = "Yes",
+            [DevelopmentControlEnvelopeColumns.EffectiveFrom] =
+                effectiveFrom.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            [DevelopmentControlEnvelopeColumns.ChangeId] = record.ChangeId,
+            [DevelopmentControlEnvelopeColumns.SupersedesVersion] = record.SupersedesVersion,
+            [DevelopmentControlEnvelopeColumns.SourceForm] = provenance.SourceForm,
+            [DevelopmentControlEnvelopeColumns.SourceWorkbook] = provenance.SourceWorkbook,
+            [DevelopmentControlEnvelopeColumns.SourceWorkbookHash] = provenance.SourceWorkbookHash,
+            [DevelopmentControlEnvelopeColumns.SourceSheet] = provenance.SourceSheet,
+            [DevelopmentControlEnvelopeColumns.SourceRecordId] = provenance.SourceRecordId,
+            [DevelopmentControlEnvelopeColumns.SourceRevision] = provenance.SourceRevision,
+            [DevelopmentControlEnvelopeColumns.SourceArchitectureVersion] = provenance.SourceArchitectureVersion,
+            [DevelopmentControlEnvelopeColumns.MigrationTimestamp] = provenance.MigrationTimestamp,
+            [DevelopmentControlEnvelopeColumns.MigrationTransformation] = provenance.MigrationTransformation,
+        };
+
+        foreach (var (logicalName, value) in envelopeValues)
+            cells.Add(new AppendCell(envelope[logicalName], value));
+
+        int row;
+        try
+        {
+            row = DevelopmentControlCellWriter.AppendRow(_storePath, sheet.PhysicalName, cells);
+        }
+        catch (WorkbookDecodeException ex)
+        {
+            return Refuse(ex.Message);
+        }
+
+        // --- read-back, projected through the SAME contract record a host reads, so what is
+        // verified here is what a host will see rather than an implementation-shaped near-equivalent.
+        var after = WorkbookCompatibilityReader.Read(_storePath);
+        var appended = after.Records
+            .Where(r => string.Equals(r.LogicalSheet, record.LogicalSheet, StringComparison.Ordinal)
+                     && string.Equals(r.Get(record.IdentityColumn), identityValue, StringComparison.OrdinalIgnoreCase))
+            .Select(r => new DevelopmentControlRecord(r.LogicalSheet, r.Row, r.Values))
+            .FirstOrDefault();
+
+        if (appended is null)
+        {
+            // The write HAPPENED, so Appended is true — reporting false would misdescribe the
+            // workbook. But the record could not be read back at the identity just written, which
+            // means the artifact and this component disagree; that must be said, not smoothed over.
+            return new DevelopmentControlAppendResult(true,
+                $"Wrote row {row} of {sheet.PhysicalName} but the read-back did not find "
+                + $"{record.IdentityColumn} = '{identityValue}'. The record is in the workbook and "
+                + "did NOT verify — treat it as UNVERIFIED and re-read the authority before relying "
+                + "on it.",
+                row, identityValue, null, null);
+        }
+
+        return new DevelopmentControlAppendResult(true,
+            $"Appended {record.IdentityColumn} = '{identityValue}' to {sheet.PhysicalName} "
+            + $"(logical {record.LogicalSheet}) at row {appended.Row}, under change "
+            + $"'{record.ChangeId}', and read it back through the shared reader.",
+            appended.Row, identityValue, appended.Provenance, appended.Envelope);
+    }
+
+    private static DevelopmentControlAppendResult Refuse(string reason) =>
+        new(false, "Refused: " + reason, null, null, null, null);
+
+    /// <summary>
+    /// True when <paramref name="declaration"/> claims this control store for WRITE.
+    ///
+    /// <para><b>Fail-closed in three separate ways.</b> A missing declaration, a declaration with no
+    /// <see cref="ChangeScopeItemKind.ControlStore"/> item, and a ControlStore item declared
+    /// <see cref="ChangeScopeAccessMode.Read"/> all refuse. The read case is the one worth stating:
+    /// declaring that you will read the authority is not a claim to write it, and a check that
+    /// accepted any ControlStore item regardless of access mode would authorise exactly the appends
+    /// whose declaration said the lane would not modify the store.</para>
+    ///
+    /// <para><b>Why this is enforced here and not only in the collision policy.</b> The collision
+    /// policy answers "do two lanes conflict"; it does not answer "does this lane cover this store".
+    /// Those are different questions, and the second has no other asker — an append that consults
+    /// only the collision engine would write to a store no declaration had ever mentioned.</para>
+    /// </summary>
+    private bool ScopeCoversStore(ChangeScopeDeclaration? declaration, out string reason)
+    {
+        if (declaration is null)
+        {
+            reason = "no ChangeScope declaration was supplied. The append cannot show that this "
+                   + "change is entitled to modify the control store, so it does not.";
+            return false;
+        }
+
+        var items = declaration.Items ?? [];
+        var writes = items.Where(i => i.Kind == ChangeScopeItemKind.ControlStore
+                                   && i.AccessMode == ChangeScopeAccessMode.Write).ToArray();
+
+        if (writes.Length == 0)
+        {
+            var anyControlStore = items.Any(i => i.Kind == ChangeScopeItemKind.ControlStore);
+            reason = anyControlStore
+                ? $"the ChangeScope '{declaration.Lane}' declares this control store for READ, not "
+                + "write. A lane that has declared it will not modify the authority is not entitled "
+                + "to append a record to it."
+                : $"the ChangeScope '{declaration.Lane}' declares no ControlStore item at all, so it "
+                + "does not cover the control store — whatever else it covers.";
+            return false;
+        }
+
+        if (!writes.Any(i => MatchesStoreTarget(i.Target, _storePath)))
+        {
+            reason = $"the ChangeScope '{declaration.Lane}' declares a control store, but not THIS "
+                   + $"one: its ControlStore targets name "
+                   + $"{string.Join(", ", writes.Select(i => $"'{i.Target}'"))}, and the store is "
+                   + $"'{Path.GetFileName(_storePath)}'. A scope that names a different authority "
+                   + "does not authorise this one.";
+            return false;
+        }
+
+        reason = "";
+        return true;
+    }
+
+    /// <summary>
+    /// Whether a declared ControlStore target names this workbook. Accepts the full path, the bare
+    /// file name, or a trailing-<c>*</c> prefix of the file name.
+    ///
+    /// <para>Deliberately narrow. A substring or case-folded "contains" match would let a scope
+    /// naming <c>NEXUS_DEVELOPMENT_CONTROL_OLD.xlsx</c> authorise a write to
+    /// <c>NEXUS_DEVELOPMENT_CONTROL.xlsx</c> — and on this estate both exist, which is the whole
+    /// reason two 14-sheet revisions are still on disk. Prefix matching is offered because a lane
+    /// legitimately declares "the DevelopmentControl family"; substring matching is not, because it
+    /// cannot tell the family from a backup of it.</para>
+    /// </summary>
+    private static bool MatchesStoreTarget(string? target, string storePath)
+    {
+        if (string.IsNullOrWhiteSpace(target)) return false;
+
+        var name = Path.GetFileName(storePath);
+
+        if (string.Equals(target, storePath, StringComparison.OrdinalIgnoreCase)) return true;
+        if (string.Equals(target, name, StringComparison.OrdinalIgnoreCase)) return true;
+
+        return target.EndsWith('*')
+            && name.StartsWith(target[..^1], StringComparison.OrdinalIgnoreCase);
     }
 }
 

@@ -33,6 +33,12 @@
          gap this exposed is recorded as W5G finding D-13. -->
     <Project Path="tests\Nexus.Platform.Architecture.Tests\Nexus.Platform.Architecture.Tests.csproj" />
     <Project Path="tests\Nexus.ProductCore.Scope.Tests\Nexus.ProductCore.Scope.Tests.csproj" />
+    <!-- W8D TASK 3: the shared DevelopmentControl writer's governed-append safety suite. Listed
+         here for the same reason Nexus.Platform.Tests was delisted above - a suite reachable only
+         by naming its csproj by hand is a suite the estate build does not run. 16 tests over the
+         nine refusals TASK 3 names, each with a positive twin so a refusal cannot pass for the
+         wrong reason. -->
+    <Project Path="tests\Nexus.ProductCore.DevelopmentControl.Tests\Nexus.ProductCore.DevelopmentControl.Tests.csproj" />
     <Project Path="tests\Nexus.Governance.Tests\Nexus.Governance.Tests.csproj" />
   </Folder>
 </Solution>
