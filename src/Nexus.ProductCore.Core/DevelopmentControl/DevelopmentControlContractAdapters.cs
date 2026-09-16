@@ -89,7 +89,17 @@ public sealed class DevelopmentControlReader : IDevelopmentControlReader
 
     private static DevelopmentControlSheetRead ToContract(SheetRead s) =>
         new(s.LogicalName,
-            Present: s.Presence != SheetPresence.DeclaredButMissing,
+            // W8D-R5 TASK 1. Was `s.Presence != SheetPresence.DeclaredButMissing`, which returned
+            // TRUE for AbsentInForm - a logical sheet the form has no counterpart for, carrying a
+            // null PhysicalName and no header row - so the contract reported "present" for a sheet
+            // the form declares does not exist. See the corrected doc on
+            // DevelopmentControlSheetRead.Present for why this survived until now and what it
+            // would have answered wrongly once a GitLineage binding existed.
+            //
+            // Unreadable stays TRUE: the sheet is in the container and was located, it simply
+            // could not be parsed. "Found but unreadable" is not "not found", and a caller
+            // deciding whether the data exists wants the first answer.
+            Present: s.Presence is SheetPresence.Bound or SheetPresence.Unreadable,
             PhysicalName: s.PhysicalName,
             HeaderRow: s.HeaderRow,
             HeaderRowLocated: s.HeaderRowLocated,
@@ -101,7 +111,16 @@ public sealed class DevelopmentControlReader : IDevelopmentControlReader
                 .Select(r => new DevelopmentControlRecord(r.LogicalSheet, r.Row, r.Values))
                 .ToArray(),
             DecodeFailures: s.DecodeFailures,
-            LastRow: s.LastRow);
+            LastRow: s.LastRow)
+        {
+            // Every bound column that did not resolve, required or not. Found=false has two
+            // causes - the form carries no such column, or the form names a header the sheet does
+            // not have - and both mean the same thing to a caller: no value is readable here.
+            UnprojectedColumns = s.Columns
+                .Where(c => !c.Found)
+                .Select(c => c.LogicalName)
+                .ToArray(),
+        };
 }
 
 /// <summary>
@@ -368,15 +387,15 @@ public sealed class DevelopmentControlChangeScopePolicy : IChangeScopePolicy
             foreach (var ri in right.Items)
             {
                 var a = new ScopeItem(
-                    (Nexus.DevelopmentControl.Safety.ScopeKind)li.Kind,
+                    ToEngineKind(li.Kind),
                     RepositoryId: "",
                     Path: li.Target,
-                    Access: (AccessMode)li.AccessMode);
+                    Access: ToEngineAccess(li.AccessMode));
                 var b = new ScopeItem(
-                    (Nexus.DevelopmentControl.Safety.ScopeKind)ri.Kind,
+                    ToEngineKind(ri.Kind),
                     RepositoryId: "",
                     Path: ri.Target,
-                    Access: (AccessMode)ri.AccessMode);
+                    Access: ToEngineAccess(ri.AccessMode));
 
                 // Fully qualified: the engine and this file's contract record would otherwise
                 // be the same identifier in scope.
@@ -409,6 +428,72 @@ public sealed class DevelopmentControlChangeScopePolicy : IChangeScopePolicy
 
     public bool AreCompatible(IReadOnlyList<ChangeScopeDeclaration> declared) =>
         Evaluate(declared).Compatible;
+
+    /// <summary>
+    /// Maps the contract's access mode onto the engine's, EXPLICITLY.
+    ///
+    /// <para><b>This method replaces a cast that inverted every access mode.</b> The two enums
+    /// declare the same two members in opposite numeric order —
+    /// <c>ChangeScopeAccessMode.Write = 0, Read = 1</c> against
+    /// <c>AccessMode.Read = 0, Write = 1</c> — so <c>(AccessMode)item.AccessMode</c> read every
+    /// declared WRITE as a read and every declared READ as a write. The failure was not symmetric
+    /// in consequence. It ran in the unsafe direction: two lanes both declaring
+    /// <c>ExactFile</c>/<c>Write</c> over the same file were evaluated read-against-read, found
+    /// <c>Compatible</c>, and dropped from the conflict list — the collision the policy exists to
+    /// refuse was the one it silently permitted.</para>
+    ///
+    /// <para><b>Measured, not reasoned.</b> W8D-R5 TASK 8's negative control was written to show
+    /// the cross-host comparison could fail; instead it failed on this. On the fixed probe below,
+    /// the two lanes' identical <c>ExactFile</c>/<c>Write</c> on <c>src/shared/file.cs</c>
+    /// produced <i>no conflict row</i>, while their identical <c>DirectorySubtree</c>/<c>Read</c> on
+    /// <c>src/read-only/</c> was reported as <c>WriteWriteCollision</c> — both inverted, in
+    /// opposite directions. Recorded in <c>W8DR5_CHANGESCOPE_ACCEPTANCE_TESTS.md</c>.</para>
+    ///
+    /// <para><b>Why a map and not a corrected cast.</b> A cast would restore today's correct
+    /// behaviour and keep the agreement an unchecked coincidence. The two enums are independent
+    /// declarations in two namespaces; either may be reordered or extended without the other
+    /// noticing, and the compiler accepts any cast between them. The switch below throws on an
+    /// unmapped member instead of defaulting, and <c>CrossHostInterpretationTests</c> walks every
+    /// member of both enums so the map's totality is a checked property rather than a claim. C#
+    /// gives no compile-time exhaustiveness for enum switches, so a test is the available mechanism
+    /// — and it is the one this defect proved was missing.</para>
+    /// </summary>
+    internal static AccessMode ToEngineAccess(ChangeScopeAccessMode access) => access switch
+    {
+        ChangeScopeAccessMode.Read => AccessMode.Read,
+        ChangeScopeAccessMode.Write => AccessMode.Write,
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(access), access,
+            "Unmapped ChangeScopeAccessMode. Defaulting here would silently pick an access mode, "
+            + "and access mode is the input that decides whether two lanes collide."),
+    };
+
+    /// <summary>
+    /// Maps the contract's item kind onto the engine's, EXPLICITLY, for the same reason
+    /// <see cref="ToEngineAccess"/> is a map.
+    ///
+    /// <para>The kinds happen to agree member-for-member today (both declare
+    /// <c>ExactFile = 0</c>, <c>DirectorySubtree = 1</c>, <c>Glob = 2</c>,
+    /// <c>ProjectResource = 3</c>, <c>PublicContract = 4</c>, <c>DatabaseMigration = 5</c>,
+    /// <c>ControlStore = 6</c>), so the cast this replaces was correct for kinds. That is precisely
+    /// what made the cast dangerous: one of the two casts was right, which is why the wrong one
+    /// survived review. Kind selects which collision RULES apply, so a silent reroute reasons about
+    /// the wrong resource entirely.</para>
+    /// </summary>
+    internal static Nexus.DevelopmentControl.Safety.ScopeKind ToEngineKind(ChangeScopeItemKind kind) => kind switch
+    {
+        ChangeScopeItemKind.ExactFile => Nexus.DevelopmentControl.Safety.ScopeKind.ExactFile,
+        ChangeScopeItemKind.DirectorySubtree => Nexus.DevelopmentControl.Safety.ScopeKind.DirectorySubtree,
+        ChangeScopeItemKind.Glob => Nexus.DevelopmentControl.Safety.ScopeKind.Glob,
+        ChangeScopeItemKind.ProjectResource => Nexus.DevelopmentControl.Safety.ScopeKind.ProjectResource,
+        ChangeScopeItemKind.PublicContract => Nexus.DevelopmentControl.Safety.ScopeKind.PublicContract,
+        ChangeScopeItemKind.DatabaseMigration => Nexus.DevelopmentControl.Safety.ScopeKind.DatabaseMigration,
+        ChangeScopeItemKind.ControlStore => Nexus.DevelopmentControl.Safety.ScopeKind.ControlStore,
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(kind), kind,
+            "Unmapped ChangeScopeItemKind. Kind decides which collision rules apply, so a default "
+            + "here would reason about a different resource than the one declared."),
+    };
 }
 
 /// <summary>
@@ -441,6 +526,73 @@ public sealed class DevelopmentControlLookup : IDependencyLineageLookup
         internal const string Target = "TargetId";
         internal const string RelationType = "RelationType";
         internal const string Status = "Status";
+
+        // W8D-R5 TASK 1. The logical names of the three newly bound surfaces, declared here for
+        // the same reason the four above are: one place, so a binding rename is a compile-visible
+        // edit rather than a string that quietly stops matching.
+        internal static class Lineage
+        {
+            internal const string Sheet = "GitLineage";
+            internal const string LineageId = "LineageId";
+            internal const string WorkItemId = "WorkId";
+            internal const string ChangeId = "ChangeId";
+            internal const string ReservationId = "ReservationId";
+            internal const string RepositoryId = "RepositoryId";
+            internal const string Branch = "Branch";
+            internal const string WorktreePath = "WorktreePath";
+            internal const string BaseSha = "BaseSHA";
+            internal const string CommitSha = "CommitSha";
+            internal const string PullRequest = "PullRequest";
+            internal const string IntegrationSha = "IntegrationSha";
+            internal const string EffectiveFrom = "EffectiveFrom";
+            internal const string IsCurrent = "IsCurrent";
+            internal const string Note = "Notes";
+        }
+
+        internal static class Scopes
+        {
+            internal const string Sheet = "ChangeScopes";
+            internal const string ScopeRecordId = "ScopeRecordId";
+            internal const string WorkItemId = "WorkId";
+            internal const string ScopeClass = "ScopeClass";
+            internal const string ItemType = "ItemType";
+            internal const string Target = "Target";
+            internal const string Access = "Access";
+            internal const string ReviewState = "ReviewState";
+            internal const string IsCurrent = "IsCurrent";
+            internal const string Note = "Notes";
+        }
+
+        internal static class Requests
+        {
+            internal const string Sheet = "ChangeRequests";
+            internal const string RequestId = "RequestId";
+            internal const string RequestType = "RequestType";
+            internal const string Destination = "Destination";
+            internal const string RequestingWorkId = "RequestingWorkId";
+            internal const string RequestingHead = "RequestingHead";
+            internal const string CapabilityRequested = "CapabilityRequested";
+            internal const string Purpose = "Purpose";
+            internal const string ContextRefs = "ContextRefs";
+            internal const string DataClassification = "DataClassification";
+            internal const string ExecutionPolicy = "ExecutionPolicy";
+            internal const string ToolPermissionProfile = "ToolPermissionProfile";
+            internal const string Status = "Status";
+            internal const string PlatformChangeRequestId = "PlatformChangeRequestId";
+            internal const string HandbackWorkId = "HandbackWorkId";
+            internal const string LegacyStatusText = "LegacyStatusText";
+            internal const string IsCurrent = "IsCurrent";
+            internal const string Note = "Notes";
+        }
+
+        internal static class Acceptance
+        {
+            internal const string Sheet = "WorkGraph";
+            internal const string WorkItemId = "WorkId";
+            internal const string Criteria = "AcceptanceCriteria";
+            internal const string Evidence = "EvidenceRequired";
+            internal const string Readiness = "ReadinessState";
+        }
     }
 
     private readonly DevelopmentControlReadResult _read;
@@ -448,21 +600,53 @@ public sealed class DevelopmentControlLookup : IDependencyLineageLookup
     public DevelopmentControlLookup(DevelopmentControlReadResult read) => _read = read;
 
     /// <summary>
-    /// True when no logical sheet projects Git lineage, so lineage lookups for this workbook are
-    /// unavailable rather than empty.
+    /// True when this workbook has no readable Git-lineage surface.
     ///
-    /// <para>The V3 candidate is in this state for <c>13_GitLineage</c>: the sheet is physically
-    /// present with real headers and rows, and the reader NAMES it in
-    /// <see cref="DevelopmentControlReadResult.UnboundSheets"/>, but no column binding decodes it.
-    /// "Not readable here" and "this record has no history" are different answers and only the
-    /// second is safe to act on, which is why this is a property on the contract and not a
-    /// convention.</para>
+    /// <para><b>W8D-R5 TASK 1 flipped this for V3, and the flip is not the whole story.</b> R4
+    /// measured it true because <c>GitLineage</c> had no binding at all, so
+    /// <c>Sheet("GitLineage")</c> returned null. With the binding added it is false for the V3
+    /// candidate and stays true on the three frozen forms, where the logical sheet is absent by
+    /// construction - the behaviour the original comment predicted.</para>
     ///
-    /// <para>Expressed as "the logical sheet is absent" deliberately: that is the honest
-    /// mechanism. It stays correct if a GitLineage binding is added later - the property flips to
-    /// false without an edit here - which is the behaviour a caller wants.</para>
+    /// <para><b>But false does not mean there is lineage to read.</b> The V3 candidate's
+    /// <c>13_GitLineage</c> carries 26 headers on row 4 and <b>zero data rows</b>, so every
+    /// <see cref="LineageOf"/> result is empty for a reason that has nothing to do with the record
+    /// asked about. Callers must therefore check
+    /// <see cref="DevelopmentControlReadResult.Coverage"/> for
+    /// <c>CarriesData</c> before reading an empty result as "this record has no history". This
+    /// property answers "is the surface readable"; that one answers "does it hold anything".</para>
     /// </summary>
-    public bool LineageUnavailable => _read.Sheet("GitLineage") is not { Present: true };
+    public bool LineageUnavailable => SurfaceUnavailable(Columns.Lineage.Sheet);
+
+    /// <summary>True when this workbook has no readable change-scope surface.</summary>
+    public bool ChangeScopesUnavailable => SurfaceUnavailable(Columns.Scopes.Sheet);
+
+    /// <summary>True when this workbook has no readable Core Change Request surface.</summary>
+    public bool ChangeRequestsUnavailable => SurfaceUnavailable(Columns.Requests.Sheet);
+
+    /// <summary>
+    /// True when the acceptance-state columns cannot be read. Unlike the three above this is not a
+    /// whole sheet - acceptance state is three columns of the work-item sheet - so a form that has
+    /// the sheet and not the columns is unavailable too. That is the frozen forms' state: they all
+    /// have WorkGraph and none of them has these columns.
+    /// </summary>
+    public bool AcceptanceUnavailable =>
+        SurfaceUnavailable(Columns.Acceptance.Sheet)
+        || _read.Sheet(Columns.Acceptance.Sheet) is { } w
+           && new[]
+              {
+                  Columns.Acceptance.Criteria,
+                  Columns.Acceptance.Evidence,
+                  Columns.Acceptance.Readiness,
+              }.Any(c => w.UnprojectedColumns.Contains(c, StringComparer.Ordinal));
+
+    /// <summary>
+    /// "The form has no physical counterpart for this logical sheet, or it has one that could not
+    /// be located." Expressed against <see cref="DevelopmentControlSheetRead.Present"/>, which
+    /// W8D-R5 TASK 1 corrected so that it means exactly that.
+    /// </summary>
+    private bool SurfaceUnavailable(string logicalSheet) =>
+        _read.Sheet(logicalSheet) is not { Present: true };
 
     public IReadOnlyList<DevelopmentControlDependency> DependenciesOf(string workItemId) =>
         EdgesWhere(r => string.Equals(r.Get(Columns.Source), workItemId, StringComparison.OrdinalIgnoreCase));
@@ -482,21 +666,145 @@ public sealed class DevelopmentControlLookup : IDependencyLineageLookup
             .ToArray();
 
     /// <summary>
-    /// Empty when the workbook carries no lineage for the record. Because that is
-    /// indistinguishable from "no history" at this layer, callers must consult
-    /// <see cref="LineageUnavailable"/> first - which is why it is on the contract.
+    /// Git lineage rows for a control record.
+    ///
+    /// <para><b>Corrected by W8D-R5 TASK 1 along with the binding.</b> The previous implementation
+    /// read <c>RecordKey</c>, <c>Commit</c> and <c>BlobSha256</c>. None of the three is a logical
+    /// name any binding declares - the same class of defect the W8D-R4 TASK 5 note on
+    /// <c>Columns</c> records - so this returned empty for every input on every form, and it would
+    /// have gone on doing so after the binding was added, silently, because an empty lineage
+    /// result is a legal answer. Compiling against declared constants is what makes that a build
+    /// failure next time rather than a silence.</para>
+    ///
+    /// <para><paramref name="logicalSheet"/> selects which foreign key on the lineage row answers
+    /// for the record. A sheet this lookup does not know is matched against all four keys, which
+    /// is a deliberate SUPERSET: a caller that passes an unrecognised or future logical sheet name
+    /// gets its lineage when a key matches rather than silently nothing. Pass a recognised name
+    /// when precision matters.</para>
     /// </summary>
-    public IReadOnlyList<DevelopmentControlLineageEntry> LineageOf(string logicalSheet, string recordKey) =>
-        LineageUnavailable
+    public IReadOnlyList<DevelopmentControlGitLineage> LineageOf(string logicalSheet, string recordKey)
+    {
+        if (LineageUnavailable) return [];
+
+        var key = ForeignKeyFor(logicalSheet);
+        var keys = key is null
+            ? new[]
+              {
+                  Columns.Lineage.LineageId, Columns.Lineage.WorkItemId,
+                  Columns.Lineage.ChangeId, Columns.Lineage.ReservationId,
+              }
+            : new[] { key };
+
+        return _read.Records
+            .Where(r => r.LogicalSheet == Columns.Lineage.Sheet
+                     && keys.Any(k => string.Equals(r.Get(k), recordKey, StringComparison.OrdinalIgnoreCase)))
+            .Select(r => new DevelopmentControlGitLineage(
+                r.Get(Columns.Lineage.LineageId) ?? "",
+                r.Get(Columns.Lineage.WorkItemId) ?? "",
+                r.Get(Columns.Lineage.ChangeId) ?? "",
+                r.Get(Columns.Lineage.ReservationId) ?? "",
+                r.Get(Columns.Lineage.RepositoryId) ?? "",
+                r.Get(Columns.Lineage.Branch) ?? "",
+                r.Get(Columns.Lineage.WorktreePath) ?? "",
+                r.Get(Columns.Lineage.BaseSha) ?? "",
+                r.Get(Columns.Lineage.CommitSha) ?? "",
+                r.Get(Columns.Lineage.PullRequest) ?? "",
+                r.Get(Columns.Lineage.IntegrationSha) ?? "",
+                ParseTimestamp(r.Get(Columns.Lineage.EffectiveFrom)),
+                r.Get(Columns.Lineage.IsCurrent) ?? "",
+                r.Get(Columns.Lineage.Note) ?? ""))
+            .ToArray();
+    }
+
+    /// <summary>
+    /// The lineage foreign key that answers for a given logical sheet, or null when this lookup
+    /// does not recognise the sheet and must fall back to matching all of them.
+    /// </summary>
+    private static string? ForeignKeyFor(string logicalSheet) => logicalSheet switch
+    {
+        "WorkGraph" => Columns.Lineage.WorkItemId,
+        "Changes" => Columns.Lineage.ChangeId,
+        Columns.Lineage.Sheet => Columns.Lineage.LineageId,
+        _ => null,
+    };
+
+    public IReadOnlyList<DevelopmentControlScopeRow> ScopesOf(string workItemId) =>
+        ChangeScopesUnavailable
             ? []
             : _read.Records
-                .Where(r => r.LogicalSheet == "GitLineage"
-                         && (string.Equals(r.Get("RecordKey"), recordKey, StringComparison.OrdinalIgnoreCase)
-                          || string.Equals(r.Get("WorkItemId"), recordKey, StringComparison.OrdinalIgnoreCase)))
-                .Select(r => new DevelopmentControlLineageEntry(
-                    r.Get("Commit") ?? "",
-                    r.Get("BlobSha256") ?? r.Get("Sha256") ?? "",
-                    null,
-                    r.Get("Note") ?? ""))
+                .Where(r => r.LogicalSheet == Columns.Scopes.Sheet
+                         && string.Equals(r.Get(Columns.Scopes.WorkItemId), workItemId, StringComparison.OrdinalIgnoreCase))
+                .Select(r => new DevelopmentControlScopeRow(
+                    r.Get(Columns.Scopes.ScopeRecordId) ?? "",
+                    r.Get(Columns.Scopes.WorkItemId) ?? "",
+                    r.Get(Columns.Scopes.ScopeClass) ?? "",
+                    r.Get(Columns.Scopes.ItemType) ?? "",
+                    r.Get(Columns.Scopes.Target) ?? "",
+                    r.Get(Columns.Scopes.Access) ?? "",
+                    r.Get(Columns.Scopes.ReviewState) ?? "",
+                    r.Get(Columns.Scopes.IsCurrent) ?? "",
+                    r.Get(Columns.Scopes.Note) ?? ""))
                 .ToArray();
+
+    public IReadOnlyList<DevelopmentControlChangeRequest> ChangeRequestsOf(string workItemId) =>
+        ChangeRequestsUnavailable
+            ? []
+            : _read.Records
+                .Where(r => r.LogicalSheet == Columns.Requests.Sheet
+                         && string.Equals(r.Get(Columns.Requests.RequestingWorkId), workItemId, StringComparison.OrdinalIgnoreCase))
+                .Select(r => new DevelopmentControlChangeRequest(
+                    r.Get(Columns.Requests.RequestId) ?? "",
+                    r.Get(Columns.Requests.RequestType) ?? "",
+                    r.Get(Columns.Requests.Destination) ?? "",
+                    r.Get(Columns.Requests.RequestingWorkId) ?? "",
+                    r.Get(Columns.Requests.RequestingHead) ?? "",
+                    r.Get(Columns.Requests.CapabilityRequested) ?? "",
+                    r.Get(Columns.Requests.Purpose) ?? "",
+                    r.Get(Columns.Requests.ContextRefs) ?? "",
+                    r.Get(Columns.Requests.DataClassification) ?? "",
+                    r.Get(Columns.Requests.ExecutionPolicy) ?? "",
+                    r.Get(Columns.Requests.ToolPermissionProfile) ?? "",
+                    r.Get(Columns.Requests.Status) ?? "",
+                    r.Get(Columns.Requests.PlatformChangeRequestId) ?? "",
+                    r.Get(Columns.Requests.HandbackWorkId) ?? "",
+                    r.Get(Columns.Requests.LegacyStatusText) ?? "",
+                    r.Get(Columns.Requests.IsCurrent) ?? "",
+                    r.Get(Columns.Requests.Note) ?? ""))
+                .ToArray();
+
+    /// <summary>
+    /// Null when the workbook declares no acceptance state for the work item, which is a finding:
+    /// a work item with no declared criteria cannot be accepted, only asserted complete.
+    /// </summary>
+    public DevelopmentControlAcceptance? AcceptanceOf(string workItemId)
+    {
+        if (AcceptanceUnavailable) return null;
+
+        var row = _read.Records.FirstOrDefault(
+            r => r.LogicalSheet == Columns.Acceptance.Sheet
+              && string.Equals(r.Get(Columns.Acceptance.WorkItemId), workItemId, StringComparison.OrdinalIgnoreCase));
+
+        return row is null
+            ? null
+            : new DevelopmentControlAcceptance(
+                row.Get(Columns.Acceptance.WorkItemId) ?? "",
+                row.Get(Columns.Acceptance.Criteria) ?? "",
+                row.Get(Columns.Acceptance.Evidence) ?? "",
+                row.Get(Columns.Acceptance.Readiness) ?? "");
+    }
+
+    /// <summary>
+    /// Parses an ISO-8601 timestamp, returning null when it is blank or unparseable.
+    ///
+    /// <para>Null is "the workbook did not state a time", never a sentinel. Returning
+    /// <see cref="DateTimeOffset.MinValue"/> or <c>default</c> would put a real-looking instant on
+    /// a record whose time nothing recorded — and for a lineage row that instant is a claim about
+    /// when work happened.</para>
+    /// </summary>
+    private static DateTimeOffset? ParseTimestamp(string? text) =>
+        DateTimeOffset.TryParse(
+            text, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var value)
+            ? value
+            : null;
 }

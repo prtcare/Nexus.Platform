@@ -311,6 +311,25 @@ public static class WorkbookCompatibilityMap
         new("ExistingAssets",     "Existing Assets",          "15_Repositories", "12_Repositories", 4,  4,    4)
             { V3Name = "06_Repositories" },
         new("ToolRegistry",       "Tool & Integration Registry", null,           null,             4,    null, null,  false, true),
+
+        // ---------------------------------------------------------------- W8D-R5 TASK 1
+        //
+        // The three V3-only surfaces. W8D-R4 TASK 5 measured these sheets PRESENT in the
+        // workbook with no logical binding, so the contract could not project them and
+        // `UnboundSheets` reported them by name. That was honest but incomplete: the Owner
+        // decision R4-01 requires ONE shared contract, and a surface the contract cannot
+        // name is a surface each host would otherwise grow its own reader for.
+        //
+        // All three are V3-ONLY, and that is a claim about the model rather than a gap in this
+        // map: the frozen legacy/V2 forms carry this information, but inside other sheets and
+        // in other shapes — legacy keeps repository/branch/worktree on the `Active Changes`
+        // row (bound under `Changes` above), and the V2 forms carry no change-request surface
+        // at all. Binding a Legacy/FOUNDATION/PRODUCTS name here would be inventing a sheet.
+        // With all three form names null these rows are AbsentInForm on every frozen form,
+        // which is the truthful reading and keeps the frozen three bit-for-bit unaffected.
+        new("GitLineage",         null, null, null, null, null, null) { V3Name = "13_GitLineage" },
+        new("ChangeScopes",       null, null, null, null, null, null) { V3Name = "09_ChangeScopes" },
+        new("ChangeRequests",     null, null, null, null, null, null) { V3Name = "19_ChangeRequests" },
     };
 
     /// <summary>
@@ -367,6 +386,31 @@ public static class WorkbookCompatibilityMap
         // Owner, not a reader decision, so it is bound to the natural continuation and flagged.
         new("WorkGraph", "Status",          false, "Status",      "Status",       "Status")
             { V3 = "ExecutionStatus" },
+        // W8D-R5 TASK 1 — ACCEPTANCE STATE. The other two thirds of the split described directly
+        // above, now bound rather than only described.
+        //
+        // R4 TASK 5 measured these three columns present in `07_WorkItems` at L/M/N and NOT
+        // projected by the contract, so `Get("AcceptanceCriteria")` returned null for every row on
+        // every form and a consumer could not distinguish "this work item declares no acceptance
+        // criteria" from "the contract cannot see acceptance criteria at all" — the same
+        // collapse-into-null failure the scope comment above calls out for `FilesGlobs`.
+        //
+        // V3Required = true, and it is the one place in this map where that override is used
+        // affirmatively rather than to relax. Acceptance state is a CUTOVER control field: TASK 12
+        // asks whether every current work item carries acceptance evidence, and a read that cannot
+        // answer that must fail loudly rather than answer "none". The header names were measured on
+        // row 4 of `07_WorkItems`, so the requirement costs nothing on a real V3 workbook and
+        // refuses a workbook where the columns have moved or been renamed.
+        //
+        // On the three frozen forms these stay ABSENT_IN_FORM: `Required` is false, so their
+        // absence cannot trip UnsupportedSchema, and the V3Required override does not apply to a
+        // form that carries no such column in the first place.
+        new("WorkGraph", "AcceptanceCriteria", false, null, null, null)
+            { V3 = "AcceptanceCriteria", V3Required = true },
+        new("WorkGraph", "EvidenceRequired",   false, null, null, null)
+            { V3 = "EvidenceRequired",   V3Required = true },
+        new("WorkGraph", "ReadinessState",     false, null, null, null)
+            { V3 = "ReadinessState",     V3Required = true },
         // V3 carries neither of these on the work-item sheet: file and contract scope moved to
         // the normalised `09_ChangeScopes` table (WorkId | ScopeClass | ItemType | Target |
         // Access | ReviewState), which is a different shape and a different cardinality.
@@ -467,6 +511,111 @@ public static class WorkbookCompatibilityMap
         new("ActivityLog", "Branch",        false, "Branch", null, null),
         new("ActivityLog", "Worktree",      false, "Worktree", null, null),
         new("ActivityLog", "FilesGlobs",    false, "Files/Globs", null, null),
+
+        // ================================================================ W8D-R5 TASK 1
+        //
+        // GIT LINEAGE. `13_GitLineage` is the sheet that answers TASK 7's question — for a given
+        // work item, which repository, which base SHA, which branch, which commits, which
+        // integration SHA, and which rollback point. Every column below was measured on row 4 of
+        // the sheet rather than inferred from the record shape, because the two disagree in one
+        // important place: the existing `DevelopmentControlLineageEntry` record carries a
+        // `BlobSha256` member that this sheet has NO column for. The record is corrected in the
+        // contract rather than the reader being made to invent a value for it.
+        //
+        // `ChangeId` IS DECLARED TWICE on this sheet — column C is the lineage row's own change
+        // reference, column P is the envelope's originating change, the same duplication
+        // `10_Changes` carries and the same reason `V3Occurrence` exists. Both are bound: the
+        // first under the natural name, the second under `EnvelopeChangeId`, so the duplicate is
+        // modelled rather than silently collapsed onto whichever the dictionary enumerated first.
+        new("GitLineage", "LineageId",          true,  null, null, null) { V3 = "LineageId" },
+        new("GitLineage", "WorkId",             false, null, null, null) { V3 = "WorkId" },
+        new("GitLineage", "ChangeId",           false, null, null, null) { V3 = "ChangeId", V3Occurrence = 1 },
+        new("GitLineage", "EnvelopeChangeId",   false, null, null, null) { V3 = "ChangeId", V3Occurrence = 2 },
+        new("GitLineage", "ReservationId",      false, null, null, null) { V3 = "ReservationId" },
+        new("GitLineage", "RepositoryId",       false, null, null, null) { V3 = "RepositoryId" },
+        new("GitLineage", "Branch",             false, null, null, null) { V3 = "Branch" },
+        new("GitLineage", "WorktreePath",       false, null, null, null) { V3 = "WorktreePath" },
+        new("GitLineage", "BaseSHA",            false, null, null, null) { V3 = "BaseSHA" },
+        new("GitLineage", "CommitSha",          false, null, null, null) { V3 = "CommitSha" },
+        new("GitLineage", "PullRequest",        false, null, null, null) { V3 = "PullRequest" },
+        new("GitLineage", "IntegrationSha",     false, null, null, null) { V3 = "IntegrationSha" },
+        new("GitLineage", "Notes",              false, null, null, null) { V3 = "Notes" },
+        new("GitLineage", "RecordVersion",      false, null, null, null) { V3 = "RecordVersion" },
+        new("GitLineage", "IsCurrent",          false, null, null, null) { V3 = "IsCurrent" },
+        new("GitLineage", "EffectiveFrom",      false, null, null, null) { V3 = "EffectiveFrom" },
+        new("GitLineage", "SupersedesVersion",  false, null, null, null) { V3 = "SupersedesVersion" },
+        // Columns R..Z — SourceForm | SourceWorkbook | SourceWorkbookHash | SourceSheet |
+        // SourceRecordId | SourceRevision | SourceArchitectureVersion | MigrationTimestamp |
+        // MigrationTransformation — are DELIBERATELY NOT BOUND HERE, and the reason is that they
+        // are not a Git-lineage fact. They are the migration envelope, and they appear with these
+        // exact header names on all 26 V3 sheets. Binding them per logical sheet would declare the
+        // same nine columns twenty-six times, and a projection that wants provenance wants it for
+        // every record, not for lineage records only. That is one cross-sheet envelope projection
+        // and it is not this task's surface.
+
+        // CHANGE SCOPE. `09_ChangeScopes` is the normalised scope table V3 moved file and contract
+        // scope INTO — see the `WorkGraph.FilesGlobs` comment above, which recorded the move and
+        // declined to follow it because following it belongs to the scope engine. This binds the
+        // table; it does not yet rewire the collision gate to consume it, which is a separate
+        // change with its own negative controls.
+        //
+        // `ItemType` and `Access` are the two columns the ChangeScope engine needs and neither has
+        // a counterpart in the frozen forms, where scope is free text on the change row. Note the
+        // vocabulary difference and do not paper over it: the bound column is the raw V3 text. The
+        // contract's `ChangeScopeItemKind` / `ChangeScopeAccessMode` enums parse it, and a value
+        // outside either enum must surface as a parse failure rather than defaulting to `ExactFile`
+        // or `Write` — an unrecognised scope that reads as a narrow one is how a collision check
+        // passes something it should have blocked.
+        new("ChangeScopes", "ScopeRecordId",    true,  null, null, null) { V3 = "ScopeRecordId" },
+        new("ChangeScopes", "WorkId",           false, null, null, null) { V3 = "WorkId" },
+        new("ChangeScopes", "ScopeClass",       false, null, null, null) { V3 = "ScopeClass" },
+        new("ChangeScopes", "ItemType",         false, null, null, null) { V3 = "ItemType" },
+        new("ChangeScopes", "Target",           false, null, null, null) { V3 = "Target" },
+        new("ChangeScopes", "Access",           false, null, null, null) { V3 = "Access" },
+        new("ChangeScopes", "ReviewState",      false, null, null, null) { V3 = "ReviewState" },
+        new("ChangeScopes", "Notes",            false, null, null, null) { V3 = "Notes" },
+        new("ChangeScopes", "RecordVersion",    false, null, null, null) { V3 = "RecordVersion" },
+        new("ChangeScopes", "IsCurrent",        false, null, null, null) { V3 = "IsCurrent" },
+        new("ChangeScopes", "EffectiveFrom",    false, null, null, null) { V3 = "EffectiveFrom" },
+        // `L = ChangeId` on this sheet is the envelope's originating change, not a business key —
+        // the sheet declares the name once. It is therefore bound under the envelope name for
+        // consistency with `GitLineage.EnvelopeChangeId`, so a caller reading the two sheets does
+        // not have to remember that `ChangeId` means different things on each.
+        new("ChangeScopes", "EnvelopeChangeId", false, null, null, null) { V3 = "ChangeId" },
+        new("ChangeScopes", "SupersedesVersion", false, null, null, null) { V3 = "SupersedesVersion" },
+
+        // CORE CHANGE REQUESTS. `19_ChangeRequests` is the request/handback surface between a
+        // product head and the Platform — the fields that say what was requested, under which
+        // execution policy and tool-permission profile, and where it ended up. It is NOT the same
+        // surface as the `Changes` logical sheet above, which is the reservation ledger; both can
+        // carry a change identifier and they are different objects, which is why neither is bound
+        // to the other's name.
+        //
+        // `Status` is bound raw. `LegacyStatusText` is bound beside it and not folded into it:
+        // TASK 5 of this stage exists precisely because the pre-migration wording and the V3 status
+        // disagree on three records, and a reader that collapsed the two would destroy the evidence
+        // the reconciliation is built on.
+        new("ChangeRequests", "RequestId",              true,  null, null, null) { V3 = "RequestId" },
+        new("ChangeRequests", "RequestType",            false, null, null, null) { V3 = "RequestType" },
+        new("ChangeRequests", "Destination",            false, null, null, null) { V3 = "Destination" },
+        new("ChangeRequests", "RequestingWorkId",       false, null, null, null) { V3 = "RequestingWorkId" },
+        new("ChangeRequests", "RequestingHead",         false, null, null, null) { V3 = "RequestingHead" },
+        new("ChangeRequests", "CapabilityRequested",    false, null, null, null) { V3 = "CapabilityRequested" },
+        new("ChangeRequests", "Purpose",                false, null, null, null) { V3 = "Purpose" },
+        new("ChangeRequests", "ContextRefs",            false, null, null, null) { V3 = "ContextRefs" },
+        new("ChangeRequests", "DataClassification",     false, null, null, null) { V3 = "DataClassification" },
+        new("ChangeRequests", "ExecutionPolicy",        false, null, null, null) { V3 = "ExecutionPolicy" },
+        new("ChangeRequests", "ToolPermissionProfile",  false, null, null, null) { V3 = "ToolPermissionProfile" },
+        new("ChangeRequests", "Status",                 false, null, null, null) { V3 = "Status" },
+        new("ChangeRequests", "PlatformChangeRequestId", false, null, null, null) { V3 = "PlatformChangeRequestId" },
+        new("ChangeRequests", "HandbackWorkId",         false, null, null, null) { V3 = "HandbackWorkId" },
+        new("ChangeRequests", "LegacyStatusText",       false, null, null, null) { V3 = "LegacyStatusText" },
+        new("ChangeRequests", "Notes",                  false, null, null, null) { V3 = "Notes" },
+        new("ChangeRequests", "RecordVersion",          false, null, null, null) { V3 = "RecordVersion" },
+        new("ChangeRequests", "IsCurrent",              false, null, null, null) { V3 = "IsCurrent" },
+        new("ChangeRequests", "EffectiveFrom",          false, null, null, null) { V3 = "EffectiveFrom" },
+        new("ChangeRequests", "EnvelopeChangeId",       false, null, null, null) { V3 = "ChangeId" },
+        new("ChangeRequests", "SupersedesVersion",      false, null, null, null) { V3 = "SupersedesVersion" },
     };
 
     /// <summary>
@@ -508,18 +657,29 @@ public static class WorkbookCompatibilityMap
         _ => null,
     };
 
-    /// <summary>W8D-R TASK 4. WC-5's other half for the V3 model — the sheets present in the V3
-    /// workbook that no logical binding consumes. They are named so that "nothing was silently
-    /// ignored" stays a checkable claim. Several are not incidental: `09_ChangeScopes` and
-    /// `11_Reservations` carry the scope and lease facts the collision engine consumes on the
-    /// other three forms, and consolidating those into the logical projection is a ChangeScope
-    /// change, not a binding change. Recorded here so the gap is visible rather than implied.</summary>
+    /// <summary>W8D-R TASK 4, revised by W8D-R5 TASK 1. WC-5's other half for the V3 model — the
+    /// sheets present in the V3 workbook that no logical binding consumes. They are named so that
+    /// "nothing was silently ignored" stays a checkable claim.</summary>
+    /// <remarks>
+    /// W8D-R5 TASK 1 removed three names from this list — `09_ChangeScopes`, `13_GitLineage` and
+    /// `19_ChangeRequests` — because each now HAS a binding. Removing them is not bookkeeping: this
+    /// list is a CLAIM that the named sheets are unprojected, and leaving a bound sheet on it would
+    /// make the claim false in the direction that matters, since a reader diffing this list against
+    /// reality would conclude the contract still cannot see Git lineage when it can.
+    ///
+    /// The runtime `UnboundSheets` list is computed from the workbook (reader `:646`), not from
+    /// here, so it corrects itself. This one does not, which is exactly why it needed the edit.
+    ///
+    /// What remains is still substantive: `11_Reservations` carries the lease facts the collision
+    /// engine consumes on the other three forms, and `17_Evidence` carries the acceptance evidence
+    /// the new acceptance-state columns only point at.
+    /// </remarks>
     public static readonly IReadOnlyList<string> KnownUnboundV3Sheets = new[]
     {
         "01_Configuration", "03_Products", "04_Capabilities", "05_Contracts",
-        "09_ChangeScopes", "11_Reservations", "12_DevelopmentRuns",
-        "13_GitLineage", "14_Builds", "15_Releases", "16_Deployments", "17_Evidence",
-        "18_Governance", "19_ChangeRequests", "21_Risks", "22_Exceptions",
+        "11_Reservations", "12_DevelopmentRuns",
+        "14_Builds", "15_Releases", "16_Deployments", "17_Evidence",
+        "18_Governance", "21_Risks", "22_Exceptions",
         "23_NexusEvolution", "24_V3MigrationMap", "25_Dashboard",
     };
 
