@@ -142,8 +142,35 @@ public sealed record DevelopmentControlReadResult(
     /// <summary>Every record across every sheet, in sheet order.</summary>
     public IReadOnlyList<DevelopmentControlRecord> Records { get; init; } = [];
 
+    /// <summary>
+    /// Physical sheet names present in the container that NO logical binding consumes.
+    ///
+    /// <para><b>Why this is on the contract rather than left to the implementation.</b> The V3
+    /// model has 26 sheets and only 8 of them are projected through logical bindings. Three of the
+    /// unprojected ones are not incidental - <c>13_GitLineage</c>, <c>09_ChangeScopes</c> and
+    /// <c>19_ChangeRequests</c> carry exactly the lineage, scope and change-request facts a caller
+    /// most wants - and they are named here so that "this workbook contains the data and the
+    /// contract does not project it" is a <b>checkable</b> statement rather than a silence.</para>
+    ///
+    /// <para>Without this list a caller receiving an empty
+    /// <see cref="IDependencyLineageLookup.LineageOf"/> result cannot tell "this record has no
+    /// lineage" from "lineage is not readable through this contract at all". Those are different
+    /// answers and only one of them is safe to act on. W8D-R4 TASK 5 found this the hard way;
+    /// see W8DR4_DEVELOPER_ADAPTATION.md.</para>
+    /// </summary>
+    public IReadOnlyList<string> UnboundSheets { get; init; } = [];
+
     public DevelopmentControlSheetRead? Sheet(string logicalName) =>
         Sheets.FirstOrDefault(s => string.Equals(s.LogicalName, logicalName, StringComparison.Ordinal));
+
+    /// <summary>
+    /// True when a sheet by this physical name exists in the container, whether or not a logical
+    /// binding projects it. The question "is the data there" and the question "can I read it
+    /// through this contract" have different answers, and this answers the first one.
+    /// </summary>
+    public bool HasPhysicalSheet(string physicalName) =>
+        Sheets.Any(s => string.Equals(s.PhysicalName, physicalName, StringComparison.OrdinalIgnoreCase))
+        || UnboundSheets.Contains(physicalName, StringComparer.OrdinalIgnoreCase);
 
     public int RecordCount => Sheets.Sum(s => s.Records.Count);
 

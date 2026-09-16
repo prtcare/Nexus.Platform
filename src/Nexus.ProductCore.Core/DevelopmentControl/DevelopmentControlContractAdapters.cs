@@ -81,6 +81,7 @@ public sealed class DevelopmentControlReader : IDevelopmentControlReader
             Records = read.Records
                 .Select(r => new DevelopmentControlRecord(r.LogicalSheet, r.Row, r.Values))
                 .ToArray(),
+            UnboundSheets = read.UnboundSheets,
         };
     }
 
@@ -342,44 +343,67 @@ public sealed class DevelopmentControlChangeScopePolicy : IChangeScopePolicy
 /// </summary>
 public sealed class DevelopmentControlLookup : IDependencyLineageLookup
 {
+    /// <summary>
+    /// The logical names this lookup queries. These are the names the reader's column bindings
+    /// RESOLVE TO on every form, not the physical header text - so <c>Dependencies.SourceId</c> is
+    /// this name on legacy (<c>From Node</c>), Foundation/Products (<c>SourceId</c>) and V3
+    /// (<c>FromWorkId</c>) alike.
+    ///
+    /// <para><b>Corrected in TASK 5 after the read proof caught the defect.</b> This class
+    /// originally queried <c>WorkItemId</c>, <c>DependsOnWorkItemId</c>, <c>DependsOnId</c>,
+    /// <c>Kind</c> and <c>DependencyKind</c>. <i>None of those logical names exists in any
+    /// binding</i>, so <see cref="DependenciesOf"/>, <see cref="DependentsOf"/> and
+    /// <see cref="LineageOf"/> all returned empty for every input, on every form, silently. The
+    /// names below are the ones the binding table actually declares
+    /// (<c>WorkbookCompatibilityReader.Columns</c>, the <c>Dependencies</c> rows). Keeping them in
+    /// one place, named, is what makes the next such mismatch a compile-time-visible edit rather
+    /// than five independent string literals.</para>
+    /// </summary>
+    private static class Columns
+    {
+        internal const string Sheet = "Dependencies";
+        internal const string Source = "SourceId";
+        internal const string Target = "TargetId";
+        internal const string RelationType = "RelationType";
+        internal const string Status = "Status";
+    }
+
     private readonly DevelopmentControlReadResult _read;
 
     public DevelopmentControlLookup(DevelopmentControlReadResult read) => _read = read;
 
     /// <summary>
-    /// True when the lineage sheet is absent OR present-but-unbound. The V3 candidate is in the
-    /// second state for <c>13_GitLineage</c>; callers must read that as "unavailable", never as
-    /// "this record has no history".
+    /// True when no logical sheet projects Git lineage, so lineage lookups for this workbook are
+    /// unavailable rather than empty.
+    ///
+    /// <para>The V3 candidate is in this state for <c>13_GitLineage</c>: the sheet is physically
+    /// present with real headers and rows, and the reader NAMES it in
+    /// <see cref="DevelopmentControlReadResult.UnboundSheets"/>, but no column binding decodes it.
+    /// "Not readable here" and "this record has no history" are different answers and only the
+    /// second is safe to act on, which is why this is a property on the contract and not a
+    /// convention.</para>
+    ///
+    /// <para>Expressed as "the logical sheet is absent" deliberately: that is the honest
+    /// mechanism. It stays correct if a GitLineage binding is added later - the property flips to
+    /// false without an edit here - which is the behaviour a caller wants.</para>
     /// </summary>
-    public bool LineageUnavailable =>
-        _read.Sheet("GitLineage") is not { Present: true }
-        || LineageSheetUnbound();
-
-    private bool LineageSheetUnbound() =>
-        _read.Diagnostics.Any(d => d.Contains("13_GitLineage", StringComparison.OrdinalIgnoreCase)
-                                && d.Contains("UNBOUND", StringComparison.OrdinalIgnoreCase));
+    public bool LineageUnavailable => _read.Sheet("GitLineage") is not { Present: true };
 
     public IReadOnlyList<DevelopmentControlDependency> DependenciesOf(string workItemId) =>
-        _read.Records
-            .Where(r => r.LogicalSheet == "Dependencies"
-                     && string.Equals(r.Get("WorkItemId"), workItemId, StringComparison.OrdinalIgnoreCase))
-            .Select(r => new DevelopmentControlDependency(
-                r.Get("WorkItemId") ?? "",
-                r.Get("DependsOnWorkItemId") ?? r.Get("DependsOnId") ?? "",
-                r.Get("Kind") ?? r.Get("DependencyKind") ?? "",
-                r.Get("Status") ?? ""))
-            .ToArray();
+        EdgesWhere(r => string.Equals(r.Get(Columns.Source), workItemId, StringComparison.OrdinalIgnoreCase));
 
     public IReadOnlyList<DevelopmentControlDependency> DependentsOf(string workItemId) =>
+        EdgesWhere(r => string.Equals(r.Get(Columns.Target), workItemId, StringComparison.OrdinalIgnoreCase));
+
+    private IReadOnlyList<DevelopmentControlDependency> EdgesWhere(
+        Func<DevelopmentControlRecord, bool> predicate) =>
         _read.Records
-            .Where(r => r.LogicalSheet == "Dependencies"
-                     && string.Equals(r.Get("DependsOnWorkItemId") ?? r.Get("DependsOnId"),
-                                      workItemId, StringComparison.OrdinalIgnoreCase))
+            .Where(r => r.LogicalSheet == Columns.Sheet && predicate(r))
             .Select(r => new DevelopmentControlDependency(
-                r.Get("WorkItemId") ?? "",
-                r.Get("DependsOnWorkItemId") ?? r.Get("DependsOnId") ?? "",
-                r.Get("Kind") ?? r.Get("DependencyKind") ?? "",
-                r.Get("Status") ?? ""))
+                r.Get(Columns.Source) ?? "",
+                r.Get(Columns.Target) ?? "",
+                r.Get(Columns.RelationType) ?? "",
+                r.Get(Columns.Status) ?? ""))
             .ToArray();
 
     /// <summary>
