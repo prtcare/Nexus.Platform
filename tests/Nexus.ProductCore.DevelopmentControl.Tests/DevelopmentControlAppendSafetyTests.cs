@@ -672,25 +672,29 @@ public sealed class DevelopmentControlAppendSafetyTests
     /// <summary>
     /// TASK 3 — "authority-marker mutation".
     ///
-    /// <para><b>What is actually being proved, and what the control is for.</b> Append cannot reach
-    /// the marker for a structural reason: it only ever brings a NEW row into existence, and the
-    /// marker is an existing cell on an existing row. That argument is sound but unfalsifiable on
-    /// its own — a test asserting "the marker did not change" passes trivially if the marker
-    /// assertion is broken, if the wrong cell is being read, or if the fixture is stale.</para>
+    /// <para><b>What this test used to assert, and why that was wrong.</b> Until W8D FINAL this test
+    /// proved the marker reading was sensitive by POINTING THE CELL WRITER AT THE MARKER and showing
+    /// it moved — <c>Assert.True(write.Written)</c> on a write of <c>AUTHORITATIVE</c> into
+    /// <c>Control.Value</c> at row 10. The mutation control was real, but it was built on the defect:
+    /// it certified that an ordinary cell write could promote the authority, which is exactly what
+    /// the directive forbids. The control has been kept and re-sited — the CUTOVER now proves the
+    /// sensor moves (see <see cref="Cutover_PromotesEverySiteAtomically_AndProvesTheSensorMoves"/>),
+    /// and the ordinary paths are asserted to be unable to reach the cell at all.</para>
     ///
-    /// <para>So this test FIRST proves the assertion is sensitive: it uses the cell-write path to
-    /// change the very cell, on a separate disposable copy, and shows the reading does move. Only
-    /// then does it assert that append leaves it alone. The two halves together are the mutation
-    /// control — without the first, the second measures nothing.</para>
+    /// <para><b>Both halves are still needed.</b> "The marker did not change" passes trivially if
+    /// the assertion is broken, the wrong cell is read, or the fixture is stale. The sensitivity
+    /// proof lives in the cutover test; this test asserts the refusals, and the pair together is
+    /// the mutation control.</para>
     /// </summary>
     [Fact]
-    public void Append_CannotMutateTheAuthorityMarker_AndTheCheckThatSaysSoIsSensitive()
+    public void NoOrdinaryWrite_CanPromoteTheAuthority()
     {
-        // ---- Half 1: the sensor works. Point the CELL writer at the marker cell and watch it move.
+        // ---- Half 1: the cell writer refuses the marker cell, and says why, and leaves the file alone.
         using (var probe = Fixture.Candidate())
         {
             var beforeMarker = WorkbookCompatibilityReader.AuthorityMarker(
                 WorkbookCompatibilityReader.Read(probe.Copy));
+            var beforeSha = probe.Sha256();
             Assert.Equal(WorkbookCompatibilityReader.AuthorityMarkerCandidate, beforeMarker);
 
             using var reservation = Hold(probe, "w8d-t3-marker-probe");
@@ -699,15 +703,36 @@ public sealed class DevelopmentControlAppendSafetyTests
                 new DevelopmentControlCellWrite("Control", 10, "Value",
                     WorkbookCompatibilityReader.AuthorityMarkerAuthoritative));
 
-            Assert.True(write.Written, write.Reason);
+            Assert.False(write.Written, write.Reason);
+            Assert.Equal(DevelopmentControlWriteVerdict.RefusedAuthoritySite, write.Verdict);
+            Assert.Contains("GOVERNED_CELL", write.Reason, StringComparison.Ordinal);
+
+            // Not merely "reported as refused": the bytes are untouched. A guard that refused in
+            // its return value while still writing would pass every assertion above except this one.
+            Assert.Equal(beforeSha, probe.Sha256());
 
             var afterMarker = WorkbookCompatibilityReader.AuthorityMarker(
                 WorkbookCompatibilityReader.Read(probe.Copy));
+            Assert.Equal(beforeMarker, afterMarker);
 
-            Assert.Equal(WorkbookCompatibilityReader.AuthorityMarkerAuthoritative, afterMarker);
-            Assert.NotEqual(beforeMarker, afterMarker);
+            Record($"T3.5 marker write refused via the cell path :: verdict={write.Verdict}; "
+                 + $"sha unchanged={beforeSha[..12]}…; marker still {afterMarker}");
+        }
 
-            Record($"T3.5 marker sensor sensitive :: {beforeMarker} -> {afterMarker} via the cell path");
+        // ---- Half 1b: the same refusal through the OTHER logically reachable site, so the guard is
+        // proved to be a property of the SITES rather than of one hardcoded cell address.
+        using (var probe = Fixture.Candidate())
+        {
+            using var reservation = Hold(probe, "w8d-t3-marker-probe-2");
+            var write = new DevelopmentControlWriterAuthorizer().Write(
+                reservation,
+                new DevelopmentControlCellWrite("MigrationMap", 16, "Status",
+                    WorkbookCompatibilityReader.AuthorityMarkerAuthoritative));
+
+            Assert.False(write.Written, write.Reason);
+            Assert.Equal(DevelopmentControlWriteVerdict.RefusedAuthoritySite, write.Verdict);
+
+            Record($"T3.5b marker write refused via the migration-map site :: verdict={write.Verdict}");
         }
 
         // ---- Half 2: append cannot reach it, on a fresh copy.
@@ -738,5 +763,265 @@ public sealed class DevelopmentControlAppendSafetyTests
             Record($"T3.6 marker unchanged by append :: {beforeMarker} -> {afterMarker}; "
                  + $"authority={new DevelopmentControlReader().Read(fixture.Copy).Authority}");
         }
+    }
+
+    /// <summary>
+    /// The sites are declared ONCE, in Contracts, and this is the assertion that keeps the
+    /// declaration honest. Two facts are load-bearing and both are easy to lose silently:
+    /// <list type="number">
+    /// <item><description>There are exactly FOUR sites. A fifth added to the model but not to the
+    /// list would be promotable by an ordinary write and nobody would find out until it
+    /// happened.</description></item>
+    /// <item><description>Exactly TWO are reachable by a logical write. If a future binding makes
+    /// <c>01_Configuration</c> or <c>25_Dashboard</c> addressable, the logical guard starts
+    /// covering them and the count here changes — which is the moment a human should look, not a
+    /// silent widening of the guarded surface.</description></item>
+    /// </list>
+    /// </summary>
+    [Fact]
+    public void TheAuthoritySites_AreDeclared_AndTheirReachabilityIsExplicit()
+    {
+        Assert.Equal(4, DevelopmentControlAuthoritySites.All.Count);
+
+        Assert.Equal(new[] { "00_Control!B10", "01_Configuration!D16", "24_V3MigrationMap!R16", "25_Dashboard!B5" },
+            DevelopmentControlAuthoritySites.All.Select(s => s.Reference).ToArray());
+
+        Assert.Equal(new[] { "Control!Value@10", "MigrationMap!Status@16" },
+            DevelopmentControlAuthoritySites.ReachableByLogicalWrite
+                .Select(s => $"{s.LogicalSheet}!{s.LogicalColumn}@{s.Row}").ToArray());
+
+        // The physical predicate is what the writer enforces, so it is checked directly rather than
+        // only through a write that happens to exercise it.
+        Assert.NotNull(DevelopmentControlAuthoritySites.FindPhysical("00_Control", "B", 10));
+        Assert.NotNull(DevelopmentControlAuthoritySites.FindPhysical("25_Dashboard", "b", 5)); // case-insensitive by design
+        Assert.Null(DevelopmentControlAuthoritySites.FindPhysical("00_Control", "B", 11));
+        Assert.Null(DevelopmentControlAuthoritySites.FindPhysical("00_Control", "C", 10));
+
+        Record($"T3.7 authority sites declared :: {DevelopmentControlAuthoritySites.All.Count} total, "
+             + $"{DevelopmentControlAuthoritySites.ReachableByLogicalWrite.Count} logically reachable");
+    }
+
+    // ================================================================ W8D FINAL — the cutover
+
+    private static DevelopmentControlCutoverRequest CutoverRequest(
+        bool suitesGreen = true,
+        bool hostsAgree = true,
+        string evidenceRef = "W8D_FINAL/_evidence/tests/w1-harness-final.txt",
+        string changeId = "CHG-W8D-CUTOVER-0001") =>
+        new(changeId,
+            "W8D FINAL TASK 3: promote the reconciled 26-sheet V3 candidate to authoritative under "
+            + "Owner decisions H-1A..H-1E, preserving both source states and recording the remaining "
+            + "unresolved records explicitly.",
+            new DevelopmentControlCutoverAttestation(suitesGreen, hostsAgree, evidenceRef));
+
+    private static DevelopmentControlCutoverResult Cutover(
+        Fixture fixture, DevelopmentControlCutoverRequest request)
+    {
+        using var reservation = Hold(fixture, "w8d-t3-cutover");
+        return new DevelopmentControlWriterAuthorizer().Cutover(reservation, request);
+    }
+
+    /// <summary>
+    /// TASK 3's positive path: the cutover promotes every site, in one atomic swap, and read-back
+    /// through the canonical reader confirms it.
+    ///
+    /// <para><b>This test is also the marker sensor's sensitivity proof.</b> It shows the reading
+    /// DOES move when the cell is written — by the one governed operation permitted to write it.
+    /// Without that, every "the marker did not change" assertion elsewhere in this file would be
+    /// measuring nothing.</para>
+    /// </summary>
+    [Fact]
+    public void Cutover_PromotesEverySiteAtomically_AndProvesTheSensorMoves()
+    {
+        using var fixture = Fixture.Candidate();
+
+        var beforeMarker = WorkbookCompatibilityReader.AuthorityMarker(
+            WorkbookCompatibilityReader.Read(fixture.Copy));
+        var beforeSha = fixture.Sha256();
+        Assert.Equal(WorkbookCompatibilityReader.AuthorityMarkerCandidate, beforeMarker);
+
+        var result = Cutover(fixture, CutoverRequest());
+
+        Assert.True(result.Performed, result.Reason);
+        Assert.Equal(DevelopmentControlCutoverVerdict.Performed, result.Verdict);
+
+        // Every declared site moved, and the result NAMES each one rather than counting them.
+        Assert.Equal(DevelopmentControlAuthoritySites.All.Count, result.Sites.Count);
+        Assert.All(result.Sites, s =>
+        {
+            Assert.Equal(WorkbookCompatibilityReader.AuthorityMarkerCandidate, s.Before);
+            Assert.Equal(WorkbookCompatibilityReader.AuthorityMarkerAuthoritative, s.After);
+        });
+        Assert.Contains("00_Control!B10:CANDIDATE->AUTHORITATIVE", result.SiteSummary, StringComparison.Ordinal);
+        Assert.Contains("25_Dashboard!B5:CANDIDATE->AUTHORITATIVE", result.SiteSummary, StringComparison.Ordinal);
+
+        // The bytes changed, and the result carries both ends so "which bytes are authoritative" is
+        // answerable from the result alone.
+        var afterSha = fixture.Sha256();
+        Assert.Equal(beforeSha, result.Sha256Before);
+        Assert.Equal(afterSha, result.Sha256After);
+        Assert.NotEqual(beforeSha, afterSha);
+
+        // The sensor moves: this is the sensitivity proof the old cell-write half used to provide.
+        var afterMarker = WorkbookCompatibilityReader.AuthorityMarker(
+            WorkbookCompatibilityReader.Read(fixture.Copy));
+        Assert.Equal(WorkbookCompatibilityReader.AuthorityMarkerAuthoritative, afterMarker);
+        Assert.NotEqual(beforeMarker, afterMarker);
+
+        // And it moved for the READER both hosts use, not merely in the file.
+        Assert.Equal(DevelopmentControlAuthority.Authoritative,
+            new DevelopmentControlReader().Read(fixture.Copy).Authority);
+
+        Record($"T3.8 cutover performed :: {beforeSha[..12]}… -> {afterSha[..12]}…; {result.SiteSummary}; "
+             + $"unresolved={result.UnresolvedDecisionCount}; integrity=[{result.StructuralIntegrityReport}]");
+    }
+
+    /// <summary>
+    /// H-1E's two conditions are the ones this component CANNOT test, so they must be stated. This
+    /// test proves an unstated precondition is a typed refusal rather than a default — the exact
+    /// failure mode of a "permissive by omission" gate.
+    ///
+    /// <para>The third case is the one worth having: a well-formed attestation carrying a BLANK
+    /// evidence reference. Both booleans true and nothing to point at is an assertion without
+    /// evidence, and it is refused for the same reason a claim is.</para>
+    /// </summary>
+    [Fact]
+    public void Cutover_RefusesAnIncompleteAttestation()
+    {
+        foreach (var (label, request) in new[]
+        {
+            ("suites not green", CutoverRequest(suitesGreen: false)),
+            ("hosts do not agree", CutoverRequest(hostsAgree: false)),
+            ("no evidence reference", CutoverRequest(evidenceRef: "")),
+        })
+        {
+            using var fixture = Fixture.Candidate();
+            var beforeSha = fixture.Sha256();
+
+            var result = Cutover(fixture, request);
+
+            Assert.False(result.Performed);
+            Assert.Equal(DevelopmentControlCutoverVerdict.RefusedAttestationIncomplete, result.Verdict);
+            Assert.Equal(beforeSha, fixture.Sha256());
+
+            Record($"T3.9 cutover refused ({label}) :: {result.Verdict}");
+        }
+
+        // Control: the identical request with the condition restored DOES perform, so the refusals
+        // above are measuring the attestation and not the fixture.
+        using var control = Fixture.Candidate();
+        Assert.True(Cutover(control, CutoverRequest()).Performed);
+    }
+
+    /// <summary>
+    /// A second cutover on an already-authoritative workbook is a no-op, not a second promotion.
+    /// A re-run of a governed operation must be safe, and "already done" is not "failed".
+    /// </summary>
+    [Fact]
+    public void Cutover_IsIdempotent()
+    {
+        using var fixture = Fixture.Candidate();
+
+        Assert.True(Cutover(fixture, CutoverRequest()).Performed);
+
+        var afterFirst = fixture.Sha256();
+
+        var second = Cutover(fixture, CutoverRequest());
+
+        Assert.False(second.Performed);
+        Assert.Equal(DevelopmentControlCutoverVerdict.RefusedAlreadyAuthoritative, second.Verdict);
+        Assert.Equal(afterFirst, fixture.Sha256());
+        Assert.Equal(DevelopmentControlAuthority.Authoritative,
+            new DevelopmentControlReader().Read(fixture.Copy).Authority);
+
+        Record($"T3.10 cutover idempotent :: second run {second.Verdict}; sha unchanged={afterFirst[..12]}…");
+    }
+
+    /// <summary>
+    /// The preserved 14-sheet revision cannot be promoted. This is H-1A's "legacy must remain
+    /// historical provenance" expressed as an executable check: the cutover may not be used to
+    /// convert a frozen revision into the current authority.
+    ///
+    /// <para>The refusal is <see cref="DevelopmentControlCutoverVerdict.RefusedNotV3"/> rather than
+    /// a path refusal, and that is the correct verdict: the legacy workbook is refused because it
+    /// is not the V3 model, which is a stronger reason than where the file happens to live.</para>
+    /// </summary>
+    [Fact]
+    public void Cutover_RefusesThePreservedLegacyRevision()
+    {
+        using var fixture = Fixture.Legacy();
+        var beforeSha = fixture.Sha256();
+
+        var result = Cutover(fixture, CutoverRequest());
+
+        Assert.False(result.Performed);
+        Assert.Equal(DevelopmentControlCutoverVerdict.RefusedNotV3, result.Verdict);
+        Assert.Equal(beforeSha, fixture.Sha256());
+
+        // The legacy revision keeps its own authority designation, whatever that is — the cutover
+        // did not overwrite it with the V3 vocabulary.
+        var legacyMarker = WorkbookCompatibilityReader.AuthorityMarker(
+            WorkbookCompatibilityReader.Read(fixture.Copy));
+
+        Record($"T3.11 cutover refused on the preserved legacy revision :: {result.Verdict}; "
+             + $"marker left as '{legacyMarker ?? "<unreadable>"}'");
+    }
+
+    /// <summary>
+    /// The unresolved-decision count is MEASURED from the workbook being promoted, not accepted
+    /// from the caller. H-1E permits an authoritative control model to contain explicit
+    /// <c>HUMAN_DECISION_REQUIRED</c> records; this asserts the count reported at the moment of
+    /// promotion agrees with an independent read of <c>20_Decisions</c>.
+    ///
+    /// <para><b>Why the "greater than zero" half is conditional, and on what.</b> An unconditional
+    /// <c>expected &gt; 0</c> would be a claim about a particular artifact dressed up as a claim
+    /// about the measurement — and it is false for the live authority, which predates the
+    /// reconciliation and carries NONE of the four W8D decision records. Asserting it would force
+    /// either a false pass or a false failure depending on which workbook the suite was pointed at.
+    /// So the sensitivity check is tied to evidence INSIDE the workbook: if this workbook carries
+    /// W8D reconciliation records at all, then it must also carry the explicit unresolved decisions
+    /// those reconciliations recorded, because a count of zero there would mean the measurement is
+    /// reading the wrong column rather than that nothing remains open.</para>
+    /// </summary>
+    [Fact]
+    public void Cutover_MeasuresTheUnresolvedDecisionCount_FromTheWorkbookItself()
+    {
+        using var fixture = Fixture.Candidate();
+
+        var decisions = WorkbookCompatibilityReader.Read(fixture.Copy).Sheet("Decisions")!;
+
+        var expected = decisions.Records
+            .Count(r => (r.Get("Decision") ?? "").TrimStart()
+                .StartsWith("HUMAN_DECISION_REQUIRED", StringComparison.OrdinalIgnoreCase));
+
+        // Does this workbook carry the W8D reconciliation at all? CHG-W8D-* is the ChangeId the
+        // reconciliation wrote, so its presence is the evidence that the decision records for these
+        // reconciliations should also be here.
+        var reconciled = decisions.Records.Count(r =>
+            (r.Get("ChangeId") ?? "").StartsWith("CHG-W8D", StringComparison.OrdinalIgnoreCase));
+
+        var result = Cutover(fixture, CutoverRequest());
+
+        Assert.True(result.Performed, result.Reason);
+        Assert.Equal(expected, result.UnresolvedDecisionCount);
+
+        if (reconciled > 0)
+        {
+            Assert.True(expected > 0,
+                $"this workbook carries {reconciled} W8D reconciliation record(s), so it must also "
+                + "carry the explicit unresolved decisions those reconciliations recorded. A count of "
+                + "zero means the measurement is reading the wrong column, not that nothing is open.");
+        }
+        else
+        {
+            Record("T3.12 NOTE :: this workbook carries NO W8D reconciliation records, so it is the "
+                 + "pre-reconciliation authority. It is expected to carry 0 unresolved decisions — "
+                 + "the four W8D decision records exist only in the reconciled candidate, which is "
+                 + "why TASK 3 cuts over the CANDIDATE and not this file.");
+        }
+
+        Record($"T3.12 unresolved decision count measured at promotion :: {result.UnresolvedDecisionCount} "
+             + $"of {decisions.Records.Count} decision records carry HUMAN_DECISION_REQUIRED; "
+             + $"W8D reconciliation records present={reconciled}");
     }
 }

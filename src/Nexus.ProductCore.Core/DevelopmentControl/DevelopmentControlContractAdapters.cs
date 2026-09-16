@@ -199,6 +199,40 @@ public sealed class DevelopmentControlWriterAuthorizer : IDevelopmentControlWrit
 
         return held.Append(record);
     }
+
+    /// <summary>
+    /// W8D FINAL TASK 3. The authority cutover, exposed through the shared contract.
+    ///
+    /// <para><b>Why the reservation check comes first and is not negotiable.</b> A cutover that
+    /// could run without the lock would be a second writer on the one file whose single-writer
+    /// property the whole component exists to provide — and unlike an ordinary write, it would
+    /// change what every subsequent reader treats as authoritative. A reservation from another
+    /// implementation cannot be verified as holding the canonical lock, because only this component
+    /// constructs a <see cref="DevelopmentControlReservation"/>, so the check is on the TYPE.</para>
+    ///
+    /// <para>A refusal is a RESULT, not an exception. The caller is asking a governed question and
+    /// the answer may legitimately be no; throwing would make "already authoritative" — a benign
+    /// no-op — indistinguishable from a failure at the call site.</para>
+    /// </summary>
+    public DevelopmentControlCutoverResult Cutover(
+        IDevelopmentControlReservation reservation, DevelopmentControlCutoverRequest request)
+    {
+        if (reservation is not DevelopmentControlReservation held)
+            return new DevelopmentControlCutoverResult(
+                Performed: false,
+                Verdict: DevelopmentControlCutoverVerdict.RefusedNoReservation,
+                Reason: "The reservation was not issued by this component. A reservation from another "
+                      + "implementation cannot be verified as holding the canonical lock, and a cutover "
+                      + "performed under an unverified lock would promote the authority while some other "
+                      + "writer believed it held exclusivity.",
+                Path: "", Sha256Before: "", Sha256After: "", StateBefore: "", StateAfter: "",
+                Sites: Array.Empty<DevelopmentControlCutoverSiteChange>(),
+                UnresolvedDecisionCount: 0, StructuralIntegrityReport: "",
+                ChangeId: request?.ChangeId ?? "", Rationale: request?.Rationale ?? "",
+                EvidenceRef: request?.Attestation?.EvidenceRef ?? "");
+
+        return held.Cutover(request);
+    }
 }
 
 /// <summary>The canonical writer lock, exposed through the shared contract.</summary>
@@ -310,13 +344,15 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
     {
         if (!Held)
             return new(false, "Refused: this reservation has already been released, so it no longer "
-                            + "excludes another writer. Acquire a new one.", null, null);
+                            + "excludes another writer. Acquire a new one.", null, null,
+                            DevelopmentControlWriteVerdict.RefusedReservation);
 
         if (_lock.Lease.Expiry <= DateTimeOffset.UtcNow)
             return new(false,
                 $"Refused: the lease expired at {_lock.Lease.Expiry:O}. Writing under an expired lease "
                 + "means another process may legitimately have reclaimed the lock, so this write could "
-                + "race a legitimate writer. Heartbeat or re-acquire first.", null, null);
+                + "race a legitimate writer. Heartbeat or re-acquire first.", null, null,
+                DevelopmentControlWriteVerdict.RefusedReservation);
 
         var read = WorkbookCompatibilityReader.Read(_storePath);
 
@@ -326,7 +362,8 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
         if (sheet is null || sheet.Presence == SheetPresence.DeclaredButMissing)
             return new(false,
                 $"Refused: no readable sheet is bound to logical name '{write.LogicalSheet}'. "
-                + $"Available: {string.Join(", ", read.Sheets.Select(s => s.LogicalName))}.", null, null);
+                + $"Available: {string.Join(", ", read.Sheets.Select(s => s.LogicalName))}.", null, null,
+                DevelopmentControlWriteVerdict.RefusedBinding);
 
         var column = sheet.Columns.FirstOrDefault(c =>
             string.Equals(c.LogicalName, write.LogicalColumn, StringComparison.Ordinal));
@@ -334,16 +371,38 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
         if (column is null)
             return new(false,
                 $"Refused: '{write.LogicalSheet}' has no logical column '{write.LogicalColumn}'. "
-                + $"Available: {string.Join(", ", sheet.Columns.Select(c => c.LogicalName))}.", null, null);
+                + $"Available: {string.Join(", ", sheet.Columns.Select(c => c.LogicalName))}.", null, null,
+                DevelopmentControlWriteVerdict.RefusedBinding);
 
         if (!column.Found || column.PhysicalColumn is null)
             return new(false,
                 $"Refused: logical column '{write.LogicalColumn}' is not present in this workbook's "
                 + $"form ({read.Form}) — the binding declares no header for it here. Writing anyway "
-                + "would mean inventing a column, so the target is reported instead.", null, null);
+                + "would mean inventing a column, so the target is reported instead.", null, null,
+                DevelopmentControlWriteVerdict.RefusedBinding);
 
         if (sheet.PhysicalName is null)
-            return new(false, $"Refused: '{write.LogicalSheet}' resolved to no physical sheet.", null, null);
+            return new(false, $"Refused: '{write.LogicalSheet}' resolved to no physical sheet.", null, null,
+                            DevelopmentControlWriteVerdict.RefusedBinding);
+
+        // --- W8D FINAL: the authority sites are refused, in the caller's own vocabulary.
+        //
+        // The writer refuses these cells PHYSICALLY as well, and that guard is the one that cannot
+        // be stepped around. This check exists because the physical refusal can only report
+        // "GOVERNED_CELL — 00_Control!B10", which names a spreadsheet address to a caller that
+        // never spoke in those terms. Answering the question the caller actually asked — "may I
+        // write Control.Value at row 10" — is what makes the refusal actionable rather than
+        // merely correct.
+        //
+        // Only two of the four sites are reachable here. `01_Configuration` and `25_Dashboard` are
+        // not bound by the compatibility map, so a logical write cannot address them at all; they
+        // are covered by the physical guard and by the cutover, not by this check.
+        var authoritySite = DevelopmentControlAuthoritySites.FindLogical(
+            write.LogicalSheet, write.Row, write.LogicalColumn);
+
+        if (authoritySite is not null)
+            return new(false, "Refused: " + DevelopmentControlAuthoritySites.RefusalReason(authoritySite),
+                null, null, DevelopmentControlWriteVerdict.RefusedAuthoritySite);
 
         var previous = sheet.Records
             .FirstOrDefault(r => r.Row == write.Row)?.Get(write.LogicalColumn);
@@ -355,13 +414,247 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
         }
         catch (WorkbookDecodeException ex)
         {
-            return new(false, "Refused: " + ex.Message, previous, null);
+            // The physical guard's own refusal arrives here as a decode exception. It is reported
+            // with the SAME typed verdict as the logical guard above rather than as a generic
+            // failure: the two checks answer one question and a caller must not have to pattern
+            // match on prose to learn that it was the governed cell that stopped the write.
+            var verdict = ex.Message.StartsWith("GOVERNED_CELL", StringComparison.Ordinal)
+                ? DevelopmentControlWriteVerdict.RefusedAuthoritySite
+                : DevelopmentControlWriteVerdict.Unknown;
+
+            return new(false, "Refused: " + ex.Message, previous, null, verdict);
         }
 
         return new(true,
             $"Wrote '{write.Value}' to {sheet.PhysicalName}!{column.PhysicalColumn}{write.Row} "
             + $"(logical {write.LogicalSheet}.{write.LogicalColumn}).",
-            previous, write.Value);
+            previous, write.Value, DevelopmentControlWriteVerdict.Allowed);
+    }
+
+    /// <summary>
+    /// W8D FINAL TASK 3. The authority cutover: the ONE operation that may promote this workbook
+    /// from <c>CANDIDATE</c> to <c>AUTHORITATIVE</c>.
+    ///
+    /// <para><b>Why this had to exist.</b> Before it, no cutover mechanism existed at all AND the
+    /// promotion was reachable by an ordinary cell write — so the directive's "a normal workbook
+    /// write must NOT promote authority" was not a weak guard but a false statement. The marker
+    /// guard now lives in <see cref="DevelopmentControlCellWriter.WriteCell"/>; this method is the
+    /// only path around it, and it is governed.</para>
+    ///
+    /// <para><b>The order of the refusals is the order of the questions.</b> Reservation state
+    /// first, because nothing else is knowable without it. Then the attestation, because it is the
+    /// one input only the operator can supply and refusing it last would waste the whole
+    /// operation. Then the path class, then the schema, then the marker, then structural integrity,
+    /// and only then the workbook itself. Every one of these is answered from a read taken UNDER
+    /// the held lock, so the state that is checked is the state that is written.</para>
+    ///
+    /// <para><b>H-1E is enforced as an attestation, not assumed.</b> The Owner's policy makes
+    /// cutover conditional on the shared suites being green and on both hosts interpreting the same
+    /// canonical data identically. This component cannot run two hosts' suites from inside a
+    /// workbook write, and it must not report a condition it never established. So the operator
+    /// states both, the result records the evidence reference, and an incomplete attestation is a
+    /// typed refusal rather than a default.</para>
+    ///
+    /// <para><b>The unresolved-decision count is measured here, not accepted from the caller.</b>
+    /// H-1E permits an authoritative workbook to contain explicit <c>HUMAN_DECISION_REQUIRED</c>
+    /// records, which makes that count the number that says how much is still open inside the
+    /// artifact being promoted. A caller-supplied count would be an assertion about the workbook by
+    /// the party asking to change it; reading it from <c>20_Decisions</c> makes it a fact about the
+    /// bytes being promoted.</para>
+    /// </summary>
+    internal DevelopmentControlCutoverResult Cutover(DevelopmentControlCutoverRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var stateBefore = DevelopmentControlAuthoritySites.Candidate;
+        var stateAfter = DevelopmentControlAuthoritySites.Authoritative;
+
+        DevelopmentControlCutoverResult Refuse(
+            DevelopmentControlCutoverVerdict verdict, string reason,
+            string sha = "", IReadOnlyList<DevelopmentControlCutoverSiteChange>? sites = null,
+            int unresolved = 0, string integrity = "", string from = "", string to = "")
+            => new(false, verdict, reason, _storePath, sha, sha, from, to,
+                   sites ?? Array.Empty<DevelopmentControlCutoverSiteChange>(), unresolved, integrity,
+                   request.ChangeId, request.Rationale, request.Attestation?.EvidenceRef ?? "");
+
+        if (!Held)
+            return Refuse(DevelopmentControlCutoverVerdict.RefusedNoReservation,
+                "this reservation has already been released, so it no longer excludes another writer. "
+                + "A cutover performed without the lock is exactly the concurrent promotion the lock "
+                + "exists to prevent. Acquire a new reservation.");
+
+        if (_lock.Lease.Expiry <= DateTimeOffset.UtcNow)
+            return Refuse(DevelopmentControlCutoverVerdict.RefusedNoReservation,
+                $"the lease expired at {_lock.Lease.Expiry:O}. Another process may legitimately have "
+                + "reclaimed the lock, so this cutover could race a legitimate writer. Heartbeat or "
+                + "re-acquire first.");
+
+        if (request.Attestation is null || !request.Attestation.IsComplete)
+            return Refuse(DevelopmentControlCutoverVerdict.RefusedAttestationIncomplete,
+                "the H-1E attestation is incomplete. Cutover is permitted only where the shared "
+                + "writer/reader/lock suites are green AND Forge and Developer interpret the same "
+                + "canonical data identically, and this component cannot run another host's suites to "
+                + "establish either. Both conditions must be stated affirmatively with an evidence "
+                + "reference; an unstated precondition is not a satisfied one.");
+
+        if (string.IsNullOrWhiteSpace(request.ChangeId))
+            return Refuse(DevelopmentControlCutoverVerdict.RefusedAttestationIncomplete,
+                "no authorising ChangeId was supplied. A cutover changes what the estate treats as "
+                + "authoritative and must be traceable to the decision that authorised it.");
+
+        if (string.IsNullOrWhiteSpace(request.Rationale))
+            return Refuse(DevelopmentControlCutoverVerdict.RefusedAttestationIncomplete,
+                "no rationale was supplied. The cutover is the one operation that changes authority, "
+                + "so why it was performed is part of the governed record rather than a commit message.");
+
+        if (request.FromState != stateBefore || request.ToState != stateAfter)
+            return Refuse(DevelopmentControlCutoverVerdict.RefusedAttestationIncomplete,
+                $"the request declares a transition '{request.FromState}' -> '{request.ToState}', which "
+                + $"is not the governed transition '{stateBefore}' -> '{stateAfter}'. The endpoint states "
+                + "are properties of the model, not parameters of the request.");
+
+        var pathCheck = WorkbookCompatibilityReader.AuthorizeWritePath(_storePath);
+        if (!pathCheck.Allowed)
+            return Refuse(DevelopmentControlCutoverVerdict.RefusedPath,
+                $"the store path is a refused class. {pathCheck.Reason}");
+
+        // --- everything below reads UNDER the held lock, so what is verified is what is written.
+        var read = WorkbookCompatibilityReader.Read(_storePath);
+
+        if (read.Form != WorkbookForm.V3)
+            return Refuse(DevelopmentControlCutoverVerdict.RefusedNotV3,
+                $"the workbook reads as {read.Form}, not V3. Only the 26-sheet V3 model carries the "
+                + "cutover sites, so there is nothing here to promote.");
+
+        var authorisation = WorkbookCompatibilityReader.AuthorizeWrite(read, WorkbookForm.V3);
+        if (!authorisation.Allowed)
+            return Refuse(DevelopmentControlCutoverVerdict.RefusedSchemaMismatch,
+                $"the workbook may not be written at all, so it may not be promoted. {authorisation.Reason}");
+
+        var marker = WorkbookCompatibilityReader.AuthorityMarker(read);
+        if (string.IsNullOrWhiteSpace(marker))
+            return Refuse(DevelopmentControlCutoverVerdict.RefusedMarkerUnreadable,
+                $"`00_Control` carries no readable {WorkbookCompatibilityReader.AuthorityMarkerItem}, so "
+                + "the before-state cannot be established. A cutover that cannot read the state it is "
+                + "moving from cannot report what it moved.");
+
+        var integrity = StructuralIntegrity(read);
+
+        if (marker == stateAfter)
+            return Refuse(DevelopmentControlCutoverVerdict.RefusedAlreadyAuthoritative,
+                $"every authority site already reads '{stateAfter}'. Nothing to do; re-running a cutover "
+                + "is a no-op rather than a second promotion.", sha: read.SourceSha256, integrity: integrity,
+                from: stateAfter, to: stateAfter);
+
+        if (read.GovernanceSubstrateAbsent.Count > 0)
+        {
+            // Reported, never used to refuse. H-1E settled this: a V3 workbook with an absent
+            // governance substrate MAY hold authority provided both source states are preserved,
+            // provenance is retained, the unresolved status is explicit, and integrity is green.
+            // Refusing here would re-decide a question the Owner has answered.
+            integrity += $" | governance-substrate sheets absent: "
+                + string.Join(", ", read.GovernanceSubstrateAbsent)
+                + " (H-1E: reported, not disqualifying)";
+        }
+
+        // `PartiallySupported` is NOT a refusal. That is precisely the V3-with-absent-substrate
+        // result, which H-1E settled as permitted to hold authority. Refusing it here would
+        // re-decide the question the Owner has already answered, and would make every cutover
+        // unreachable on the artifact this cutover exists to promote.
+        if (read.Result is ReaderResult.UnsupportedSchema or ReaderResult.Corrupt or ReaderResult.EmptyValid
+            || read.Sheets.Any(s => s.Presence == SheetPresence.DeclaredButMissing))
+        {
+            var missing = read.Sheets.Where(s => s.Presence == SheetPresence.DeclaredButMissing)
+                .Select(s => s.LogicalName).ToArray();
+            return Refuse(DevelopmentControlCutoverVerdict.RefusedStructuralIntegrity,
+                $"structural integrity did not pass: result={read.Result}"
+                + (missing.Length > 0
+                    ? $"; sheets declared but missing: {string.Join(", ", missing)}"
+                    : "")
+                + ". A candidate that is not whole must not be promoted, because promotion is what "
+                + "makes every subsequent reader trust it.", sha: read.SourceSha256, integrity: integrity);
+        }
+
+        var decisions = read.Sheet("Decisions");
+        var unresolvedCount = decisions is null
+            ? 0
+            : decisions.Records.Count(r =>
+                (r.Get("Decision") ?? "").TrimStart()
+                    .StartsWith("HUMAN_DECISION_REQUIRED", StringComparison.OrdinalIgnoreCase));
+
+        var shaBefore = read.SourceSha256;
+
+        IReadOnlyList<DevelopmentControlCutoverSiteChange> changes;
+        try
+        {
+            changes = DevelopmentControlCellWriter.CutoverAuthority(_storePath, stateBefore, stateAfter);
+        }
+        catch (WorkbookDecodeException ex)
+        {
+            var verdict = ex.Message.StartsWith("CUTOVER_SITE_MISSING", StringComparison.Ordinal)
+                ? DevelopmentControlCutoverVerdict.RefusedSiteMissing
+                : DevelopmentControlCutoverVerdict.RefusedSiteValueUnexpected;
+
+            return Refuse(verdict, "the cutover was refused and the workbook was left unmodified. " + ex.Message,
+                sha: shaBefore, unresolved: unresolvedCount, integrity: integrity, from: stateBefore);
+        }
+
+        // --- read-back. The swap is atomic, but "the file changed" and "the workbook now reads as
+        // authoritative through the same reader every host uses" are different claims, and only the
+        // second one is what the cutover is supposed to establish.
+        var after = WorkbookCompatibilityReader.Read(_storePath);
+        var markerAfter = WorkbookCompatibilityReader.AuthorityMarker(after);
+
+        if (markerAfter != stateAfter)
+            return Refuse(DevelopmentControlCutoverVerdict.RefusedReadBackMismatch,
+                $"the four sites were written, but re-reading through the canonical reader reports "
+                + $"'{markerAfter}' rather than '{stateAfter}'. The workbook on disk has changed; the "
+                + "authority did not. Treat the artifact as un-promoted until this is explained.",
+                sha: after.SourceSha256, sites: changes, unresolved: unresolvedCount,
+                integrity: integrity, from: stateBefore, to: markerAfter ?? "");
+
+        return new DevelopmentControlCutoverResult(
+            Performed: true,
+            Verdict: DevelopmentControlCutoverVerdict.Performed,
+            Reason: $"cutover performed. {changes.Count} authority site(s) moved {stateBefore} -> {stateAfter} "
+                  + "in one atomic container swap; read-back through the canonical reader confirms "
+                  + $"'{stateAfter}'. {unresolvedCount} explicit HUMAN_DECISION_REQUIRED record(s) remain "
+                  + "inside the now-authoritative control model, which H-1E permits.",
+            Path: _storePath,
+            Sha256Before: shaBefore,
+            Sha256After: after.SourceSha256,
+            StateBefore: stateBefore,
+            StateAfter: stateAfter,
+            Sites: changes,
+            UnresolvedDecisionCount: unresolvedCount,
+            StructuralIntegrityReport: integrity,
+            ChangeId: request.ChangeId,
+            Rationale: request.Rationale,
+            EvidenceRef: request.Attestation.EvidenceRef);
+    }
+
+    /// <summary>
+    /// The integrity facts the read model can establish, named as what they are rather than
+    /// summarised as "green". Every field here is a measured property of the workbook in front of
+    /// us; the cell-level and formula-level validation is the validator's job and is recorded in the
+    /// cutover evidence alongside this string, not folded into it.
+    ///
+    /// <para><b>These counts are LOGICAL BINDINGS, not physical sheets.</b> The read model projects
+    /// 19 logical names onto the 26-sheet physical model; the two numbers are different and
+    /// conflating them would misstate the artifact. The string says "logical bindings" for that
+    /// reason, and the physical sheet count is deliberately NOT asserted here because this model
+    /// does not measure it — the structural validator does, and its output is cutover evidence.</para>
+    /// </summary>
+    private static string StructuralIntegrity(WorkbookReadResult read)
+    {
+        var bound = read.Sheets.Count(s => s.Presence == SheetPresence.Bound);
+        var missing = read.Sheets.Count(s => s.Presence == SheetPresence.DeclaredButMissing);
+        var unbound = read.Sheets.Count - bound - missing;
+
+        return $"result={read.Result}; form={read.Form}; logical bindings={read.Sheets.Count} "
+             + $"(bound={bound}, declared-but-missing={missing}, unbound={unbound}; "
+             + "physical sheet count is not measured by this read model); "
+             + $"sha256={read.SourceSha256}";
     }
 
     public void Dispose()

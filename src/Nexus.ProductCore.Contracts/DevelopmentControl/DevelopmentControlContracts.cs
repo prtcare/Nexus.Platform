@@ -379,6 +379,31 @@ public interface IDevelopmentControlWriter
     DevelopmentControlAppendResult Append(
         IDevelopmentControlReservation reservation,
         DevelopmentControlAppendRecord record);
+
+    /// <summary>
+    /// W8D FINAL TASK 3. The explicit cutover mechanism: the only operation that may set the
+    /// authority state.
+    ///
+    /// <para><b>Why this exists as its own operation.</b> The directive is specific — "A normal
+    /// workbook write must NOT promote authority." Before this, it was not true: an ordinary cell
+    /// write to the marker cell changed it and the reader accepted the result, because nothing
+    /// distinguished "editing a record" from "declaring the estate's control authoritative". Those
+    /// are different acts with different preconditions, so they are now different operations, and
+    /// <see cref="DevelopmentControlAuthoritySites"/> is the list that separates them.</para>
+    ///
+    /// <para><b>It holds the same lock as every other write.</b> A cutover is not privileged
+    /// against concurrency: it goes through the same reservation, so it cannot run beside a writer
+    /// that is mid-record, and a concurrent writer cannot run beside it.</para>
+    ///
+    /// <para><b>It flips every site in one atomic save.</b> The four sites live on four sheets.
+    /// Saving them one at a time would leave a window in which the workbook reads
+    /// <c>AUTHORITATIVE</c> through the resolver and <c>CANDIDATE</c> on its own dashboard — a
+    /// state that is arguably worse than either endpoint, because it is authoritative and
+    /// self-contradicting at once.</para>
+    /// </summary>
+    DevelopmentControlCutoverResult Cutover(
+        IDevelopmentControlReservation reservation,
+        DevelopmentControlCutoverRequest request);
 }
 
 /// <summary>Why a write was or was not permitted.</summary>
@@ -406,6 +431,27 @@ public enum DevelopmentControlWriteVerdict
 
     /// <summary>Refused: the schema is not one a writer may govern.</summary>
     RefusedSchema = 7,
+
+    /// <summary>
+    /// Refused: the target cell is an authority-marker site, which only the governed cutover may
+    /// write. W8D FINAL adds this because without it "a normal workbook write must NOT promote
+    /// authority" was simply false — an ordinary cell write to `00_Control!B10` flipped the marker
+    /// and the reader accepted it.
+    /// </summary>
+    RefusedAuthoritySite = 8,
+
+    /// <summary>
+    /// Refused: the reservation is released or its lease has expired, so this writer no longer
+    /// excludes another. Distinguished from <see cref="RefusedBinding"/> because the remedy is
+    /// "acquire again", not "fix the name".
+    /// </summary>
+    RefusedReservation = 9,
+
+    /// <summary>
+    /// Refused: the logical sheet or logical column could not be resolved against this workbook's
+    /// own bindings. The remedy is to re-read the workbook and correct the request.
+    /// </summary>
+    RefusedBinding = 10,
 }
 
 /// <summary>The authorization decision, with the evidence for it.</summary>
@@ -426,12 +472,22 @@ public sealed record DevelopmentControlCellWrite(
     string LogicalColumn,
     string Value);
 
-/// <summary>The outcome of an attempted write.</summary>
+/// <summary>
+/// The outcome of an attempted write.
+///
+/// <para><b>W8D FINAL adds <paramref name="Verdict"/>.</b> Until then this carried only
+/// <c>Written</c> and prose, so "refused" meant the same thing whether the reservation had been
+/// released, the column was misspelled, or the cell was a governed authority site — three
+/// conditions with three different remedies and no machine-readable way to tell them apart. It is
+/// optional and defaults to <see cref="DevelopmentControlWriteVerdict.Unknown"/> so that existing
+/// callers and fixtures, which read the reason string, keep working unchanged.</para>
+/// </summary>
 public sealed record DevelopmentControlWriteResult(
     bool Written,
     string Reason,
     string? PreviousValue,
-    string? NewValue);
+    string? NewValue,
+    DevelopmentControlWriteVerdict Verdict = DevelopmentControlWriteVerdict.Unknown);
 
 #endregion
 

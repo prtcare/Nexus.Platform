@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    W8D FINAL TASK 1/2/3 driver.
+
+    This is a CONSOLE DRIVER, not product code: it performs the governed reconciliation and the
+    authority cutover by CALLING the shared component, so the operations it performs are the same
+    operations both hosts perform. It exists so the reconciliation is a reproducible program rather
+    than a sequence of hand-run steps, and so nothing in it can reach the OOXML directly.
+
+    Deliberately NOT referenced: any XML, ZIP or OOXML package. A driver that could open the
+    workbook itself would be able to do something the governed writer cannot, and the point of the
+    exercise is that no such path exists.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>W8dFinalReconcile</AssemblyName>
+    <RootNamespace>Nexus.W8dFinalReconcile</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Nexus.ProductCore.Core\Nexus.ProductCore.Core.csproj" />
+    <ProjectReference Include="..\..\src\Nexus.ProductCore.Contracts\Nexus.ProductCore.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

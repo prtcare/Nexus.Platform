@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Xml.Linq;
 using Nexus.DevelopmentControl.Safety;
+using Nexus.ProductCore.Contracts.DevelopmentControl;
 
 namespace Nexus.ProductCore.Core.DevelopmentControl;
 
@@ -55,6 +56,15 @@ internal static class DevelopmentControlCellWriter
     /// located. It does NOT create a missing row or sheet: a write that silently appends to a
     /// workbook whose structure has changed is exactly the "wrote something plausible to the wrong
     /// place" failure this component exists to prevent.</para>
+    ///
+    /// <para><b>W8D FINAL: it also refuses the authority-marker sites.</b> Until this change an
+    /// ordinary cell write to <c>00_Control!B10</c> promoted the workbook to authoritative and the
+    /// reader accepted the result, so "a normal workbook write must NOT promote authority" was
+    /// false — not weakly enforced, but untrue. The check is PHYSICAL and lives here, at the last
+    /// point before a cell is touched, because a guard phrased in logical names would sit one layer
+    /// up and any future caller resolving a physical column another way would step around it.
+    /// Promotion goes through <see cref="CutoverAuthority"/>, which is the only caller permitted to
+    /// write these cells and the only one that does not come through this method.</para>
     /// </summary>
     internal static void WriteCell(
         string workbookPath, string physicalSheetName, int rowNumber, string columnLetter, string value)
@@ -64,11 +74,117 @@ internal static class DevelopmentControlCellWriter
         ArgumentException.ThrowIfNullOrWhiteSpace(columnLetter);
         ArgumentNullException.ThrowIfNull(value);
 
+        var site = DevelopmentControlAuthoritySites.FindPhysical(physicalSheetName, columnLetter, rowNumber);
+        if (site is not null)
+            throw new WorkbookDecodeException(DevelopmentControlAuthoritySites.RefusalReason(site));
+
         var partName = ResolveSheetPart(workbookPath, physicalSheetName);
         var columnIndex = ColumnIndex(columnLetter);
 
         RewriteAtomically(workbookPath, partName,
             entry => EditSheet(entry, rowNumber, columnIndex, columnLetter, value));
+    }
+
+    /// <summary>
+    /// W8D FINAL TASK 3. The explicit cutover mechanism — the ONLY code path that may write an
+    /// authority-marker site.
+    ///
+    /// <para><b>Every site moves or none does.</b> The four sites live on four sheets, so this
+    /// builds the replacement container with all of them edited and swaps it in with a single
+    /// <see cref="File.Replace(string,string,string,bool)"/>. Writing them one at a time would leave
+    /// a window in which the workbook reads <c>AUTHORITATIVE</c> through the resolver and
+    /// <c>CANDIDATE</c> on its own dashboard — authoritative and self-contradicting at once, which
+    /// is worse than either endpoint.</para>
+    ///
+    /// <para><b>Every site is verified before any is written.</b> The whole new container is built
+    /// in memory from a read of every part, each site's current value is compared against
+    /// <paramref name="fromState"/>, and a mismatch aborts before the swap. A cutover that wrote
+    /// three sites and then discovered the fourth held something unexpected would have to either
+    /// roll back a file it had already replaced or proceed from a state it did not understand.</para>
+    ///
+    /// <para>Throws <see cref="WorkbookDecodeException"/> naming the offending site. The caller
+    /// (<see cref="DevelopmentControlReservation.Cutover"/>) converts that into a typed refusal.</para>
+    /// </summary>
+    internal static IReadOnlyList<DevelopmentControlCutoverSiteChange> CutoverAuthority(
+        string workbookPath, string fromState, string toState)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(workbookPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(fromState);
+        ArgumentException.ThrowIfNullOrWhiteSpace(toState);
+
+        // Resolve every site to its part first, so a missing sheet fails before anything is built.
+        var planned = new List<(DevelopmentControlAuthoritySites.Site Site, string Part)>();
+        foreach (var site in DevelopmentControlAuthoritySites.All)
+        {
+            string part;
+            try { part = ResolveSheetPart(workbookPath, site.PhysicalSheet); }
+            catch (WorkbookDecodeException ex)
+            {
+                throw new WorkbookDecodeException(
+                    $"CUTOVER_SITE_MISSING — the {site.Role} authority site '{site.Reference}' is "
+                    + $"declared by the model but could not be resolved: {ex.Message} A cutover moves "
+                    + "every site or none; promoting a workbook that has lost one of its own markers "
+                    + "would leave the remaining ones disagreeing.");
+            }
+            planned.Add((site, part));
+        }
+
+        var changes = new List<DevelopmentControlCutoverSiteChange>();
+        var sharedStrings = ReadSharedStrings(workbookPath);
+        var edits = new Dictionary<string, Func<ZipArchiveEntry, byte[]>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var group in planned.GroupBy(p => p.Part, StringComparer.OrdinalIgnoreCase))
+        {
+            var part = group.Key;
+            var sitesInPart = group.ToArray();
+
+            // Read ONCE per part, apply every site in it, serialise once. Two sites on one sheet
+            // would otherwise be two loads and two saves of the same part, and the second would
+            // overwrite the first.
+            edits[part] = entry =>
+            {
+                XDocument doc;
+                using (var stream = entry.Open())
+                {
+                    doc = XDocument.Load(stream, LoadOptions.PreserveWhitespace);
+                }
+
+                foreach (var (site, _) in sitesInPart)
+                {
+                    var before = ReadCellValue(doc, entry.FullName, site, sharedStrings);
+                    if (!string.Equals(before, fromState, StringComparison.Ordinal))
+                    {
+                        throw new WorkbookDecodeException(
+                            $"CUTOVER_SITE_VALUE — the {site.Role} authority site '{site.Reference}' "
+                            + $"reads '{before}', not the declared before-state '{fromState}'. The "
+                            + "workbook has changed underneath this cutover. Re-read it and decide "
+                            + "again rather than overwriting a value this operation did not expect: "
+                            + (string.Equals(before, toState, StringComparison.Ordinal)
+                                ? "this site is already at the after-state, so the cutover is at least "
+                                  + "partly applied."
+                                : "an unrecognised value means something else has written here."));
+                    }
+
+                    // Every check above runs while the container is still being built in memory;
+                    // the file on disk is untouched until RewriteAtomically swaps it in. So a
+                    // refusal anywhere leaves the workbook exactly as it was found.
+                    SetCellInDocument(doc, entry.FullName, site.Row, ColumnIndex(site.PhysicalColumn),
+                        site.PhysicalColumn, toState);
+                    changes.Add(new DevelopmentControlCutoverSiteChange(
+                        site.Role, site.Reference, before, toState));
+                }
+
+                using var buffer = new MemoryStream();
+                doc.Save(buffer, SaveOptions.DisableFormatting);
+                return buffer.ToArray();
+            };
+        }
+
+        // Nothing has been written yet. The swap below is the single point at which the workbook
+        // becomes authoritative.
+        RewriteAtomically(workbookPath, edits);
+
+        return changes;
     }
 
     /// <summary>
@@ -130,7 +246,41 @@ internal static class DevelopmentControlCellWriter
     /// </summary>
     private static void RewriteAtomically(
         string workbookPath, string partName, Func<ZipArchiveEntry, byte[]> edit)
+        => RewriteAtomically(workbookPath,
+            new Dictionary<string, Func<ZipArchiveEntry, byte[]>>(StringComparer.OrdinalIgnoreCase)
+            {
+                [partName] = edit,
+            });
+
+    /// <summary>
+    /// W8D FINAL TASK 3. The same atomic swap, editing SEVERAL parts in one container build.
+    ///
+    /// <para>This exists because the cutover has to move four markers on four sheets and the
+    /// single-part overload can only express one of them. The alternative was four sequential
+    /// <see cref="RewriteAtomically(string,string,Func{ZipArchiveEntry,byte[]})"/> calls, and that
+    /// is not merely slower: between any two of them the workbook on disk is authoritative through
+    /// the resolver and non-authoritative on its own dashboard. A reader arriving in that window —
+    /// and the lock is held, but the lock does not stop a reader — sees a self-contradicting
+    /// governance record. One container build, one <see cref="File.Replace(string,string,string,bool)"/>,
+    /// no window.</para>
+    ///
+    /// <para><b>Why the overload rather than a second copy of the method.</b> Byte-determinism and
+    /// atomicity are properties of THIS code path — the cross-host proof measured them here. A
+    /// parallel implementation for multi-part edits would be a second place for both to be lost,
+    /// and the loss would be invisible: the workbook would still be correct, just not reproducible.</para>
+    /// </summary>
+    private static void RewriteAtomically(
+        string workbookPath, IReadOnlyDictionary<string, Func<ZipArchiveEntry, byte[]>> edits)
     {
+        ArgumentNullException.ThrowIfNull(edits);
+        if (edits.Count == 0)
+        {
+            throw new WorkbookDecodeException(
+                "A rewrite carrying no edits would rebuild the container to change nothing. "
+                + "Refused rather than performed: it would still replace the file, so the workbook's "
+                + "identity would change while its content did not.");
+        }
+
         var directory = Path.GetDirectoryName(Path.GetFullPath(workbookPath))
             ?? throw new WorkbookDecodeException($"'{workbookPath}' has no containing directory.");
 
@@ -140,7 +290,7 @@ internal static class DevelopmentControlCellWriter
 
         try
         {
-            RewriteContainer(workbookPath, temp, partName, edit);
+            RewriteContainer(workbookPath, temp, edits);
 
             // Atomic swap. File.Replace is the only one of the .NET file APIs that gives
             // all-or-nothing semantics on NTFS with a rollback copy; Move(overwrite) is close but
@@ -157,15 +307,21 @@ internal static class DevelopmentControlCellWriter
     }
 
     /// <summary>
-    /// Builds the new container: every part copied through byte-for-byte except the target sheet,
-    /// which is re-serialised with the one cell changed.
+    /// Builds the new container: every part copied through byte-for-byte except the target sheets,
+    /// which are re-serialised with their cells changed.
+    ///
+    /// <para>An edit map naming a part the source does not carry is an error rather than a silent
+    /// no-op. The caller believes it is changing something; a container rebuild that dropped that
+    /// change would report success for a write that did not happen.</para>
     /// </summary>
     private static void RewriteContainer(
-        string source, string destination, string partName, Func<ZipArchiveEntry, byte[]> edit)
+        string source, string destination, IReadOnlyDictionary<string, Func<ZipArchiveEntry, byte[]>> edits)
     {
         using var input = ZipFile.OpenRead(source);
         using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None);
         using var archive = new ZipArchive(output, ZipArchiveMode.Create);
+
+        var applied = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var entry in input.Entries)
         {
@@ -189,8 +345,9 @@ internal static class DevelopmentControlCellWriter
 
             using var target = created.Open();
 
-            if (string.Equals(entry.FullName, partName, StringComparison.OrdinalIgnoreCase))
+            if (edits.TryGetValue(entry.FullName, out var edit))
             {
+                applied.Add(entry.FullName);
                 target.Write(edit(entry));
             }
             else
@@ -198,6 +355,16 @@ internal static class DevelopmentControlCellWriter
                 using var original = entry.Open();
                 original.CopyTo(target);
             }
+        }
+
+        var missing = edits.Keys.Where(k => !applied.Contains(k)).ToArray();
+        if (missing.Length > 0)
+        {
+            throw new WorkbookDecodeException(
+                $"The container has no part {(missing.Length == 1 ? "" : "s")} "
+                + string.Join(", ", missing.Select(m => $"'{m}'"))
+                + ", so the requested change was not applied. Refused rather than reported as a "
+                + "successful write: the caller is editing something the workbook does not carry.");
         }
     }
 
@@ -218,21 +385,37 @@ internal static class DevelopmentControlCellWriter
             doc = XDocument.Load(stream, LoadOptions.PreserveWhitespace);
         }
 
+        SetCellInDocument(doc, entry.FullName, rowNumber, columnIndex, columnLetter, value);
+
+        using var buffer = new MemoryStream();
+        doc.Save(buffer, SaveOptions.DisableFormatting);
+        return buffer.ToArray();
+    }
+
+    /// <summary>
+    /// Sets one cell inside an already-loaded sheet document. Split out of
+    /// <see cref="EditSheet"/> by W8D FINAL because the cutover edits several cells of the same
+    /// document before serialising it once; a second copy of this logic would be a second place for
+    /// the style-preservation and column-ordering rules to drift.
+    /// </summary>
+    private static void SetCellInDocument(
+        XDocument doc, string partName, int rowNumber, int columnIndex, string columnLetter, string value)
+    {
         var root = doc.Root
-            ?? throw new WorkbookDecodeException($"Sheet part '{entry.FullName}' has no root element.");
+            ?? throw new WorkbookDecodeException($"Sheet part '{partName}' has no root element.");
 
         var sheetData = root.Element(Ns + "sheetData")
-            ?? throw new WorkbookDecodeException($"Sheet part '{entry.FullName}' has no sheetData element.");
+            ?? throw new WorkbookDecodeException($"Sheet part '{partName}' has no sheetData element.");
 
         var row = sheetData.Elements(Ns + "row")
-            .FirstOrDefault(r => (string?)r.Attribute("r") == rowNumber.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .FirstOrDefault(r => (string?)r.Attribute("r") == Invariant(rowNumber))
             ?? throw new WorkbookDecodeException(
-                $"Row {rowNumber} does not exist in sheet part '{entry.FullName}'. This writer does not "
+                $"Row {rowNumber} does not exist in sheet part '{partName}'. This writer does not "
                 + "create rows: a write that appends to a structure which has changed underneath it is "
                 + "the failure mode this component exists to prevent. Re-read the workbook and target "
                 + "a row it actually carries.");
 
-        var reference = columnLetter + rowNumber.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var reference = columnLetter + Invariant(rowNumber);
         var cell = row.Elements(Ns + "c")
             .FirstOrDefault(c => string.Equals((string?)c.Attribute("r"), reference, StringComparison.OrdinalIgnoreCase));
 
@@ -266,10 +449,99 @@ internal static class DevelopmentControlCellWriter
 
             if (!inserted) row.Add(newCell);
         }
+    }
 
-        using var buffer = new MemoryStream();
-        doc.Save(buffer, SaveOptions.DisableFormatting);
-        return buffer.ToArray();
+    /// <summary>
+    /// W8D FINAL TASK 3. Reads the resolved text of an authority site, so the cutover can refuse a
+    /// workbook that has changed underneath it instead of overwriting a value it did not expect.
+    ///
+    /// <para><b>The shared string table is why this is not a one-liner.</b> Measured on the V3
+    /// candidate: every one of the four sites is stored as <c>t="s"</c> — an INDEX into
+    /// <c>xl/sharedStrings.xml</c> — so the raw <c>&lt;v&gt;</c> text of <c>00_Control!B10</c> is a
+    /// number, not <c>CANDIDATE</c>. A guard comparing that number against the expected state would
+    /// refuse every well-formed workbook, and a guard that skipped the comparison when the text
+    /// looked numeric would silently stop checking the one cell that decides. Both forms are
+    /// resolved here because the writer produces the other one: a cell this component has already
+    /// written is <c>t="inlineStr"</c>.</para>
+    ///
+    /// <para>Throws <see cref="WorkbookDecodeException"/> when the row or the cell is absent. An
+    /// absent site is not an empty site: a workbook that has lost a marker cannot be promoted from
+    /// the state that marker was supposed to carry.</para>
+    /// </summary>
+    private static string ReadCellValue(
+        XDocument doc, string partName, DevelopmentControlAuthoritySites.Site site,
+        IReadOnlyList<string> sharedStrings)
+    {
+        var root = doc.Root
+            ?? throw new WorkbookDecodeException($"Sheet part '{partName}' has no root element.");
+
+        var sheetData = root.Element(Ns + "sheetData")
+            ?? throw new WorkbookDecodeException($"Sheet part '{partName}' has no sheetData element.");
+
+        var row = sheetData.Elements(Ns + "row")
+            .FirstOrDefault(r => (string?)r.Attribute("r") == Invariant(site.Row))
+            ?? throw new WorkbookDecodeException(
+                $"CUTOVER_SITE_MISSING — row {site.Row} does not exist in sheet part '{partName}', so "
+                + $"the {site.Role} authority site '{site.Reference}' cannot be read.");
+
+        var reference = site.PhysicalColumn + Invariant(site.Row);
+        var cell = row.Elements(Ns + "c")
+            .FirstOrDefault(c => string.Equals((string?)c.Attribute("r"), reference, StringComparison.OrdinalIgnoreCase))
+            ?? throw new WorkbookDecodeException(
+                $"CUTOVER_SITE_MISSING — the {site.Role} authority site '{site.Reference}' is absent "
+                + $"from sheet part '{partName}'.");
+
+        // t="s" -> an index into the shared table; t="inlineStr" -> the text is in the cell.
+        var value = cell.Element(Ns + "v");
+        if (value is not null)
+        {
+            if (string.Equals((string?)cell.Attribute("t"), "s", StringComparison.Ordinal)
+                && int.TryParse(value.Value, System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out var index))
+            {
+                if (index < 0 || index >= sharedStrings.Count)
+                {
+                    throw new WorkbookDecodeException(
+                        $"CUTOVER_SITE_UNREADABLE — the {site.Role} authority site '{site.Reference}' "
+                        + $"indexes shared string {index}, which the table (holding "
+                        + $"{sharedStrings.Count}) does not contain. The workbook is internally "
+                        + "inconsistent, so its authority state cannot be established.");
+                }
+
+                return sharedStrings[index];
+            }
+
+            return value.Value;
+        }
+
+        var inline = cell.Element(Ns + "is");
+        if (inline is not null)
+            return string.Concat(inline.Descendants(Ns + "t").Select(t => t.Value));
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// The workbook's shared string table, in index order, or empty when it declares none.
+    /// Read once per cutover rather than per site: it is the largest part of the package (6,109
+    /// entries on the V3 candidate) and re-parsing it four times would be four chances to read a
+    /// different table than the sheet being checked.
+    /// </summary>
+    private static IReadOnlyList<string> ReadSharedStrings(string workbookPath)
+    {
+        using var zip = ZipFile.OpenRead(workbookPath);
+
+        var entry = zip.GetEntry("xl/sharedStrings.xml");
+        if (entry is null) return Array.Empty<string>();
+
+        using var stream = entry.Open();
+        var doc = XDocument.Load(stream);
+
+        return doc.Root is null
+            ? Array.Empty<string>()
+            : doc.Root.Elements(Ns + "si")
+                .Select(si => string.Concat(si.Descendants(Ns + "t").Select(t => t.Value)))
+                .ToArray();
     }
 
     /// <summary>
