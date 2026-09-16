@@ -31,6 +31,25 @@ namespace Nexus.ProductCore.DevelopmentControl.Tests;
 /// </summary>
 public sealed class DevelopmentControlAppendSafetyTests
 {
+    /// <summary>
+    /// The reconciled V3 candidate, preserved as a CANDIDATE-state revision. The cutover's positive
+    /// path can only be exercised against a workbook whose four authority sites still read
+    /// <c>CANDIDATE</c>, and the promotion consumed the only such workbook that used to exist at the
+    /// canonical path. Before the W8D cutover this pointed at the live canonical file, which WAS that
+    /// candidate. It now names the preserved revision instead.
+    ///
+    /// <para>Pointing it back at the live workbook would not strengthen anything — it would make every
+    /// cutover assertion in this file unsatisfiable. The contract correctly refuses to promote an
+    /// already-authoritative workbook (<c>CutoverVerdict.RefusedAlreadyAuthoritative</c>, "Nothing to
+    /// do; re-running a cutover is a no-op rather than a second promotion"). That refusal is the
+    /// guarantee, not a defect: there is no second cutover.</para>
+    /// </summary>
+    private static string CandidateWorkbook =>
+        Environment.GetEnvironmentVariable("W1_V3_CANDIDATE")
+        ?? @"D:\NEXUS\Archives\Legacy-DevelopmentControl"
+         + @"\NEXUS_DEVELOPMENT_CONTROL_20260917_pre-cutover-candidate.xlsx";
+
+    /// <summary>The live canonical workbook — since the cutover, the authority itself.</summary>
     private static string V3Workbook =>
         Environment.GetEnvironmentVariable("W1_V3_WORKBOOK")
         ?? @"D:\NEXUS\DevelopmentControl\NEXUS_DEVELOPMENT_CONTROL.xlsx";
@@ -71,7 +90,8 @@ public sealed class DevelopmentControlAppendSafetyTests
             File.Copy(source, Copy, overwrite: false);
         }
 
-        public static Fixture Candidate() => new(V3Workbook);
+        public static Fixture Candidate() => new(CandidateWorkbook);
+        public static Fixture Authoritative() => new(V3Workbook);
         public static Fixture Legacy() => new(LegacyWorkbook);
 
         public void Dispose()
@@ -1023,5 +1043,33 @@ public sealed class DevelopmentControlAppendSafetyTests
         Record($"T3.12 unresolved decision count measured at promotion :: {result.UnresolvedDecisionCount} "
              + $"of {decisions.Records.Count} decision records carry HUMAN_DECISION_REQUIRED; "
              + $"W8D reconciliation records present={reconciled}");
+    }
+
+    /// <summary>
+    /// The post-cutover sensor: the LIVE canonical workbook is the authority, and it reads as one.
+    ///
+    /// <para>Every other test in this file runs against a copy of an archived revision, so before this
+    /// test existed nothing here observed the authority itself — the suite could stay green while the
+    /// live workbook was demoted. This is the one assertion in the file that reads the canonical path,
+    /// and it is deliberately semantic rather than hash-pinned: an ordinary governed write changes the
+    /// bytes and must NOT fail this test, whereas a demotion must. (The Developer suite pins the hash
+    /// instead, on purpose, as a staleness detector — see <c>FixtureWriteProofTests</c> there.)</para>
+    /// </summary>
+    [Fact]
+    public void TheLiveCanonicalWorkbook_IsTheAuthority_AndReadsAsAuthoritative()
+    {
+        using var fixture = Fixture.Authoritative();
+
+        var read = new DevelopmentControlReader().Read(fixture.Copy);
+
+        Assert.Equal(DevelopmentControlForm.V3, read.Form);
+        Assert.Equal(DevelopmentControlAuthority.Authoritative, read.Authority);
+
+        Assert.Equal(WorkbookCompatibilityReader.AuthorityMarkerAuthoritative,
+            WorkbookCompatibilityReader.AuthorityMarker(
+                WorkbookCompatibilityReader.Read(fixture.Copy)));
+
+        Record($"T3.13 live canonical authority :: form={read.Form} authority={read.Authority} "
+             + $"sha={fixture.Sha256()[..12]}...");
     }
 }
