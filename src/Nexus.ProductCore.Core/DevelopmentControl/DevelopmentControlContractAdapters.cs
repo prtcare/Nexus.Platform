@@ -180,7 +180,7 @@ public sealed class DevelopmentControlLockService : IDevelopmentControlLockServi
         // The reservation is handed back only when the claim is actually held. A caller that
         // received one on a Busy outcome would be able to attempt a write it does not own.
         var reservation = result.Acquired && result.Lock is not null
-            ? new DevelopmentControlReservation(result.Lock)
+            ? new DevelopmentControlReservation(result.Lock, storePath)
             : null;
 
         return new DevelopmentControlLockAttempt(
@@ -215,14 +215,26 @@ public sealed class DevelopmentControlLockService : IDevelopmentControlLockServi
 public sealed class DevelopmentControlReservation : IDevelopmentControlReservation, ILeaseHeartbeat
 {
     private readonly AtomicWriterLock _lock;
+    private readonly string _storePath;
 
-    internal DevelopmentControlReservation(AtomicWriterLock held)
+    internal DevelopmentControlReservation(AtomicWriterLock held, string storePath)
     {
         _lock = held;
+        _storePath = storePath;
         Lease = new ReservationLeaseView(held.Lease);
     }
 
-    public string StorePath => _lock.LockPath;
+    /// <summary>
+    /// The WORKBOOK this reservation covers.
+    ///
+    /// <para><b>Corrected in TASK 9.</b> This returned <c>_lock.LockPath</c>, which is the LOCK
+    /// FILE (<c>&lt;hash&gt;.lock</c> inside the lock directory) and not the store at all. A caller
+    /// that trusted it would have read, hashed or reported the lock file as if it were the
+    /// governance workbook. The lock knows the store only because it was handed one, so the
+    /// reservation now carries that value explicitly rather than inferring it from the wrong
+    /// property.</para>
+    /// </summary>
+    public string StorePath => _storePath;
 
     public bool Held { get; private set; } = true;
 
@@ -238,14 +250,77 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
         return released;
     }
 
-    internal DevelopmentControlWriteResult Write(DevelopmentControlCellWrite write) =>
-        // The cell-write path is implemented in TASK 9, where it is proven against a disposable
-        // copy. Until then this refuses explicitly rather than appearing to succeed - a write
-        // path that silently no-ops is the defect class this whole component exists to prevent.
-        new(false,
-            "Refused: the shared contract's write path is not yet wired to the cell codec. "
-            + "W8D-R4 TASK 9 carries the proof; see W8DR4_FIXTURE_WRITE_PROOF.md.",
-            null, null);
+    /// <summary>
+    /// Writes one cell. Implemented in TASK 9.
+    ///
+    /// <para><b>Refuses rather than throws, and refuses in five distinct cases</b> — no lease held,
+    /// no reservation held, unknown logical sheet, unknown logical column, and a row the sheet does
+    /// not carry. Each refusal NAMES the condition, because the caller's remedy differs: re-read the
+    /// workbook, fix the column name, or pick a row that exists. A single generic failure would
+    /// leave a caller unable to tell "the workbook moved" from "I spelled the column wrong".</para>
+    ///
+    /// <para><b>The read happens UNDER the held lock.</b> Resolving the logical column against a
+    /// cached read would let the workbook change between resolution and write, so the write would
+    /// land at a position that no longer means what the caller intended. Re-reading costs one
+    /// decode and removes that window entirely.</para>
+    /// </summary>
+    internal DevelopmentControlWriteResult Write(DevelopmentControlCellWrite write)
+    {
+        if (!Held)
+            return new(false, "Refused: this reservation has already been released, so it no longer "
+                            + "excludes another writer. Acquire a new one.", null, null);
+
+        if (_lock.Lease.Expiry <= DateTimeOffset.UtcNow)
+            return new(false,
+                $"Refused: the lease expired at {_lock.Lease.Expiry:O}. Writing under an expired lease "
+                + "means another process may legitimately have reclaimed the lock, so this write could "
+                + "race a legitimate writer. Heartbeat or re-acquire first.", null, null);
+
+        var read = WorkbookCompatibilityReader.Read(_storePath);
+
+        var sheet = read.Sheets.FirstOrDefault(s =>
+            string.Equals(s.LogicalName, write.LogicalSheet, StringComparison.Ordinal));
+
+        if (sheet is null || sheet.Presence == SheetPresence.DeclaredButMissing)
+            return new(false,
+                $"Refused: no readable sheet is bound to logical name '{write.LogicalSheet}'. "
+                + $"Available: {string.Join(", ", read.Sheets.Select(s => s.LogicalName))}.", null, null);
+
+        var column = sheet.Columns.FirstOrDefault(c =>
+            string.Equals(c.LogicalName, write.LogicalColumn, StringComparison.Ordinal));
+
+        if (column is null)
+            return new(false,
+                $"Refused: '{write.LogicalSheet}' has no logical column '{write.LogicalColumn}'. "
+                + $"Available: {string.Join(", ", sheet.Columns.Select(c => c.LogicalName))}.", null, null);
+
+        if (!column.Found || column.PhysicalColumn is null)
+            return new(false,
+                $"Refused: logical column '{write.LogicalColumn}' is not present in this workbook's "
+                + $"form ({read.Form}) — the binding declares no header for it here. Writing anyway "
+                + "would mean inventing a column, so the target is reported instead.", null, null);
+
+        if (sheet.PhysicalName is null)
+            return new(false, $"Refused: '{write.LogicalSheet}' resolved to no physical sheet.", null, null);
+
+        var previous = sheet.Records
+            .FirstOrDefault(r => r.Row == write.Row)?.Get(write.LogicalColumn);
+
+        try
+        {
+            DevelopmentControlCellWriter.WriteCell(
+                _storePath, sheet.PhysicalName, write.Row, column.PhysicalColumn, write.Value);
+        }
+        catch (WorkbookDecodeException ex)
+        {
+            return new(false, "Refused: " + ex.Message, previous, null);
+        }
+
+        return new(true,
+            $"Wrote '{write.Value}' to {sheet.PhysicalName}!{column.PhysicalColumn}{write.Row} "
+            + $"(logical {write.LogicalSheet}.{write.LogicalColumn}).",
+            previous, write.Value);
+    }
 
     public void Dispose()
     {

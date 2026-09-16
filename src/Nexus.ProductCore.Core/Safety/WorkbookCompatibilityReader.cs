@@ -142,7 +142,22 @@ public sealed record ColumnBinding(
     /// </summary>
     bool? V3Required = null);
 
-public sealed record ColumnResolution(string LogicalName, string? PhysicalName, bool Found, bool Required);
+public sealed record ColumnResolution(
+    string LogicalName,
+    string? PhysicalName,
+    bool Found,
+    bool Required,
+    /// <summary>
+    /// W8D-R4 TASK 9. The physical column LETTER this logical column resolved to, or null when it
+    /// did not resolve.
+    ///
+    /// <para>Exposed so the write path can address the cell the READ path resolved, instead of
+    /// deriving the mapping a second time. A second resolver is a second chance to disagree with
+    /// the first - the duplication Owner decision R4-01 forbids - and that disagreement would be
+    /// silent: a writer addressing the wrong column still produces a valid workbook with a
+    /// plausible value in it.</para>
+    /// </summary>
+    string? PhysicalColumn = null);
 
 public sealed record WorkbookRecord(string LogicalSheet, int Row, IReadOnlyDictionary<string, string> Values)
 {
@@ -1120,7 +1135,7 @@ public static class WorkbookCompatibilityReader
                 resolutions.Add(new ColumnResolution(cb.LogicalName, wanted, false, required));
             else
             {
-                resolutions.Add(new ColumnResolution(cb.LogicalName, wanted, true, required));
+                resolutions.Add(new ColumnResolution(cb.LogicalName, wanted, true, required, letter));
                 letterFor[cb.LogicalName] = letter;
             }
         }
