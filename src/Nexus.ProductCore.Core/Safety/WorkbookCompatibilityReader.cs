@@ -544,6 +544,25 @@ public static class WorkbookCompatibilityMap
         new("Decisions", "Status",          false, null, "Status",       "Status")
             { V3 = "Status" },
 
+        // W8D TASK 4. `20_Decisions` was bound to three columns, so a decision record read or
+        // written through the contract could carry an id, a title and a status and NOTHING ELSE.
+        // TASK 5's clause (3) requires an unresolved-decision record that PRESERVES both positions
+        // of a conflict; a schema that cannot store the decision's own text cannot preserve
+        // anything, and an append through the canonical path would have produced a title-only stub.
+        // These columns are the record's substance, and they were present in the sheet and
+        // unprojected. `Decision` and `Reason` are the two the reconciliation actually needs;
+        // `Source` carries the evidence pointers, `ApprovedBy` distinguishes an Owner-answered
+        // decision from an open one, and `Supersedes` makes a resolution traceable to the record it
+        // resolves.
+        new("Decisions", "Date",            false, null, null, null) { V3 = "Date" },
+        new("Decisions", "ScopeId",         false, null, null, null) { V3 = "ScopeId" },
+        new("Decisions", "Decision",        false, null, null, null) { V3 = "Decision" },
+        new("Decisions", "Reason",          false, null, null, null) { V3 = "Reason" },
+        new("Decisions", "ApprovedBy",      false, null, null, null) { V3 = "ApprovedBy" },
+        new("Decisions", "Supersedes",      false, null, null, null) { V3 = "Supersedes" },
+        new("Decisions", "Source",          false, null, null, null) { V3 = "Source" },
+        new("Decisions", "Notes",           false, null, null, null) { V3 = "Notes" },
+
         new("Architecture", "EntityId",     false, null, "EntityId")
             { V3 = "EntityId" },
         new("Architecture", "Name",         false, null, "Name")
