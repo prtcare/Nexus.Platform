@@ -713,7 +713,34 @@ public sealed record DevelopmentControlAppendResult(
     int? Row,
     string? RecordKey,
     DevelopmentControlProvenance? Provenance,
-    DevelopmentControlEnvelope? Envelope);
+    DevelopmentControlEnvelope? Envelope)
+{
+    /// <summary>
+    /// Whether the declaration that authorised this append actually covered this control store.
+    ///
+    /// <para><b>Why this is a typed value on the result and not only a sentence in
+    /// <see cref="Reason"/>.</b> W8D-R5 recorded a cutover blocker as "SCOPE_CHANGE_REQUIRED is
+    /// absent" — the refusal that says <i>your declared scope does not cover this change, so amend
+    /// the scope before modifying it</i>. The condition was already enforced (the four refusal
+    /// paths below reach it), but every one of them expressed it as English prose, so a consumer
+    /// could not branch on it: a host wanting to distinguish "re-declare your scope" from "the
+    /// workbook moved" had to match on message text, which is the string-comparison coupling the
+    /// rest of this contract exists to avoid. The legacy decision vocabulary this replaces is a
+    /// two-value pair — <c>CONTINUE</c> / <c>SCOPE_CHANGE_REQUIRED</c>, emitted per file by Forge's
+    /// dependency-lineage resolver — and this property is that pair, spelled as a value.</para>
+    ///
+    /// <para><b>The four refusal causes stay collapsed into one verdict on purpose.</b> No
+    /// declaration at all, a declaration with no <see cref="ChangeScopeItemKind.ControlStore"/>
+    /// item, a ControlStore item declared <see cref="ChangeScopeAccessMode.Read"/>, and a
+    /// ControlStore item naming a <i>different</i> store are four distinct causes with four distinct
+    /// remedies, and they are four distinct sentences in <see cref="Reason"/>. They share one
+    /// verdict because they share one <i>decision</i>: the caller's next move in all four is to
+    /// amend the declared scope. Splitting them into four verdict members would invent a vocabulary
+    /// no legacy artefact defines.</para>
+    /// </summary>
+    public ChangeScopeContainmentVerdict Containment { get; init; } =
+        ChangeScopeContainmentVerdict.NotEvaluated;
+}
 
 #endregion
 
@@ -896,6 +923,40 @@ public enum ChangeScopeAccessMode
 
     /// <summary>This lane will only read the resource.</summary>
     Read = 1,
+}
+
+/// <summary>
+/// Whether a change's declared scope COVERS the resource it is asking to modify — the intra-lane
+/// question, as distinct from <see cref="ChangeScopeCollisionVerdict"/>'s inter-lane one.
+///
+/// <para><b>Two questions, and only one of them had a name.</b> A collision verdict answers "do
+/// these two lanes overlap"; it says nothing about whether a single lane's own declaration entitles
+/// it to touch a given resource. A lane can be perfectly disjoint from every other lane and still be
+/// asking to write something it never declared. Forge's legacy reservation layer answers that second
+/// question with its own two-value decision — <c>CONTINUE</c> when the path is inside the reserved
+/// scope, <c>SCOPE_CHANGE_REQUIRED</c> when it is not — and this enum is that vocabulary, carried
+/// across the boundary rather than re-invented.</para>
+/// </summary>
+public enum ChangeScopeContainmentVerdict
+{
+    /// <summary>
+    /// The containment question was never put, because the operation was refused for an earlier
+    /// reason — a released reservation, an expired lease, a malformed record. Distinct from
+    /// <see cref="WithinDeclaredScope"/> so that an unevaluated scope is never read as an approved
+    /// one.
+    /// </summary>
+    NotEvaluated = 0,
+
+    /// <summary>The declared scope covers this resource for write. The legacy <c>CONTINUE</c>.</summary>
+    WithinDeclaredScope = 1,
+
+    /// <summary>
+    /// The declared scope does not cover this resource, so the change may not proceed until the
+    /// scope is amended. The legacy <c>SCOPE_CHANGE_REQUIRED</c>. The specific cause — no
+    /// declaration, no control-store item, a read-only item, or a different store named — is stated
+    /// in the accompanying refusal reason.
+    /// </summary>
+    ScopeAmendmentRequired = 2,
 }
 
 /// <summary>One resource a change declares.</summary>

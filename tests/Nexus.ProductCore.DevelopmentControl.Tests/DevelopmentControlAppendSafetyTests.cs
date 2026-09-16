@@ -307,6 +307,7 @@ public sealed class DevelopmentControlAppendSafetyTests
 
         Assert.False(result.Appended);
         Assert.Contains("declares no ControlStore item", result.Reason, StringComparison.Ordinal);
+        Assert.Equal(ChangeScopeContainmentVerdict.ScopeAmendmentRequired, result.Containment);
         Assert.Equal(before, fixture.Sha256());
 
         using var candidate = Fixture.Candidate();
@@ -328,6 +329,7 @@ public sealed class DevelopmentControlAppendSafetyTests
 
         Assert.False(result.Appended);
         Assert.Contains("READ, not", result.Reason, StringComparison.Ordinal);
+        Assert.Equal(ChangeScopeContainmentVerdict.ScopeAmendmentRequired, result.Containment);
 
         using var candidate = Fixture.Candidate();
         Assert.True(Append(candidate, Request(scope: ScopeCovering())).Appended);
@@ -348,9 +350,108 @@ public sealed class DevelopmentControlAppendSafetyTests
 
         Assert.False(result.Appended);
         Assert.Contains("not THIS one", result.Reason, StringComparison.Ordinal);
+        Assert.Equal(ChangeScopeContainmentVerdict.ScopeAmendmentRequired, result.Containment);
 
         using var candidate = Fixture.Candidate();
         Assert.True(Append(candidate, Request(scope: ScopeCovering())).Appended);
+    }
+
+    // ================================================================ TASK 5 / T-2
+    //
+    // W8D-R5 recorded a cutover blocker as "SCOPE_CHANGE_REQUIRED is absent". The condition was
+    // enforced, but only as English prose, so a host could not branch on it. These two tests are
+    // the negative and positive controls for the typed vocabulary that replaces the prose: the
+    // value must be present, must be the same value for every cause that shares the decision, and
+    // must NOT be reported for refusals that were reached before the question was ever asked.
+
+    /// <summary>
+    /// Every way a declaration can fail to cover the store yields the SAME verdict, because they
+    /// share one decision, while the four reasons stay distinct — because they do not share a
+    /// remedy. A single verdict with a collapsed reason would send every caller to the same wrong
+    /// fix; distinct verdicts would invent a vocabulary no legacy artefact defines.
+    /// </summary>
+    [Fact]
+    public void Append_Reports_ScopeAmendmentRequired_ForEveryWayADeclarationCanFailToCoverTheStore()
+    {
+        var causes = new (string Name, ChangeScopeDeclaration? Scope)[]
+        {
+            ("no declaration at all", null),
+            ("no ControlStore item", new ChangeScopeDeclaration("w8d-append-lane", "CHG-W8D-APPEND-0001",
+                [new ChangeScopeItem(ChangeScopeItemKind.ExactFile, ChangeScopeAccessMode.Write, "docs/notes.md")])),
+            ("ControlStore declared for READ", new ChangeScopeDeclaration("w8d-append-lane", "CHG-W8D-APPEND-0001",
+                [new ChangeScopeItem(ChangeScopeItemKind.ControlStore, ChangeScopeAccessMode.Read,
+                    "NEXUS_DEVELOPMENT_CONTROL.xlsx")])),
+            ("a different store named", new ChangeScopeDeclaration("w8d-append-lane", "CHG-W8D-APPEND-0001",
+                [new ChangeScopeItem(ChangeScopeItemKind.ControlStore, ChangeScopeAccessMode.Write,
+                    "NEXUS_DEVELOPMENT_CONTROL_20260830_pre-cutover_backup.xlsx")])),
+        };
+
+        var reasons = new List<string>();
+
+        foreach (var (name, scope) in causes)
+        {
+            using var fixture = Fixture.Candidate();
+            var before = fixture.Sha256();
+
+            // `Request` substitutes the covering declaration for a null scope - which is what makes
+            // it a useful default everywhere else, and what made this branch unreachable through it.
+            // The null case has to be built by REMOVING the declaration after the default is applied,
+            // or the test would assert about a declaration it never actually withheld. Measured: the
+            // first run of this test appended successfully on this row for exactly that reason.
+            var request = Request();
+            if (scope is null) request = request with { DeclaredScope = null! };
+            else request = request with { DeclaredScope = scope };
+
+            var result = Append(fixture, request);
+
+            Assert.False(result.Appended);
+            Assert.Equal(ChangeScopeContainmentVerdict.ScopeAmendmentRequired, result.Containment);
+            Assert.Equal(before, fixture.Sha256());
+            reasons.Add(result.Reason);
+            Record($"T5.T2 {name} :: {result.Containment} :: {result.Reason}");
+        }
+
+        // The four reasons must be four different sentences. If two causes shared one sentence the
+        // verdict would be carrying information the reason was supposed to carry, and the collapse
+        // above would be hiding a lost distinction rather than making a deliberate one.
+        Assert.Equal(4, reasons.Distinct(StringComparer.Ordinal).Count());
+
+        // The positive twin: the same call with a covering declaration still appends, so the four
+        // refusals above are the scope and not an append path that stopped working.
+        using var candidate = Fixture.Candidate();
+        var covered = Append(candidate, Request(scope: ScopeCovering()));
+        Assert.True(covered.Appended);
+        Assert.Equal(ChangeScopeContainmentVerdict.WithinDeclaredScope, covered.Containment);
+    }
+
+    /// <summary>
+    /// A refusal reached BEFORE the containment question was asked reports
+    /// <see cref="ChangeScopeContainmentVerdict.NotEvaluated"/>, not
+    /// <see cref="ChangeScopeContainmentVerdict.WithinDeclaredScope"/>. This is the assertion that
+    /// stops the value defaulting its way to "your scope is fine" — a released reservation must
+    /// never read as an approved scope.
+    /// </summary>
+    [Fact]
+    public void Append_Reports_NotEvaluated_WhenItRefusedBeforeAskingAboutTheScope()
+    {
+        using var fixture = Fixture.Candidate();
+
+        var service = new DevelopmentControlLockService();
+        var reservation = service.TryAcquire(fixture.Copy, fixture.LockDir, "w8d-t5-t2").Reservation!;
+        reservation.Dispose();
+
+        var result = new DevelopmentControlWriterAuthorizer().Append(reservation, Request());
+
+        Assert.False(result.Appended);
+        Assert.Equal(ChangeScopeContainmentVerdict.NotEvaluated, result.Containment);
+        Record($"T5.T2 pre-scope refusal reports {result.Containment} :: {result.Reason}");
+
+        // And the post-scope refusals report the opposite, so the two are genuinely distinguished
+        // rather than both happening to be the default.
+        using var candidate = Fixture.Candidate();
+        var postScope = Append(candidate, Request(identityColumn: "NotAColumnAtAll"));
+        Assert.False(postScope.Appended);
+        Assert.Equal(ChangeScopeContainmentVerdict.WithinDeclaredScope, postScope.Containment);
     }
 
     [Fact]

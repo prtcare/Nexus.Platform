@@ -402,25 +402,33 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
                         + "lease means another process may legitimately have reclaimed the lock, so "
                         + "this record could race a legitimate writer. Heartbeat or re-acquire first.");
 
-        if (!ScopeCoversStore(record.DeclaredScope, out var scopeReason))
-            return Refuse(scopeReason);
+        var containment = ScopeCoversStore(record.DeclaredScope, out var scopeReason);
+        if (containment != ChangeScopeContainmentVerdict.WithinDeclaredScope)
+            return Refuse(scopeReason, containment);
+
+        // From here on the containment question HAS been answered, in the affirmative, so every
+        // refusal below reports WithinDeclaredScope rather than NotEvaluated. That is the whole
+        // point of the value being typed: a caller that sees "refused, and the scope was fine"
+        // knows the defect is in the record or the workbook and not in its own declaration,
+        // which is exactly the distinction the prose alone could not carry across the boundary.
+        DevelopmentControlAppendResult RefuseAfterScope(string reason) => Refuse(reason, containment);
 
         if (string.IsNullOrWhiteSpace(record.IdentityColumn))
-            return Refuse("no identity column was declared. Without it the duplicate-identity check "
+            return RefuseAfterScope("no identity column was declared. Without it the duplicate-identity check "
                         + "cannot run, and an append whose collision check silently does not run is "
                         + "how one immutable id enters the ledger twice.");
 
         if (string.IsNullOrWhiteSpace(record.ChangeId))
-            return Refuse("no authorising ChangeId was supplied. Every governed record states the "
+            return RefuseAfterScope("no authorising ChangeId was supplied. Every governed record states the "
                         + "change it belongs to; a record with a blank originating change cannot be "
                         + "traced back to the decision that authorised it.");
 
         if (record.Provenance is null)
-            return Refuse("no provenance was supplied. Every governed V3 record states where it came "
+            return RefuseAfterScope("no provenance was supplied. Every governed V3 record states where it came "
                         + "from — a blank migration envelope is an unfilled field, not a native record.");
 
         if (!record.Provenance.IsWellFormed(out var provenanceReason))
-            return Refuse("provenance is not well-formed. " + provenanceReason);
+            return RefuseAfterScope("provenance is not well-formed. " + provenanceReason);
 
         var read = WorkbookCompatibilityReader.Read(_storePath);
 
@@ -434,17 +442,17 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
         // component.
         var authorisation = WorkbookCompatibilityReader.AuthorizeWrite(read, WorkbookForm.V3);
         if (!authorisation.Allowed)
-            return Refuse($"this workbook may not be appended to. {authorisation.Reason}");
+            return RefuseAfterScope($"this workbook may not be appended to. {authorisation.Reason}");
 
         var sheet = read.Sheets.FirstOrDefault(s =>
             string.Equals(s.LogicalName, record.LogicalSheet, StringComparison.Ordinal));
 
         if (sheet is null || sheet.Presence != SheetPresence.Bound)
-            return Refuse($"no readable sheet is bound to logical name '{record.LogicalSheet}'. "
+            return RefuseAfterScope($"no readable sheet is bound to logical name '{record.LogicalSheet}'. "
                         + $"Available: {string.Join(", ", read.Sheets.Select(s => s.LogicalName))}.");
 
         if (sheet.PhysicalName is null)
-            return Refuse($"'{record.LogicalSheet}' resolved to no physical sheet.");
+            return RefuseAfterScope($"'{record.LogicalSheet}' resolved to no physical sheet.");
 
         // --- the envelope, resolved against this sheet's OWN header row.
         //
@@ -466,7 +474,7 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
         }
 
         if (missingEnvelope.Count > 0)
-            return Refuse($"'{record.LogicalSheet}' does not carry the full governance envelope — "
+            return RefuseAfterScope($"'{record.LogicalSheet}' does not carry the full governance envelope — "
                         + $"{string.Join(", ", missingEnvelope)} did not resolve against its header "
                         + "row. Appending here would create a record with no position in the "
                         + "append-only trail and no stated origin, which is an implicit disposition.");
@@ -478,7 +486,7 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
         foreach (var (logicalColumn, value) in record.Values ?? new Dictionary<string, string>())
         {
             if (DevelopmentControlEnvelopeColumns.All.Contains(logicalColumn, StringComparer.OrdinalIgnoreCase))
-                return Refuse($"'{logicalColumn}' is an envelope column, and the envelope is written "
+                return RefuseAfterScope($"'{logicalColumn}' is an envelope column, and the envelope is written "
                             + "by this component rather than supplied by the caller. A caller able "
                             + "to set IsCurrent or the originating ChangeId could place a record "
                             + "anywhere in the trail it chose.");
@@ -488,7 +496,7 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
                 && c.Found && c.PhysicalColumn is not null);
 
             if (column?.PhysicalColumn is null)
-                return Refuse($"'{record.LogicalSheet}' has no logical column '{logicalColumn}'. "
+                return RefuseAfterScope($"'{record.LogicalSheet}' has no logical column '{logicalColumn}'. "
                             + "Available: "
                             + string.Join(", ", sheet.Columns.Where(c => c is { Found: true, PhysicalColumn: not null })
                                                             .Select(c => c.LogicalName)) + ".");
@@ -498,7 +506,7 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
         }
 
         if (!resolved.ContainsKey(record.IdentityColumn))
-            return Refuse($"the declared identity column '{record.IdentityColumn}' is not among the "
+            return RefuseAfterScope($"the declared identity column '{record.IdentityColumn}' is not among the "
                         + "values supplied, so the record would have no identity and the collision "
                         + "check would have nothing to compare.");
 
@@ -507,7 +515,7 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
             .Value;
 
         if (string.IsNullOrWhiteSpace(identityValue))
-            return Refuse($"the identity column '{record.IdentityColumn}' was supplied blank. A blank "
+            return RefuseAfterScope($"the identity column '{record.IdentityColumn}' was supplied blank. A blank "
                         + "key collides with every other blank key and identifies nothing.");
 
         // --- immutable identity. Checked against EVERY row, not only current ones: the point of an
@@ -516,7 +524,7 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
             string.Equals(r.Get(record.IdentityColumn), identityValue, StringComparison.OrdinalIgnoreCase));
 
         if (collision is not null)
-            return Refuse($"a record with {record.IdentityColumn} = '{identityValue}' already exists "
+            return RefuseAfterScope($"a record with {record.IdentityColumn} = '{identityValue}' already exists "
                         + $"on '{record.LogicalSheet}' at row {collision.Row}. Record identity is "
                         + "immutable, so this is a collision and not an update — the same id must not "
                         + "name two records.");
@@ -576,21 +584,29 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
                 + $"{record.IdentityColumn} = '{identityValue}'. The record is in the workbook and "
                 + "did NOT verify — treat it as UNVERIFIED and re-read the authority before relying "
                 + "on it.",
-                row, identityValue, null, null);
+                row, identityValue, null, null)
+            { Containment = ChangeScopeContainmentVerdict.WithinDeclaredScope };
         }
 
         return new DevelopmentControlAppendResult(true,
             $"Appended {record.IdentityColumn} = '{identityValue}' to {sheet.PhysicalName} "
             + $"(logical {record.LogicalSheet}) at row {appended.Row}, under change "
             + $"'{record.ChangeId}', and read it back through the shared reader.",
-            appended.Row, identityValue, appended.Provenance, appended.Envelope);
+            appended.Row, identityValue, appended.Provenance, appended.Envelope)
+        { Containment = containment };
     }
 
+    /// <summary>Refuses before the containment question was asked, so the verdict says so.</summary>
     private static DevelopmentControlAppendResult Refuse(string reason) =>
-        new(false, "Refused: " + reason, null, null, null, null);
+        Refuse(reason, ChangeScopeContainmentVerdict.NotEvaluated);
+
+    private static DevelopmentControlAppendResult Refuse(
+        string reason, ChangeScopeContainmentVerdict containment) =>
+        new(false, "Refused: " + reason, null, null, null, null) { Containment = containment };
 
     /// <summary>
-    /// True when <paramref name="declaration"/> claims this control store for WRITE.
+    /// Whether <paramref name="declaration"/> claims this control store for WRITE, as the typed
+    /// verdict the caller publishes on its result rather than as a bare bool.
     ///
     /// <para><b>Fail-closed in three separate ways.</b> A missing declaration, a declaration with no
     /// <see cref="ChangeScopeItemKind.ControlStore"/> item, and a ControlStore item declared
@@ -604,13 +620,14 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
     /// Those are different questions, and the second has no other asker — an append that consults
     /// only the collision engine would write to a store no declaration had ever mentioned.</para>
     /// </summary>
-    private bool ScopeCoversStore(ChangeScopeDeclaration? declaration, out string reason)
+    private ChangeScopeContainmentVerdict ScopeCoversStore(
+        ChangeScopeDeclaration? declaration, out string reason)
     {
         if (declaration is null)
         {
             reason = "no ChangeScope declaration was supplied. The append cannot show that this "
                    + "change is entitled to modify the control store, so it does not.";
-            return false;
+            return ChangeScopeContainmentVerdict.ScopeAmendmentRequired;
         }
 
         var items = declaration.Items ?? [];
@@ -626,7 +643,7 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
                 + "to append a record to it."
                 : $"the ChangeScope '{declaration.Lane}' declares no ControlStore item at all, so it "
                 + "does not cover the control store — whatever else it covers.";
-            return false;
+            return ChangeScopeContainmentVerdict.ScopeAmendmentRequired;
         }
 
         if (!writes.Any(i => MatchesStoreTarget(i.Target, _storePath)))
@@ -636,11 +653,11 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
                    + $"{string.Join(", ", writes.Select(i => $"'{i.Target}'"))}, and the store is "
                    + $"'{Path.GetFileName(_storePath)}'. A scope that names a different authority "
                    + "does not authorise this one.";
-            return false;
+            return ChangeScopeContainmentVerdict.ScopeAmendmentRequired;
         }
 
         reason = "";
-        return true;
+        return ChangeScopeContainmentVerdict.WithinDeclaredScope;
     }
 
     /// <summary>
