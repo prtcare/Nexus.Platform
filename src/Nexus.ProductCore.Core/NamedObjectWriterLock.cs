@@ -78,9 +78,19 @@ public sealed class NamedObjectWriterLock : IWriterLock
     private static WriterLockAttempt AcquireMutex(SharedLockIdentity identity, TimeSpan timeout)
     {
         var watch = Stopwatch.StartNew();
-        var mutex = new Mutex(false, identity.ObjectName);
+
+        // CONSTRUCTION IS INSIDE THE try, and that placement is load-bearing rather than stylistic.
+        // A same-name-different-kind collision is raised by the CONSTRUCTOR, not by WaitOne — the
+        // kernel refuses to create a Mutex where a Semaphore already holds the name. With the
+        // constructor above the try, that exception escaped uncaught and the
+        // WaitHandleCannotBeOpenedException arm below was unreachable for the very case its comment
+        // names. Found by W8D-R4 TASK 9/5 as a throwing test rather than by reading: the arm reads
+        // correctly, and only the line NUMBER of the constructor decides whether it ever runs.
+        Mutex? mutex = null;
         try
         {
+            mutex = new Mutex(false, identity.ObjectName);
+
             bool acquired;
             try
             {
@@ -119,9 +129,10 @@ public sealed class NamedObjectWriterLock : IWriterLock
         {
             // WaitHandleCannotBeOpenedException here is the classic same-name-different-kind
             // collision (Developer composed a Semaphore while Forge opened a Mutex): surface it as
-            // SystemFailure so the kind mismatch is loud, not silently divergent.
+            // SystemFailure so the kind mismatch is loud, not silently divergent. This arm is only
+            // reachable because the constructor now sits inside the try — see the note above.
             watch.Stop();
-            try { mutex.Dispose(); } catch { /* best effort */ }
+            try { mutex?.Dispose(); } catch { /* best effort */ }
             return new WriterLockAttempt(WriterLockOutcome.SystemFailure, null, watch.Elapsed);
         }
     }
@@ -129,9 +140,14 @@ public sealed class NamedObjectWriterLock : IWriterLock
     private static WriterLockAttempt AcquireSemaphore(SharedLockIdentity identity, TimeSpan timeout)
     {
         var watch = Stopwatch.StartNew();
-        var semaphore = new Semaphore(1, 1, identity.ObjectName);
+
+        // Constructor inside the try for the same measured reason as AcquireMutex above: the
+        // kind collision is thrown by construction and would otherwise escape uncaught.
+        Semaphore? semaphore = null;
         try
         {
+            semaphore = new Semaphore(1, 1, identity.ObjectName);
+
             var acquired = semaphore.WaitOne(timeout);
             if (!acquired)
             {
@@ -154,7 +170,7 @@ public sealed class NamedObjectWriterLock : IWriterLock
                 or ArgumentException)
         {
             watch.Stop();
-            try { semaphore.Dispose(); } catch { /* best effort */ }
+            try { semaphore?.Dispose(); } catch { /* best effort */ }
             return new WriterLockAttempt(WriterLockOutcome.SystemFailure, null, watch.Elapsed);
         }
     }
