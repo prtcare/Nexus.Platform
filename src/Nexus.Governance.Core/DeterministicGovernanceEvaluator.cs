@@ -75,8 +75,18 @@ public sealed class DeterministicGovernanceEvaluator : IGovernanceEvaluator
         // ---- RULE 3: ChangeScope. The declaration is what makes a mutation legitimate; a target
         // the declaration does not name is refused with the scope-required token, so the caller is
         // sent to amend its declaration rather than to guess.
+        // W8E TASK 2 widened this from exact equality to CONTAINMENT, and the integration found the
+        // need. Developer declares scope with subtree targets (a worktree root, a directory), and an
+        // exact-only lookup matched none of them — so a correctly declared mutation read as
+        // out-of-scope. That is a false refusal, which is worse than a missed one: it teaches a
+        // caller to widen its declaration until the refusal stops, and the declaration stops meaning
+        // anything.
+        //
+        // A declaration covers a resource when it IS the resource, or when the resource lies BENEATH
+        // it. "Beneath" is decided on the separator, so '/a/bc' is not covered by '/a/b' — the
+        // prefix test alone would have said it was.
         var covering = request.ChangeScope.Items
-            .Where(i => string.Equals(i.Target, request.Target.Resource, StringComparison.Ordinal))
+            .Where(i => Covers(i.Target, request.Target.Resource))
             .ToArray();
 
         if (covering.Length == 0)
@@ -100,7 +110,18 @@ public sealed class DeterministicGovernanceEvaluator : IGovernanceEvaluator
         // or migrated by automation, so "may an automated change touch this" is an Owner question
         // rather than a rule question. Reached only after ownership and scope, so a caller whose
         // scope is wrong is told that instead of being told the target is secret.
-        if (request.SecurityClassification == GovernanceSecurityClassification.Secret)
+        // W8E TASK 2 split this rule in two. A VIOLATION is a refusal — there is nothing to decide —
+        // while a SECRET-classified target is an escalation. Conflating them reported a change that
+        // would introduce a credential as a question for the Owner, which would have let it proceed
+        // on approval. Neither branch reads, carries or compares a value.
+        if (request.SecurityClassification == GovernanceSecurityClassification.Violation)
+        {
+            refusals.Add(
+                "SECURITY_VIOLATION: the change to '" + request.Target.Resource
+                + "' would introduce, move or expose secret material. No value was read, carried or"
+                + " compared in reaching this verdict.");
+        }
+        else if (request.SecurityClassification == GovernanceSecurityClassification.Secret)
         {
             undecided.Add(
                 "SECRET_CLASSIFIED: '" + request.Target.Resource
@@ -147,6 +168,32 @@ public sealed class DeterministicGovernanceEvaluator : IGovernanceEvaluator
         }
 
         return Decide(GovernanceVerdict.HumanDecisionRequired, undecided);
+    }
+
+    /// <summary>
+    /// True when a declared scope target covers a resource: it IS the resource, or the resource lies
+    /// beneath it.
+    ///
+    /// <para>Separator-aware on purpose. A bare <c>StartsWith</c> would report that
+    /// <c>/src/app</c> covers <c>/src/application</c>, which would let a declaration authorise
+    /// writes to a neighbouring tree — the exact false approval the scope rule exists to prevent.
+    /// Both separators are accepted because the estate declares paths in both conventions.</para>
+    /// </summary>
+    private static bool Covers(string declaredTarget, string resource)
+    {
+        if (string.Equals(declaredTarget, resource, StringComparison.Ordinal)) return true;
+        if (declaredTarget.Length == 0 || resource.Length <= declaredTarget.Length) return false;
+
+        var bounded = declaredTarget.EndsWith('\\') || declaredTarget.EndsWith('/')
+            ? declaredTarget
+            : declaredTarget + "/";
+
+        // Normalise only for the comparison, so a declaration written with either separator covers a
+        // resource written with the other.
+        var normalisedDeclared = bounded.Replace('\\', '/');
+        var normalisedResource = resource.Replace('\\', '/');
+
+        return normalisedResource.StartsWith(normalisedDeclared, StringComparison.Ordinal);
     }
 
     private static GovernanceDecision Decide(GovernanceVerdict verdict, IReadOnlyList<string> reasons) =>

@@ -141,15 +141,30 @@ public sealed record GovernanceDependencyContext
 }
 
 /// <summary>
-/// Security classification of the target. <see cref="Secret"/> means the target carries a
-/// credential or secret material; GOVERNANCE decides whether the caller may touch it and never
-/// reads, carries or logs a value.
+/// Security classification of the target, AND the outcome of scanning the change itself.
+///
+/// <para><b>W8E TASK 2 added <see cref="Violation"/>, because the five required cases could not all
+/// be expressed without it.</b> The original three values describe what the TARGET is; a
+/// secret-scan violation describes what the CHANGE would do. Those need opposite verdicts and
+/// conflating them produced the wrong one: a change that would introduce a credential is a
+/// <c>BLOCK</c> — there is nothing for an Owner to decide — whereas a target that legitimately
+/// carries secret material is a <c>HUMAN_DECISION_REQUIRED</c>, because "may an automated change
+/// touch this" is genuinely the Owner's question. One input could not answer both, and reporting a
+/// found secret as an escalation would have let it proceed on approval.</para>
 /// </summary>
 public enum GovernanceSecurityClassification
 {
     Public,
     Internal,
+
+    /// <summary>The target legitimately carries secret material. An Owner question, never `ALLOW`.</summary>
     Secret,
+
+    /// <summary>
+    /// The change itself would introduce, move or expose secret material. A refusal: no verdict
+    /// short of <c>BLOCK</c> is correct, and no value is ever read, carried or compared in reaching it.
+    /// </summary>
+    Violation,
 }
 
 /// <summary>
