@@ -109,7 +109,33 @@ public sealed record SheetBinding(
     /// model has no counterpart for this logical sheet. Null is <see cref="SheetPresence.AbsentInForm"/>,
     /// never "empty" — the same distinction the other three forms already make.
     /// </summary>
-    string? V3Name = null);
+    string? V3Name = null,
+    /// <summary>
+    /// The logical column(s) forming this sheet's IMMUTABLE record identity, declared by the schema
+    /// — or null where the sheet is not an append target at all. More than one entry is a COMPOSITE
+    /// key and is compared as a tuple.
+    ///
+    /// WHY THIS LIVES HERE AND NOT IN THE APPEND PATH. Before this field the append path validated
+    /// whatever column the CALLER named in `DevelopmentControlAppendRecord.IdentityColumn`. That is
+    /// not a validation, it is a suggestion: the blank check and the collision check both read the
+    /// caller's column while the row was written into the sheet's real key column. Declaring
+    /// "Branch" as the identity column therefore made the duplicate check compare branch names and
+    /// let a duplicate `LineageId` through — reproduced, on both the live authority and the archived
+    /// candidate. The identity of a record is a property of the SCHEMA, so it is declared once here
+    /// and the append path reads it rather than trusting the caller.
+    ///
+    /// WHY NOT A SWITCH IN THE APPEND PATH. A second hand-maintained map is the defect, not the fix:
+    /// it drifts from this table silently and nothing fails. One such map was proposed and had
+    /// already drifted — it named eleven sheets but omitted `Control`, whose appends succeed today,
+    /// so adopting it would have begun refusing a working path, and it named `ExistingAssets`
+    /// (which has no business column and can never be an append target) while naming a nonexistent
+    /// `DependencyId` for `Dependencies`, which is reachable. Declaring identity beside the sheet it
+    /// belongs to is what makes the two impossible to disagree.
+    ///
+    /// Null is a STATEMENT, not a gap: it says this sheet is not an append target. The append path
+    /// refuses such a sheet rather than guessing a key for it.
+    /// </summary>
+    IReadOnlyList<string>? V3ImmutableIdentity = null);
 
 public sealed record ColumnBinding(
     string LogicalSheet,
@@ -287,21 +313,26 @@ public static class WorkbookCompatibilityMap
     {
         // logical                legacy                      foundation        products          L.hdr F.hdr P.hdr  gov  legacyOnly
         new("Control",            "Control Center",           "00_Control",     "00_Control",     null, 4,    4)
-            { V3Name = "00_Control" },
+            { V3Name = "00_Control", V3ImmutableIdentity = ["ControlItem"] },
         new("WorkGraph",          "Master Roadmap",           "04_Tasks",       "03_Tasks",       5,    4,    4)
-            { V3Name = "07_WorkItems" },
+            { V3Name = "07_WorkItems", V3ImmutableIdentity = ["WorkId"] },
         // V3 folds milestones into `WorkType` on the work-item sheet — the sheet's own subtitle
         // says so: "Every governed unit of work. MILESTONES folded in via WorkType." There is no
         // V3 milestone sheet to bind, and inventing one would be fabricating a surface.
         new("Milestones",         "Phase Plan",               "03_Milestones",  "02_Milestones",  4,    4,    4),
         new("Changes",            "Active Changes",           "12_Changes",     "09_Changes",     5,    4,    4)
-            { V3Name = "10_Changes" },
+            { V3Name = "10_Changes", V3ImmutableIdentity = ["ChangeId"] },
         new("Decisions",          "Open Decisions",           "11_Decisions",   "08_Decisions",   4,    4,    4)
-            { V3Name = "20_Decisions" },
+            { V3Name = "20_Decisions", V3ImmutableIdentity = ["DecisionId"] },
         new("Architecture",       "Architecture Decisions",   "02_Architecture", null,            4,    4,    null,  false, true)
-            { V3Name = "02_Architecture" },
+            { V3Name = "02_Architecture", V3ImmutableIdentity = ["EntityId"] },
         new("Dependencies",       "Dependencies & Blockers",  "05_Dependencies", "05_Dependencies", 4,   4,    4)
-            { V3Name = "08_Dependencies" },
+            // COMPOSITE. An edge is identified by its source, its target AND the relation between
+            // them: the same pair may legitimately carry a `blocks` and a `depends-on` edge, so
+            // keying on SourceId alone would refuse a valid record and keying on nothing would
+            // admit a duplicate. Declared as a tuple because the schema says so, not flattened to
+            // whichever single column happened to be nominated first.
+            { V3Name = "08_Dependencies", V3ImmutableIdentity = ["SourceId", "TargetId", "RelationType"] },
         // V3 dissolves the separate version-history sheet: versioning moved IN-ROW, into the
         // envelope every governed sheet carries (RecordVersion | IsCurrent | EffectiveFrom |
         // ChangeId | SupersedesVersion). AbsentInForm is therefore the truthful reading of
@@ -312,6 +343,19 @@ public static class WorkbookCompatibilityMap
         new("ActivityLog",        "Activity Log",             null,             null,             4,    null, null,  true,  true),
         new("AuditFindings",      "Audit Findings",           null,             null,             5,    null, null,  false, true),
         new("DevelopmentGuide",   "Development Guide",        null,             null,             4,    null, null,  false, true),
+        // V3Name is bound, but V3ImmutableIdentity is deliberately NULL — and that is a finding, not
+        // an omission. 06_Repositories resolves to fourteen columns and every one of them is an
+        // envelope column (RecordVersion, IsCurrent, EffectiveFrom, EnvelopeChangeId, SupersedesVersion,
+        // SourceForm, SourceWorkbook, SourceWorkbookHash, SourceSheet, SourceRecordId, SourceRevision,
+        // SourceArchitectureVersion, MigrationTimestamp, MigrationTransformation). It carries no
+        // business column at all, so it has no record identity and can never be an append target: any
+        // key a caller names is an envelope column, which the existing envelope guard already refuses.
+        // Measured, not assumed — see IMPL_20260917/PROBE-COLUMN-MODEL.txt.
+        //
+        // Named here because a proposed hand-written identity map listed ExistingAssets as an append
+        // target (with a `RepositoryId` column that does not exist) while omitting `Control`, which
+        // is one. Getting this row wrong in either direction is exactly the drift the declaration in
+        // `SheetBinding` exists to make impossible.
         new("ExistingAssets",     "Existing Assets",          "15_Repositories", "12_Repositories", 4,  4,    4)
             { V3Name = "06_Repositories" },
         new("ToolRegistry",       "Tool & Integration Registry", null,           null,             4,    null, null,  false, true),
@@ -331,9 +375,9 @@ public static class WorkbookCompatibilityMap
         // at all. Binding a Legacy/FOUNDATION/PRODUCTS name here would be inventing a sheet.
         // With all three form names null these rows are AbsentInForm on every frozen form,
         // which is the truthful reading and keeps the frozen three bit-for-bit unaffected.
-        new("GitLineage",         null, null, null, null, null, null) { V3Name = "13_GitLineage" },
-        new("ChangeScopes",       null, null, null, null, null, null) { V3Name = "09_ChangeScopes" },
-        new("ChangeRequests",     null, null, null, null, null, null) { V3Name = "19_ChangeRequests" },
+        new("GitLineage",         null, null, null, null, null, null) { V3Name = "13_GitLineage", V3ImmutableIdentity = ["LineageId"] },
+        new("ChangeScopes",       null, null, null, null, null, null) { V3Name = "09_ChangeScopes", V3ImmutableIdentity = ["ScopeRecordId"] },
+        new("ChangeRequests",     null, null, null, null, null, null) { V3Name = "19_ChangeRequests", V3ImmutableIdentity = ["RequestId"] },
 
         // ---------------------------------------------------------------- W8D TASK 4, continued
         //
@@ -353,8 +397,8 @@ public static class WorkbookCompatibilityMap
         // Both are V3-only. The frozen forms record migration state in prose inside other sheets,
         // and neither has any notion of an era sequence, so a Legacy/Foundation/Products name here
         // would again be inventing a sheet.
-        new("MigrationMap",       null, null, null, null, null, null) { V3Name = "24_V3MigrationMap" },
-        new("NexusEvolution",     null, null, null, null, null, null) { V3Name = "23_NexusEvolution" },
+        new("MigrationMap",       null, null, null, null, null, null) { V3Name = "24_V3MigrationMap", V3ImmutableIdentity = ["MapId"] },
+        new("NexusEvolution",     null, null, null, null, null, null) { V3Name = "23_NexusEvolution", V3ImmutableIdentity = ["EvolutionId"] },
     };
 
     /// <summary>
@@ -1123,18 +1167,58 @@ public static class WorkbookCompatibilityReader
     /// <summary>
     /// Projects `00_Control`'s key/value block. Uses the SAME bindings the reader already resolved
     /// for the `Control` logical sheet, so a mistyped header fails here exactly as it fails there.
+    ///
+    /// <para><b>A key declared by more than one row resolves to NOTHING.</b> The previous form
+    /// assigned into a plain dictionary while walking the records in ASCENDING ROW ORDER, so the
+    /// LAST row declaring an item silently decided it. For the great majority of items that is
+    /// merely untidy. For <c>ControlState</c> it was a hole in the marker guarantee: a row appended
+    /// below row 10 declaring that item name became the marker, which PROMOTED a candidate workbook
+    /// and DEMOTED an authoritative one while the real marker row sat untouched and correct. The fix
+    /// belongs here rather than only in the writer, because the writer is not the only thing that can
+    /// add a row — an external editor, a repair script or a second tool can equally put one in a
+    /// sheet without ever calling this component, and a resolution rule that guesses between two
+    /// declarations is wrong however the second one arrived.</para>
+    ///
+    /// <para><b>Dropping the key, rather than picking a winner.</b> An ambiguous item is REPORTED AS
+    /// ABSENT: `AuthorityMarker` then returns null, which is the distinct "this workbook's authority
+    /// cannot be established" answer, and `AuthorizeWrite` refuses with
+    /// <c>RefusedAuthorityMarkerUnreadable</c> rather than proceeding against a state it inferred
+    /// from row order. The same applies to `SchemaId` and `SchemaVersion`, and the direction is
+    /// deliberate: a workbook whose own identity is declared twice must become unwritable, loudly,
+    /// and not quietly re-declare itself to whichever row happened to be lower down the sheet.</para>
+    ///
+    /// <para><b>Measured before widening this to every key.</b> All 18 `ControlItem` values are
+    /// distinct in BOTH the live authority (<c>05FB0A3A…</c>, `ControlState=AUTHORITATIVE`) and the
+    /// preserved pre-cutover candidate (<c>E63DE7DC…</c>, `ControlState=CANDIDATE`), and `Control` is
+    /// the only sheet this projection reads. No sheet carries a legitimate duplicate key, so the rule
+    /// is stated for the whole projection rather than special-cased to one item name — a
+    /// `ControlState`-only rule would leave the identical ambiguity in `SchemaId`, and would need
+    /// revisiting the day a second item is promoted to marker.</para>
     /// </summary>
     public static IReadOnlyDictionary<string, string> ControlItems(WorkbookReadResult read)
     {
         var items = new Dictionary<string, string>(StringComparer.Ordinal);
         var control = read.Sheet("Control");
         if (control is null) return items;
+
+        // Key -> how many rows declare it, and the value of the first. Two rows is the ambiguous
+        // condition; the value is kept only so the unambiguous case costs no second pass.
+        var declared = new Dictionary<string, int>(StringComparer.Ordinal);
+
         foreach (var record in control.Records)
         {
             var key = record.Get("ControlItem");
             if (string.IsNullOrWhiteSpace(key)) continue;
-            items[key.Trim()] = record.Get("Value") ?? "";
+
+            var item = key.Trim();
+            declared[item] = declared.TryGetValue(item, out var seen) ? seen + 1 : 1;
+
+            // A repeated key is removed and never re-added, so the count is the whole test and no
+            // later row can reinstate it.
+            if (declared[item] == 1) items[item] = record.Get("Value") ?? "";
+            else items.Remove(item);
         }
+
         return items;
     }
 

@@ -114,6 +114,61 @@ public static class DevelopmentControlAuthoritySites
         All.Where(s => s.ReachableByLogicalWrite).ToArray();
 
     /// <summary>
+    /// W8D PRODUCTION WIRING. The IDENTITY cell of each site that has one: the cell in that site's
+    /// row which NAMES the site, as against <see cref="All"/>, which holds the cells carrying its
+    /// VALUE.
+    ///
+    /// <para><b>Why this is a second list and not two more entries in <see cref="All"/>.</b>
+    /// <see cref="All"/> is what the cutover iterates, and it writes <c>toState</c> into every
+    /// member. Putting an identity cell there would overwrite the item NAME with
+    /// <c>AUTHORITATIVE</c> — the marker row would stop declaring <c>ControlState</c> and start
+    /// declaring <c>AUTHORITATIVE</c>, which is both a promotion and the destruction of the row the
+    /// promotion is read from. The two lists are consumed by different code and mean different
+    /// things, so they are declared apart and neither can drift into the other.</para>
+    ///
+    /// <para><b>Why an identity cell needs a guard of its own.</b> The marker is not read from a
+    /// fixed address; it is FOUND, by scanning <c>00_Control</c> for the row whose <c>ControlItem</c>
+    /// column reads <c>ControlState</c> and taking that row's <c>Value</c>. So <c>B10</c> is the
+    /// site, but <c>A10</c> is what makes the site findable at all. Guarding the value and not the
+    /// name left a hole of exactly the same size: an ordinary governed write of <c>ControlStateRenamed</c>
+    /// into <c>Control.ControlItem</c> at row 10 was allowed, and afterwards no row declared
+    /// <c>ControlState</c> — the workbook reported its own authority as UNREADABLE rather than as
+    /// wrong. Degradation rather than promotion, but still an ordinary write moving what the marker
+    /// resolves to, which the directive forbids in either direction. Measured before and after; the
+    /// probe's evidence line carries both readings.</para>
+    ///
+    /// <para><b>Only two of the four sites have one.</b> <c>01_Configuration</c> and
+    /// <c>25_Dashboard</c> carry the state as a projection with no item column of their own, so they
+    /// have no identity cell to rename. Their value cells remain guarded by <see cref="All"/>.</para>
+    /// </summary>
+    public static readonly IReadOnlyList<Site> IdentityCells = new[]
+    {
+        new Site(
+            "control-state identity",
+            "00_Control", "A", 10,
+            "Control", "ControlItem",
+            "This cell NAMES the authority marker. `ControlItems` locates the marker by the row whose "
+            + "`ControlItem` reads `ControlState`, so renaming it does not change what the marker "
+            + "says — it removes the marker from the workbook's vocabulary entirely."),
+        new Site(
+            "migration-status identity",
+            "24_V3MigrationMap", "A", 16,
+            "MigrationMap", "MapId",
+            "This cell NAMES the `unified-control` migration row whose `Status` carries the migration "
+            + "authority site. Renaming it leaves that status in the sheet but no longer attached to "
+            + "a row anything can locate."),
+    };
+
+    /// <summary>
+    /// The identity cell of the MARKER itself, and the only entry of <see cref="IdentityCells"/>
+    /// whose item name the resolver searches for. Exposed separately because the guards that refuse
+    /// the marker's item NAME — on the marker row and on any other — need to know which sheet and
+    /// which column that name is reserved in, and re-deriving it from list order at each call site
+    /// is how the two would come to disagree.
+    /// </summary>
+    public static Site MarkerIdentityCell => IdentityCells[0];
+
+    /// <summary>
     /// The physical-level predicate: is this exact cell one of the authority markers?
     ///
     /// <para>This is the form the WRITER uses, because the writer's last act before touching a
@@ -132,6 +187,24 @@ public static class DevelopmentControlAuthoritySites
             && string.Equals(s.LogicalColumn, logicalColumn, StringComparison.Ordinal));
 
     /// <summary>
+    /// The identity guard's physical predicate, consulted by the writer at the last point before a
+    /// cell is touched — the same placement and the same reason as <see cref="FindPhysical"/>.
+    /// Deliberately a separate method rather than a wider <see cref="FindPhysical"/>: the two answer
+    /// different questions ("is this the cell that decides the state" and "is this the cell that
+    /// names it") and a caller that could not tell them apart could not report which one stopped it.
+    /// </summary>
+    public static Site? FindPhysicalIdentity(string physicalSheet, string physicalColumn, int row) =>
+        IdentityCells.FirstOrDefault(c => c.Matches(physicalSheet, physicalColumn, row));
+
+    /// <summary>The identity guard's predicate in the vocabulary a logical caller speaks.</summary>
+    public static Site? FindLogicalIdentity(string logicalSheet, int row, string logicalColumn) =>
+        IdentityCells.FirstOrDefault(c =>
+            c.LogicalSheet is not null && c.LogicalColumn is not null
+            && c.Row == row
+            && string.Equals(c.LogicalSheet, logicalSheet, StringComparison.Ordinal)
+            && string.Equals(c.LogicalColumn, logicalColumn, StringComparison.Ordinal));
+
+    /// <summary>
     /// Refusal text, shared so the writer's throw and the reservation's typed refusal cannot
     /// describe the same condition two different ways.
     /// </summary>
@@ -141,4 +214,33 @@ public static class DevelopmentControlAuthoritySites
         + "governed cutover with its own preconditions, and a cell write that could perform it would "
         + "let any caller holding the lock promote the authority as a side effect of editing a "
         + "record. Use the explicit cutover operation.";
+
+    /// <summary>
+    /// Refusal text for an IDENTITY cell, kept separate from <see cref="RefusalReason"/> because it
+    /// describes a different finding. Overwriting a site's value moves the state; renaming its
+    /// identity makes the state UNREADABLE — the resolver stops finding the marker, and every
+    /// consumer is told the authority cannot be established rather than that it changed. Collapsing
+    /// the two into one message would make the component unable to say which of those it prevented,
+    /// and the two call for different repairs. The leading token is shared so that the reservation's
+    /// typed refusal still recognises it.
+    /// </summary>
+    public static string IdentityRefusalReason(Site cell) =>
+        $"GOVERNED_CELL — '{cell.Reference}' is the {cell.Role} cell. {cell.Meaning} "
+        + "Promoting or retiring the control is a governed cutover with its own preconditions, and an "
+        + "ordinary write may neither move the authority state nor take away the row it is read from. "
+        + "Use the explicit cutover operation.";
+
+    /// <summary>
+    /// Refusal text for a write that would put the marker's own ITEM NAME into a row that is not the
+    /// marker row — a second declaration the resolver cannot tell from the first. Distinct from
+    /// <see cref="IdentityRefusalReason"/> because no declared cell is being touched: the write
+    /// targets an ordinary row of the identity column, and it is the VALUE that makes it a marker.
+    /// </summary>
+    public static string ReservedItemNameRefusalReason(string logicalSheet, string logicalColumn, string itemName) =>
+        $"GOVERNED_CELL — '{logicalSheet}.{logicalColumn}' = '{itemName}' would create a second row "
+        + $"naming the authority marker. The marker is located by that name and not by a fixed row, so "
+        + $"the new row would stand alongside the one that carries the state and, because the "
+        + $"projection resolves in row order, would decide it. Promoting or retiring the control is a "
+        + $"governed cutover with its own preconditions; the marker's item name is reserved, and an "
+        + $"ordinary write may not claim it. Use the explicit cutover operation.";
 }

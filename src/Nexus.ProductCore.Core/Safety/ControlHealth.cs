@@ -216,6 +216,14 @@ public static class ControlHealthService
                     inputs.WorkbookSchema.Diagnostics.ToArray()));
 
         // ---- 9. lineage / baseline completeness
+        //
+        // An ABSENT input is not an EMPTY input. The previous form substituted `Array.Empty` for a
+        // half that was never supplied, so a caller that measured reservation baselines but not
+        // lineage — which is exactly what Forge's health service did — was handed
+        // "every governed record is bound": a green over a surface nobody measured, and the
+        // strongest claim the check can make. Both halves are now accounted for separately. A real
+        // finding from either half still surfaces as DEGRADED; the completeness CLAIM now requires
+        // that BOTH halves were actually supplied, so absent evidence can only yield UNKNOWN.
         if (inputs.ReservationsMissingBaseline is null && inputs.LineageGaps is null)
         {
             checks.Add(HealthCheck.NotMeasured("lineage-completeness",
@@ -225,12 +233,28 @@ public static class ControlHealthService
         {
             var missing = inputs.ReservationsMissingBaseline ?? Array.Empty<string>();
             var gaps = inputs.LineageGaps ?? Array.Empty<string>();
-            checks.Add(missing.Count > 0 || gaps.Count > 0
-                ? HealthCheck.Bad("lineage-completeness", HealthStatus.Degraded,
+
+            if (missing.Count > 0 || gaps.Count > 0)
+            {
+                checks.Add(HealthCheck.Bad("lineage-completeness", HealthStatus.Degraded,
                     $"{missing.Count} reservation(s) carry no BaseSHA and {gaps.Count} record(s) cannot be bound to a baseline. " +
                     "Work to commit lineage is not reconstructable for these.",
-                    missing.Concat(gaps).ToArray())
-                : HealthCheck.Ok("lineage-completeness", "Every reservation carries a BaseSHA and every governed record is bound."));
+                    missing.Concat(gaps).ToArray()));
+            }
+            else if (inputs.ReservationsMissingBaseline is null || inputs.LineageGaps is null)
+            {
+                var absent = inputs.ReservationsMissingBaseline is null
+                    ? "reservation-baseline completeness"
+                    : "lineage-binding completeness";
+                checks.Add(HealthCheck.NotMeasured("lineage-completeness",
+                    $"{absent} was not supplied. The measured half is clean, but completeness over the whole " +
+                    "surface is UNKNOWN — absent evidence is never reported green."));
+            }
+            else
+            {
+                checks.Add(HealthCheck.Ok("lineage-completeness",
+                    "Every reservation carries a BaseSHA and every governed record is bound."));
+            }
         }
 
         // ---- the aggregate. DERIVED, monotone, and never green over a failure.

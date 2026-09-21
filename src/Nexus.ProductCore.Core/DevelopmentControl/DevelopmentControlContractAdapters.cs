@@ -404,6 +404,45 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
             return new(false, "Refused: " + DevelopmentControlAuthoritySites.RefusalReason(authoritySite),
                 null, null, DevelopmentControlWriteVerdict.RefusedAuthoritySite);
 
+        // --- W8D PRODUCTION WIRING: the site's IDENTITY cell, refused in the caller's own vocabulary.
+        //
+        // Same shape and same justification as the check above, for the cell that NAMES the marker
+        // rather than the one that carries it. `Control.ControlItem` at row 10 reads `ControlState`,
+        // and that is how `ControlItems` finds the marker at all — so an ordinary write there does
+        // not move the authority state, it deletes the question. The workbook afterwards reports its
+        // authority as unreadable, and `AuthorizeWrite` refuses every subsequent write with
+        // `RefusedAuthorityMarkerUnreadable`. Measured in both directions before this guard existed:
+        // the write was Allowed, the marker became `<UNREADABLE>`, and the resolver said Unknown.
+        var identitySite = DevelopmentControlAuthoritySites.FindLogicalIdentity(
+            write.LogicalSheet, write.Row, write.LogicalColumn);
+
+        if (identitySite is not null)
+            return new(false, "Refused: " + DevelopmentControlAuthoritySites.IdentityRefusalReason(identitySite),
+                null, null, DevelopmentControlWriteVerdict.RefusedAuthoritySite);
+
+        // --- ... and the marker's ITEM NAME, reserved on every row of the sheet that carries it.
+        //
+        // The identity check above guards the marker's OWN row. This one guards the other direction,
+        // which the row-scoped check cannot see: renaming an unrelated row's `ControlItem` to
+        // `ControlState` creates a SECOND row the resolver treats as the marker, and because
+        // `ControlItems` walks records in ascending row order the later row is the one that decides.
+        // Row 11 of the candidate is a real, writable, non-envelope row, so that route was open even
+        // with the marker row itself fully guarded. It is a property of the VALUE, so it is checked
+        // as one — the same way the envelope-column refusal above refuses a caller-supplied column
+        // name rather than a cell.
+        var markerCell = DevelopmentControlAuthoritySites.MarkerIdentityCell;
+
+        if (markerCell.LogicalSheet is not null && markerCell.LogicalColumn is not null
+            && string.Equals(write.LogicalSheet, markerCell.LogicalSheet, StringComparison.Ordinal)
+            && string.Equals(write.LogicalColumn, markerCell.LogicalColumn, StringComparison.Ordinal)
+            && string.Equals((write.Value ?? "").Trim(), WorkbookCompatibilityReader.AuthorityMarkerItem,
+                StringComparison.Ordinal))
+            return new(false,
+                "Refused: " + DevelopmentControlAuthoritySites.ReservedItemNameRefusalReason(
+                    markerCell.LogicalSheet, markerCell.LogicalColumn,
+                    WorkbookCompatibilityReader.AuthorityMarkerItem),
+                null, null, DevelopmentControlWriteVerdict.RefusedAuthoritySite);
+
         var previous = sheet.Records
             .FirstOrDefault(r => r.Row == write.Row)?.Get(write.LogicalColumn);
 
@@ -716,6 +755,29 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
                         + "change it belongs to; a record with a blank originating change cannot be "
                         + "traced back to the decision that authorised it.");
 
+        // --- the record must belong to the change whose scope authorises it.
+        //
+        // Containment answers "does this declaration cover the store?". It says nothing about whether
+        // the RECORD belongs to the change that made the declaration. Without this check a caller
+        // could declare a scope for one change and stamp the record with another, so the envelope
+        // would carry an originating change that never authorised the write while read-back reported
+        // the append as within a scope it was never part of. Reproduced before this guard existed: a
+        // record stamped 'UNRELATED-CHANGE' was accepted under a scope declaring 'CHG-VERIFY', and
+        // the result came back WithinDeclaredScope.
+        //
+        // The verdict is ScopeAmendmentRequired rather than RefuseAfterScope's WithinDeclaredScope,
+        // and that is deliberate: containment HAS passed, so reporting WithinDeclaredScope would tell
+        // the caller its declaration was the problem when the fault is the record's own change id.
+        // ScopeAmendmentRequired says the true thing — the scope must name this change, or the record
+        // must be restamped. DeclaredScope is non-null here: ScopeCoversStore returned
+        // WithinDeclaredScope above, which it can only do for a non-null declaration.
+        if (!string.Equals(record.ChangeId, record.DeclaredScope.ChangeId, StringComparison.Ordinal))
+            return Refuse($"SCOPE_CHANGE_REQUIRED: the record is stamped with change '{record.ChangeId}' "
+                        + $"but its declared scope authorises change '{record.DeclaredScope.ChangeId}'. A "
+                        + "record may only be written under the change whose scope declares it, "
+                        + "otherwise its envelope names an origin that never authorised it.",
+                ChangeScopeContainmentVerdict.ScopeAmendmentRequired);
+
         if (record.Provenance is null)
             return RefuseAfterScope("no provenance was supplied. Every governed V3 record states where it came "
                         + "from — a blank migration envelope is an unfilled field, not a native record.");
@@ -798,27 +860,121 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
             cells.Add(new AppendCell(column.PhysicalColumn, value ?? ""));
         }
 
-        if (!resolved.ContainsKey(record.IdentityColumn))
-            return RefuseAfterScope($"the declared identity column '{record.IdentityColumn}' is not among the "
-                        + "values supplied, so the record would have no identity and the collision "
-                        + "check would have nothing to compare.");
+        // --- the authority marker's ITEM NAME is reserved on the sheet that carries it.
+        //
+        // `ControlItems` does not read the marker from a fixed address: it scans `00_Control` and
+        // keeps the row whose `ControlItem` column reads `ControlState`, assigning into a plain
+        // dictionary as it walks the records in ASCENDING ROW ORDER. So a second row declaring that
+        // item name is a second marker, and the LATER row is the one that resolves — the original
+        // row is left untouched and correct while the workbook's authority is decided by the
+        // appended one. Measured before this refusal existed, on both fixtures: an ordinary append
+        // to `Control` declaring an `IdentityColumn` of `Value` with a unique value and a
+        // `ControlItem` of `ControlState` PROMOTED a candidate workbook and DEMOTED an authoritative
+        // one, passing every gate on the way — the collision check never asks whether the VALUE is a
+        // marker, only whether the nominated identity repeats.
+        //
+        // This sits with the envelope-column refusal above rather than with the identity block below
+        // because it is the same kind of question — a property of the RECORD'S OWN CONTENT, answerable
+        // before the workbook's identity model is consulted. `ControlItems` also fails closed on a
+        // duplicated key, which covers anything reaching the bytes by another route; this half is
+        // what keeps the bytes from changing at all, and a duplicate the reader ignores is still a
+        // workbook two tools disagree about.
+        var markerCell = DevelopmentControlAuthoritySites.MarkerIdentityCell;
 
-        var identityValue = record.Values!
-            .First(kv => string.Equals(kv.Key, record.IdentityColumn, StringComparison.OrdinalIgnoreCase))
-            .Value;
+        if (markerCell.LogicalSheet is not null && markerCell.LogicalColumn is not null
+            && string.Equals(record.LogicalSheet, markerCell.LogicalSheet, StringComparison.Ordinal)
+            && record.Values is not null
+            && record.Values.Any(kv =>
+                string.Equals(kv.Key, markerCell.LogicalColumn, StringComparison.OrdinalIgnoreCase)
+                && string.Equals((kv.Value ?? "").Trim(), WorkbookCompatibilityReader.AuthorityMarkerItem,
+                    StringComparison.Ordinal)))
+            return RefuseAfterScope(DevelopmentControlAuthoritySites.ReservedItemNameRefusalReason(
+                        markerCell.LogicalSheet, markerCell.LogicalColumn,
+                        WorkbookCompatibilityReader.AuthorityMarkerItem)
+                    + " An appended record may not declare it.");
 
-        if (string.IsNullOrWhiteSpace(identityValue))
-            return RefuseAfterScope($"the identity column '{record.IdentityColumn}' was supplied blank. A blank "
-                        + "key collides with every other blank key and identifies nothing.");
+        // --- IMMUTABLE IDENTITY. Owned by the schema, never by the caller.
+        //
+        // Everything below reads the sheet's declared identity (`SheetBinding.V3ImmutableIdentity`)
+        // rather than `record.IdentityColumn`. That member is retained on the public contract as a
+        // DECLARATION to be validated, never as the authority for which column holds identity —
+        // which is what it effectively was before: the blank check and the collision check both read
+        // whichever column the caller nominated while the row was written into the sheet's real key
+        // column. Nominating "Branch" therefore redirected both guards away from `LineageId`, and a
+        // duplicate AND a blank LineageId were each accepted on the live authority and on the
+        // archived candidate alike. Substituting a non-key column is no longer a way to choose which
+        // value has to be unique.
+        var binding = WorkbookCompatibilityMap.Sheets.FirstOrDefault(b =>
+            string.Equals(b.LogicalName, record.LogicalSheet, StringComparison.Ordinal));
+
+        var immutableIdentity = binding?.V3ImmutableIdentity;
+
+        if (immutableIdentity is null || immutableIdentity.Count == 0)
+            return RefuseAfterScope($"'{record.LogicalSheet}' declares no immutable record identity, so a "
+                        + "record appended here could not be checked for collision and its key could "
+                        + "never be shown unique. This sheet is not an append target. Append targets: "
+                        + string.Join(", ", WorkbookCompatibilityMap.Sheets
+                            .Where(b => b.V3ImmutableIdentity is { Count: > 0 })
+                            .Select(b => b.LogicalName)) + ".");
+
+        if (!immutableIdentity.Contains(record.IdentityColumn, StringComparer.Ordinal))
+            return RefuseAfterScope($"the identity column '{record.IdentityColumn}' is not the immutable "
+                        + $"identity this schema declares for '{record.LogicalSheet}', which is "
+                        + $"{string.Join(" + ", immutableIdentity)}. Identity is a property of the "
+                        + "schema, so a caller cannot nominate a non-key column and redirect the "
+                        + "collision check away from the value that has to be unique.");
+
+        // Every key column must be supplied and non-blank, checked over the SCHEMA's columns — so a
+        // composite key cannot be half-satisfied by supplying only one of its members.
+        var keyValues = new List<string>();
+        foreach (var keyColumn in immutableIdentity)
+        {
+            if (!resolved.ContainsKey(keyColumn))
+                // Keeps the wording this refusal has always used ("the identity column 'X' is not among
+                // the values supplied"), so the pre-existing assertion in
+                // Append_Refuses_AValuesMapWithoutTheDeclaredIdentityColumn still pins it. The message
+                // only gained the schema's declaration, because with a composite key the caller needs
+                // to be told which other columns the sheet's identity also requires.
+                return RefuseAfterScope($"the identity column '{keyColumn}' is not among the values "
+                            + "supplied, so the record would have no identity and the collision check "
+                            + $"would have nothing to compare. '{record.LogicalSheet}' declares "
+                            + $"{string.Join(" + ", immutableIdentity)} as its immutable identity.");
+
+            var keyValue = record.Values!
+                .First(kv => string.Equals(kv.Key, keyColumn, StringComparison.OrdinalIgnoreCase))
+                .Value;
+
+            if (string.IsNullOrWhiteSpace(keyValue))
+                return RefuseAfterScope($"the identity column '{keyColumn}' was supplied blank. A blank key "
+                            + "collides with every other blank key and identifies nothing.");
+
+            keyValues.Add(keyValue);
+        }
 
         // --- immutable identity. Checked against EVERY row, not only current ones: the point of an
-        // immutable id is that it is never reused, so a superseded row still owns its value.
+        // immutable id is that it is never reused, so a superseded row still owns its value. A
+        // composite key is compared as a TUPLE, because no single member of it is unique — SourceId
+        // alone would refuse a legitimate second edge between the same pair, and any single member
+        // would admit a duplicate edge that differs only in its relation.
+        var keyByColumn = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < immutableIdentity.Count; i++) keyByColumn[immutableIdentity[i]] = keyValues[i];
+
+        // The identity as one string, for the result's RecordKey and for the read-back below. For a
+        // single-column key this is just the value, so existing callers and messages are unchanged.
+        var identityValue = string.Join(" + ", keyValues);
+
+        // A human-readable form naming each column, used in every refusal and result sentence. A
+        // composite key reported as a bare joined value would be ambiguous about which part is which.
+        var identityLabel = string.Join(" + ",
+            immutableIdentity.Select((c, i) => $"{c} = '{keyValues[i]}'"));
+
         var collision = sheet.Records.FirstOrDefault(r =>
-            string.Equals(r.Get(record.IdentityColumn), identityValue, StringComparison.OrdinalIgnoreCase));
+            immutableIdentity.All(c =>
+                string.Equals(r.Get(c), keyByColumn[c], StringComparison.OrdinalIgnoreCase)));
 
         if (collision is not null)
-            return RefuseAfterScope($"a record with {record.IdentityColumn} = '{identityValue}' already exists "
-                        + $"on '{record.LogicalSheet}' at row {collision.Row}. Record identity is "
+            return RefuseAfterScope($"a record with {identityLabel} already exists on "
+                        + $"'{record.LogicalSheet}' at row {collision.Row}. Record identity is "
                         + "immutable, so this is a collision and not an update — the same id must not "
                         + "name two records.");
 
@@ -863,7 +1019,8 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
         var after = WorkbookCompatibilityReader.Read(_storePath);
         var appended = after.Records
             .Where(r => string.Equals(r.LogicalSheet, record.LogicalSheet, StringComparison.Ordinal)
-                     && string.Equals(r.Get(record.IdentityColumn), identityValue, StringComparison.OrdinalIgnoreCase))
+                     && immutableIdentity.All(c =>
+                            string.Equals(r.Get(c), keyByColumn[c], StringComparison.OrdinalIgnoreCase)))
             .Select(r => new DevelopmentControlRecord(r.LogicalSheet, r.Row, r.Values))
             .FirstOrDefault();
 
@@ -874,7 +1031,7 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
             // means the artifact and this component disagree; that must be said, not smoothed over.
             return new DevelopmentControlAppendResult(true,
                 $"Wrote row {row} of {sheet.PhysicalName} but the read-back did not find "
-                + $"{record.IdentityColumn} = '{identityValue}'. The record is in the workbook and "
+                + $"{identityLabel}. The record is in the workbook and "
                 + "did NOT verify — treat it as UNVERIFIED and re-read the authority before relying "
                 + "on it.",
                 row, identityValue, null, null)
@@ -882,7 +1039,7 @@ public sealed class DevelopmentControlReservation : IDevelopmentControlReservati
         }
 
         return new DevelopmentControlAppendResult(true,
-            $"Appended {record.IdentityColumn} = '{identityValue}' to {sheet.PhysicalName} "
+            $"Appended {identityLabel} to {sheet.PhysicalName} "
             + $"(logical {record.LogicalSheet}) at row {appended.Row}, under change "
             + $"'{record.ChangeId}', and read it back through the shared reader.",
             appended.Row, identityValue, appended.Provenance, appended.Envelope)

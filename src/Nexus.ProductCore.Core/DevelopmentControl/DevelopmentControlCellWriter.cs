@@ -78,6 +78,24 @@ internal static class DevelopmentControlCellWriter
         if (site is not null)
             throw new WorkbookDecodeException(DevelopmentControlAuthoritySites.RefusalReason(site));
 
+        // --- W8D PRODUCTION WIRING: the site's IDENTITY cell, refused for the same reason and one
+        // step less obvious.
+        //
+        // The marker is not read from a fixed address: `ControlItems` finds it by the row whose
+        // `ControlItem` column reads `ControlState`. So `B10` is the cell that decides, but `A10` is
+        // what makes it findable — and until this check existed `A10` was writable by any caller
+        // holding the lock. Measured: an ordinary governed write of `ControlStateRenamed` there was
+        // ALLOWED, after which the workbook declared no `ControlState` item at all and reported its
+        // own authority as unreadable. That is degradation rather than promotion, and it is still an
+        // ordinary write moving what the marker resolves to, which is what the guard above forbids.
+        //
+        // PHYSICAL and here, for the reason already stated above: a guard phrased in logical names
+        // sits one layer up, and any caller resolving a physical column another way steps around it.
+        var identity = DevelopmentControlAuthoritySites.FindPhysicalIdentity(
+            physicalSheetName, columnLetter, rowNumber);
+        if (identity is not null)
+            throw new WorkbookDecodeException(DevelopmentControlAuthoritySites.IdentityRefusalReason(identity));
+
         var partName = ResolveSheetPart(workbookPath, physicalSheetName);
         var columnIndex = ColumnIndex(columnLetter);
 

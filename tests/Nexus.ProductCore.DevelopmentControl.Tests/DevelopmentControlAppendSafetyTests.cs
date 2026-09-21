@@ -134,9 +134,21 @@ public sealed class DevelopmentControlAppendSafetyTests
                 "carried into V3 by W8D", DateTimeOffset.Parse("2026-09-16T00:00:00Z")),
             scope ?? ScopeCovering());
 
-    /// <summary>A declaration that DOES cover the store for write — the control baseline.</summary>
-    private static ChangeScopeDeclaration ScopeCovering() =>
-        new("w8d-append-lane", "CHG-W8D-APPEND-0001",
+    /// <summary>
+    /// A declaration that DOES cover the store for write — the control baseline.
+    ///
+    /// <para><b>The change id is a parameter because a record's ChangeId and its scope's ChangeId
+    /// must agree.</b> The governed writer refuses a record whose envelope names one change while
+    /// its declaration authorises another — the record would be stamped with an origin that never
+    /// authorised it — and it refuses that BEFORE containment and before any marker guard. The
+    /// probes that use a change id of their own (the GapB trio) therefore declare a scope for that
+    /// same change, or they would be refused for the change id and would never reach the guard they
+    /// exist to exercise. That is not hypothetical: it happened, and the two probes that assert only
+    /// <c>Appended == false</c> kept passing on the wrong refusal. Matching the id here is what
+    /// makes their refusal provably about the marker.</para>
+    /// </summary>
+    private static ChangeScopeDeclaration ScopeCovering(string changeId = "CHG-W8D-APPEND-0001") =>
+        new("w8d-append-lane", changeId,
             [new ChangeScopeItem(ChangeScopeItemKind.ControlStore,
                 ChangeScopeAccessMode.Write, "NEXUS_DEVELOPMENT_CONTROL.xlsx")]);
 
@@ -1071,5 +1083,727 @@ public sealed class DevelopmentControlAppendSafetyTests
 
         Record($"T3.13 live canonical authority :: form={read.Form} authority={read.Authority} "
              + $"sha={fixture.Sha256()[..12]}...");
+    }
+
+    // ================================================================ W8D PRODUCTION WIRING — marker-safety probe
+    //
+    // A read-only analysis of this writer produced two STATIC hypotheses about whether an ordinary
+    // governed write can move what the authority marker resolves to. Neither had been executed, and
+    // a hypothesis reasoned from code is not evidence. Each is probed below against a TEMP COPY of
+    // the preserved pre-cutover candidate, asserting the SAFE outcome — so if the gap is real the
+    // test FAILS and carries the measurement that decides it in its own failure message.
+    //
+    // Nothing here writes to the live authority: `Fixture.Candidate()` copies W1_V3_CANDIDATE into
+    // its own throwaway directory first, exactly as every other test in this file does.
+    //
+    // The two hypotheses, and the guards each is claimed to escape:
+    //
+    //   Gap A — the marker's IDENTITY cell is unguarded. The marker is resolved by scanning
+    //   `00_Control` for the row whose ControlItem column equals "ControlState" and reading that
+    //   row's Value. The guards protect the VALUE cell, physically (`DevelopmentControlCellWriter`
+    //   refuses the declared site `00_Control!B10`) and logically (`DevelopmentControlAuthoritySites
+    //   .FindLogical("Control", 10, "Value")`). ControlItem is itself a bound, writable column at
+    //   physical A10, and is NEITHER. Same shape at `24_V3MigrationMap!A16` for the MigrationMap site.
+    //
+    //   Gap B — ControlItems is LAST-WINS over records in ascending row order, and append to the
+    //   logical `Control` sheet is claimed not to be blocked. A row appended BELOW row 10 declaring
+    //   ControlItem = "ControlState" would shadow the real marker. If real this is the serious one:
+    //   it is both promotion and demotion of the resolved marker by an ordinary governed write.
+
+    /// <summary>
+    /// The value Gap B tries to shadow the marker with. `AUTHORITATIVE` is chosen deliberately: it
+    /// is the PROMOTION case, which is the worst outcome of the two and the one the directive's
+    /// "normal governed writes must not change the marker" rule most directly forbids. The premise
+    /// assertions in the probe confirm it is not already present in `00_Control` column B, so the
+    /// identity-collision gate has nothing to refuse.
+    /// </summary>
+    private const string ShadowMarkerValue = WorkbookCompatibilityReader.AuthorityMarkerAuthoritative;
+
+    /// <summary>
+    /// Every row of the logical `Control` sheet whose <c>ControlItem</c> names the authority marker,
+    /// with the value that row carries. More than one row is the shadowing condition; which of them
+    /// wins is decided by row order, because <see cref="WorkbookCompatibilityReader.ControlItems"/>
+    /// assigns into a plain dictionary as it walks the records ascending.
+    /// </summary>
+    private static string[] MarkerRows(WorkbookReadResult read) =>
+        read.Sheet("Control")!.Records
+            .Where(r => string.Equals((r.Get("ControlItem") ?? "").Trim(),
+                WorkbookCompatibilityReader.AuthorityMarkerItem, StringComparison.Ordinal))
+            .Select(r => $"row {r.Row} => '{r.Get("Value")}'")
+            .ToArray();
+
+    /// <summary>
+    /// GAP A, at the site that decides: <c>00_Control!A10</c>, the marker's identity cell.
+    ///
+    /// <para><b>Asserts the SAFE outcome.</b> A10 is not a declared authority site at either layer,
+    /// so on the static reading the write passes both guards and renames the item — after which
+    /// <c>ControlItems</c> carries no "ControlState" key, <c>AuthorityMarker</c> returns null,
+    /// <c>AuthorizeWrite</c> refuses with <c>RefusedAuthorityMarkerUnreadable</c> and the resolver
+    /// reports <c>Unknown</c>. That is degradation rather than promotion, but it is still an ordinary
+    /// governed write moving what the marker resolves to, which the directive forbids.</para>
+    ///
+    /// <para>The premise facts are asserted rather than assumed, because a refusal produced for a
+    /// different reason would otherwise read as a pass. The failure message carries the A10 value,
+    /// the marker and the resolved authority before and after, so the verdict is decided by the
+    /// measurement and not by this comment.</para>
+    /// </summary>
+    [Fact]
+    public void GapA_AnOrdinaryCellWrite_CannotRenameTheMarkersIdentityCell()
+    {
+        using var fixture = Fixture.Candidate();
+
+        var beforeRead = WorkbookCompatibilityReader.Read(fixture.Copy);
+        var beforeSha = fixture.Sha256();
+        var markerBefore = WorkbookCompatibilityReader.AuthorityMarker(beforeRead);
+        var identityBefore = beforeRead.Sheet("Control")!.Records.Single(r => r.Row == 10).Get("ControlItem");
+
+        // --- the premise: A10 is the identity cell, it is NOT declared an authority site at either
+        // layer, and it is the thing that makes the marker resolvable at all.
+        Assert.Equal("ControlState", identityBefore);
+        Assert.Null(DevelopmentControlAuthoritySites.FindPhysical("00_Control", "A", 10));
+        Assert.Null(DevelopmentControlAuthoritySites.FindLogical("Control", 10, "ControlItem"));
+        Assert.Equal(WorkbookCompatibilityReader.AuthorityMarkerCandidate, markerBefore);
+
+        using var reservation = Hold(fixture, "w8d-gapA-identity");
+        var write = new DevelopmentControlWriterAuthorizer().Write(
+            reservation,
+            new DevelopmentControlCellWrite("Control", 10, "ControlItem", "ControlStateRenamed"));
+
+        var afterRead = WorkbookCompatibilityReader.Read(fixture.Copy);
+        var afterSha = fixture.Sha256();
+        var markerAfter = WorkbookCompatibilityReader.AuthorityMarker(afterRead);
+        var identityAfter = afterRead.Sheet("Control")!.Records
+            .FirstOrDefault(r => r.Row == 10)?.Get("ControlItem");
+
+        var evidence =
+            $"GapA/Control probing Write(Control, row 10, ControlItem) :: "
+            + $"written={write.Written}; verdict={write.Verdict}; reason={write.Reason} || "
+            + $"A10 ControlItem '{identityBefore}' -> '{identityAfter}'; "
+            + $"marker '{markerBefore}' -> '{markerAfter ?? "<UNREADABLE>"}'; "
+            + $"resolved authority={new DevelopmentControlReader().Read(fixture.Copy).Authority}; "
+            + $"AuthorizeWrite afterwards="
+            + $"{WorkbookCompatibilityReader.AuthorizeWrite(afterRead, WorkbookForm.V3).Verdict}; "
+            + $"sha {beforeSha[..12]} -> {afterSha[..12]} "
+            + $"unchanged={string.Equals(beforeSha, afterSha, StringComparison.OrdinalIgnoreCase)}";
+        Record(evidence);
+
+        // --- THE SAFE OUTCOME. If the identity cell is unguarded, this is what fails.
+        Assert.False(write.Written, evidence);
+        Assert.Equal(DevelopmentControlWriteVerdict.RefusedAuthoritySite, write.Verdict);
+        Assert.Equal(beforeSha, afterSha);
+        Assert.Equal("ControlState", identityAfter);
+        Assert.Equal(markerBefore, markerAfter);
+    }
+
+    /// <summary>
+    /// GAP A at the second site the same shape was reported at: <c>24_V3MigrationMap!A16</c>, the
+    /// <c>MapId</c> cell of the row carrying the migration-status authority site at R16.
+    ///
+    /// <para>Kept separate from the Control probe because the two are different sheets with
+    /// different bindings: the Control identity cell is reachable and refused for one reason, and
+    /// this one establishes that the hole — if it is one — is a property of the SHAPE rather than of
+    /// one hardcoded address. Renaming A16 does not move the resolved marker, so the assertion here
+    /// is about the write being refused at all.</para>
+    /// </summary>
+    [Fact]
+    public void GapA_AnOrdinaryCellWrite_CannotRenameTheMigrationMapSitesIdentityCell()
+    {
+        using var fixture = Fixture.Candidate();
+
+        var beforeRead = WorkbookCompatibilityReader.Read(fixture.Copy);
+        var beforeSha = fixture.Sha256();
+
+        var row = beforeRead.Sheet("MigrationMap")!.Records.Single(r => r.Row == 16);
+        var identityBefore = row.Get("MapId");
+
+        // --- the premise: A16 is the row's key cell and is not a declared authority site at either
+        // layer, while the Value-bearing R16 of the same row IS.
+        Assert.Equal("MAP-unified-control", identityBefore);
+        Assert.Null(DevelopmentControlAuthoritySites.FindPhysical("24_V3MigrationMap", "A", 16));
+        Assert.Null(DevelopmentControlAuthoritySites.FindLogical("MigrationMap", 16, "MapId"));
+        Assert.NotNull(DevelopmentControlAuthoritySites.FindPhysical("24_V3MigrationMap", "R", 16));
+        Assert.NotNull(DevelopmentControlAuthoritySites.FindLogical("MigrationMap", 16, "Status"));
+
+        using var reservation = Hold(fixture, "w8d-gapA-migrationmap-identity");
+        var write = new DevelopmentControlWriterAuthorizer().Write(
+            reservation,
+            new DevelopmentControlCellWrite("MigrationMap", 16, "MapId", "MAP-unified-control-renamed"));
+
+        var afterRead = WorkbookCompatibilityReader.Read(fixture.Copy);
+        var afterSha = fixture.Sha256();
+        var identityAfter = afterRead.Sheet("MigrationMap")!.Records
+            .FirstOrDefault(r => r.Row == 16)?.Get("MapId");
+        var statusAfter = afterRead.Sheet("MigrationMap")!.Records
+            .FirstOrDefault(r => r.Row == 16)?.Get("Status");
+
+        var evidence =
+            $"GapA/MigrationMap probing Write(MigrationMap, row 16, MapId) :: "
+            + $"written={write.Written}; verdict={write.Verdict}; reason={write.Reason} || "
+            + $"A16 MapId '{identityBefore}' -> '{identityAfter}'; R16 Status left as '{statusAfter}'; "
+            + $"sha {beforeSha[..12]} -> {afterSha[..12]} "
+            + $"unchanged={string.Equals(beforeSha, afterSha, StringComparison.OrdinalIgnoreCase)}";
+        Record(evidence);
+
+        Assert.False(write.Written, evidence);
+        Assert.Equal(DevelopmentControlWriteVerdict.RefusedAuthoritySite, write.Verdict);
+        Assert.Equal(beforeSha, afterSha);
+        Assert.Equal(identityBefore, identityAfter);
+    }
+
+    /// <summary>
+    /// GAP B — the shadowing append.
+    ///
+    /// <para><b>Asserts the SAFE outcome.</b> On the static reading every gate passes: the workbook
+    /// authorises a V3 write, `Control` is bound, `00_Control` row 4 carries the full 14-column
+    /// envelope so the envelope gate has nothing to refuse, `ControlItem` and `Value` are real
+    /// columns, `IdentityColumn` is caller-supplied and declared as <c>Value</c> with a unique
+    /// value, and the scope is self-declared so it covers. The row then lands BELOW row 10, and
+    /// `ControlItems` — last-wins over ascending rows — resolves the marker to the appended value.
+    /// That is a genuine hole in the marker-safety guarantee: ordinary promotion of the authority,
+    /// and by symmetry an ordinary demotion of it.</para>
+    ///
+    /// <para><b>Every gate above is asserted as a premise</b> so that a refusal for a different
+    /// reason cannot be mistaken for the guard working. The companion test
+    /// <see cref="GapB_AnAppendToTheControlSheetWithABenignItem_ReachesTheSheet"/> is the mutation
+    /// control: it proves the append path does reach this sheet, so a refusal here is about the
+    /// marker and not about an append that never worked.</para>
+    /// </summary>
+    [Fact]
+    public void GapB_AnOrdinaryAppend_CannotShadowTheAuthorityMarkerOnTheControlSheet()
+    {
+        using var fixture = Fixture.Candidate();
+
+        var beforeRead = WorkbookCompatibilityReader.Read(fixture.Copy);
+        var beforeSha = fixture.Sha256();
+        var markerBefore = WorkbookCompatibilityReader.AuthorityMarker(beforeRead);
+        var rowsBefore = MarkerRows(beforeRead);
+
+        // --- the premise, part 1: 00_Control carries the full governance + migration envelope, so
+        // the envelope gate cannot be what refuses. If it did, this probe would be measuring a gate
+        // that fired first and would say nothing about the shadowing route.
+        var control = beforeRead.Sheet("Control")!;
+        var missingEnvelope = DevelopmentControlEnvelopeColumns.All
+            .Where(n => !control.Columns.Any(c =>
+                string.Equals(c.LogicalName, n, StringComparison.Ordinal)
+                && c.Found && c.PhysicalColumn is not null))
+            .ToArray();
+        Assert.Empty(missingEnvelope);
+
+        // --- the premise, part 2: exactly ONE row currently declares the marker, the marker reads
+        // CANDIDATE, and the value to be appended is not already present under `Value` — so the
+        // identity-collision gate has nothing to refuse either.
+        Assert.Single(rowsBefore);
+        Assert.Equal(WorkbookCompatibilityReader.AuthorityMarkerCandidate, markerBefore);
+        Assert.DoesNotContain(ShadowMarkerValue,
+            control.Records.Select(r => r.Get("Value") ?? ""), StringComparer.OrdinalIgnoreCase);
+
+        // The COLUMN is `ControlItem`; `ControlState` is the VALUE that names the marker.
+        //
+        // Getting those two the wrong way round was this probe's own first-run bug, and it is worth
+        // recording why it matters: the run before this one was refused with "'Control' has no
+        // logical column 'ControlState'" — a refusal for a mistyped KEY, which asserts
+        // `Appended == false` and would have read as "the marker is safe" while measuring nothing of
+        // the kind. The evidence line below carries the refusal REASON verbatim for exactly that
+        // reason: the boolean alone cannot distinguish "the shadowing route is closed" from "the
+        // request was malformed", and those are opposite findings.
+        var values = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["ControlItem"] = WorkbookCompatibilityReader.AuthorityMarkerItem,
+            ["Value"] = ShadowMarkerValue,
+        };
+
+        var result = Append(fixture, Request(
+            logicalSheet: "Control",
+            identityColumn: "Value",
+            changeId: "CHG-W8D-GAPB-0001",
+            values: values,
+            scope: ScopeCovering("CHG-W8D-GAPB-0001")));
+
+        var afterRead = WorkbookCompatibilityReader.Read(fixture.Copy);
+        var afterSha = fixture.Sha256();
+        var markerAfter = WorkbookCompatibilityReader.AuthorityMarker(afterRead);
+        var rowsAfter = MarkerRows(afterRead);
+
+        var evidence =
+            $"GapB probing Append(Control, IdentityColumn=Value, ControlItem=ControlState, Value={ShadowMarkerValue}) :: "
+            + $"appended={result.Appended}; row={(result.Row?.ToString() ?? "<none>")}; "
+            + $"verdict={result.Containment}; reason={result.Reason} || "
+            + $"marker-declaring rows {rowsBefore.Length} -> {rowsAfter.Length} "
+            + $"[before: {string.Join("; ", rowsBefore)} | after: {string.Join("; ", rowsAfter)}]; "
+            + $"marker '{markerBefore}' -> '{markerAfter ?? "<UNREADABLE>"}'; "
+            + $"resolved authority={new DevelopmentControlReader().Read(fixture.Copy).Authority}; "
+            + $"sha {beforeSha[..12]} -> {afterSha[..12]} "
+            + $"unchanged={string.Equals(beforeSha, afterSha, StringComparison.OrdinalIgnoreCase)}";
+        Record(evidence);
+
+        // --- THE SAFE OUTCOME. If the shadowing append lands, this is what fails.
+        Assert.False(result.Appended, evidence);
+        // ...and it must be refused ABOUT THE MARKER. `Appended == false` is satisfied by any
+        // refusal at all, so on its own it cannot tell "the shadowing route is closed" from "this
+        // append never works"; the control below exists for the same reason, and this assertion is
+        // the cheaper half of it. The refusal must name the item the shadowing row would claim.
+        Assert.Contains(WorkbookCompatibilityReader.AuthorityMarkerItem, result.Reason, StringComparison.Ordinal);
+        Assert.Equal(beforeSha, afterSha);
+        Assert.Single(rowsAfter);
+        Assert.Equal(WorkbookCompatibilityReader.AuthorityMarkerCandidate, markerAfter);
+        Assert.Equal(DevelopmentControlAuthority.Candidate,
+            new DevelopmentControlReader().Read(fixture.Copy).Authority);
+    }
+
+    /// <summary>
+    /// GAP B, the other direction: the same append route DEMOTES an authoritative workbook.
+    ///
+    /// <para>The promotion probe is the more alarming half, but the finding is "an ordinary governed
+    /// write moves what the marker resolves to" in BOTH directions, and only an executed test
+    /// establishes the second one. This promotes a temp copy to authoritative with the real cutover
+    /// first, so the demotion is measured against a workbook that genuinely WAS the authority, and
+    /// then attempts the same shadowing append.</para>
+    ///
+    /// <para><b>Why the demoting value is not <c>CANDIDATE</c>.</b> It cannot be. The identity
+    /// collision check runs against the caller-declared <c>IdentityColumn</c>, which here is
+    /// <c>Value</c>, and row 10 still carries <c>CANDIDATE</c> in that column — so re-declaring the
+    /// old marker is refused as a duplicate. That is worth stating precisely, because it is the one
+    /// thing that looks like a marker guard and is not one: it is an accident of which column the
+    /// caller nominated as the identity. Nominate <c>Value</c> and promote with a value no row
+    /// carries, and nothing refuses; the collision gate never asks whether the VALUE is a marker.</para>
+    /// </summary>
+    [Fact]
+    public void GapB_AnOrdinaryAppend_CanAlsoDemoteTheAuthority()
+    {
+        using var fixture = Fixture.Candidate();
+
+        // Promote first, through the governed cutover, so the workbook really is the authority.
+        Assert.True(Cutover(fixture, CutoverRequest()).Performed);
+
+        var beforeSha = fixture.Sha256();
+        var beforeRead = WorkbookCompatibilityReader.Read(fixture.Copy);
+        var markerBefore = WorkbookCompatibilityReader.AuthorityMarker(beforeRead);
+        Assert.Equal(WorkbookCompatibilityReader.AuthorityMarkerAuthoritative, markerBefore);
+        Assert.Equal(DevelopmentControlAuthority.Authoritative,
+            new DevelopmentControlReader().Read(fixture.Copy).Authority);
+
+        var values = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["ControlItem"] = WorkbookCompatibilityReader.AuthorityMarkerItem,
+            ["Value"] = "W8D-DEMOTED-NOT-A-MARKER",
+        };
+
+        var result = Append(fixture, Request(
+            logicalSheet: "Control",
+            identityColumn: "Value",
+            changeId: "CHG-W8D-GAPB-DEMOTE-0001",
+            values: values,
+            scope: ScopeCovering("CHG-W8D-GAPB-DEMOTE-0001")));
+
+        var afterRead = WorkbookCompatibilityReader.Read(fixture.Copy);
+        var afterSha = fixture.Sha256();
+        var markerAfter = WorkbookCompatibilityReader.AuthorityMarker(afterRead);
+        var rowsAfter = MarkerRows(afterRead);
+
+        var evidence =
+            $"GapB/DEMOTION probing Append(Control, IdentityColumn=Value, ControlItem=ControlState, "
+            + $"Value=W8D-DEMOTED-NOT-A-MARKER) on an AUTHORITATIVE workbook :: "
+            + $"appended={result.Appended}; row={(result.Row?.ToString() ?? "<none>")}; reason={result.Reason} || "
+            + $"marker-declaring rows after: [{string.Join("; ", rowsAfter)}]; "
+            + $"marker '{markerBefore}' -> '{markerAfter ?? "<UNREADABLE>"}'; "
+            + $"resolved authority={new DevelopmentControlReader().Read(fixture.Copy).Authority}; "
+            + $"sha {beforeSha[..12]} -> {afterSha[..12]} "
+            + $"unchanged={string.Equals(beforeSha, afterSha, StringComparison.OrdinalIgnoreCase)}";
+        Record(evidence);
+
+        // --- THE SAFE OUTCOME: the authority cannot be demoted by an ordinary append.
+        Assert.False(result.Appended, evidence);
+        // Refused about the marker, not merely refused — see the note on the promotion probe.
+        Assert.Contains(WorkbookCompatibilityReader.AuthorityMarkerItem, result.Reason, StringComparison.Ordinal);
+        Assert.Equal(beforeSha, afterSha);
+        Assert.Equal(markerBefore, markerAfter);
+        Assert.Single(rowsAfter);
+        Assert.Equal(DevelopmentControlAuthority.Authoritative,
+            new DevelopmentControlReader().Read(fixture.Copy).Authority);
+    }
+
+    /// <summary>
+    /// GAP B's mutation control, and the reason the probe above means anything.
+    ///
+    /// <para>The shadowing probe asserts <c>Appended == false</c>. That assertion passes for ANY
+    /// refusal — a mistyped sheet name, an envelope that did not resolve, a column the form does not
+    /// bind — so on its own it would report "the marker is safe" while actually measuring "append to
+    /// this sheet never works". This test removes the ONE condition under test: it appends to the
+    /// same sheet, under the same self-declared scope, and only changes the <c>ControlItem</c> value
+    /// to one that does not name the marker. If THAT succeeds while the shadowing append is refused,
+    /// the refusal is the marker guard. If this fails too, the probe above is measuring a broken
+    /// append path and its verdict is void.</para>
+    ///
+    /// <para><b>It does not use the attack's <c>IdentityColumn</c>, and that difference is the
+    /// point.</b> The attack nominated <c>Value</c> as its identity column and that nomination was
+    /// load-bearing: it steered the collision check onto a column no row carried, which is how a
+    /// second <c>ControlItem = "ControlState"</c> row got in. Nomination is no longer a way to choose
+    /// which value must be unique. The schema declares <c>Control</c>'s identity to be
+    /// <c>ControlItem</c>, and an append nominating anything else is refused outright — so the
+    /// attack's own shape is closed at the root, and a control that reproduced it could only measure
+    /// that closure, not reachability. This one therefore appends under the SCHEMA's identity, which
+    /// is the only shape that still reaches the sheet at all, and reaching the sheet is the one thing
+    /// this control exists to prove.</para>
+    ///
+    /// <para>It does not move the marker: it appends a new key/value pair the resolution scan has no
+    /// interest in, which is what makes it a control rather than a second attack.</para>
+    /// </summary>
+    [Fact]
+    public void GapB_AnAppendToTheControlSheetWithABenignItem_ReachesTheSheet()
+    {
+        using var fixture = Fixture.Candidate();
+
+        var beforeSha = fixture.Sha256();
+        var markerBefore = WorkbookCompatibilityReader.AuthorityMarker(
+            WorkbookCompatibilityReader.Read(fixture.Copy));
+
+        var values = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            // A name no row carries, so the append is a genuinely NEW record and not a collision
+            // with one of `00_Control`'s existing items.
+            ["ControlItem"] = "W8D-GapB-Benign-Item",
+            ["Value"] = "w8d-probe-value",
+        };
+
+        var result = Append(fixture, Request(
+            logicalSheet: "Control",
+            // The schema's identity, not the attack's. See the note on this test.
+            identityColumn: "ControlItem",
+            changeId: "CHG-W8D-GAPB-CONTROL-0001",
+            values: values,
+            scope: ScopeCovering("CHG-W8D-GAPB-CONTROL-0001")));
+
+        var afterRead = WorkbookCompatibilityReader.Read(fixture.Copy);
+        var afterSha = fixture.Sha256();
+        var markerAfter = WorkbookCompatibilityReader.AuthorityMarker(afterRead);
+
+        var evidence =
+            $"GapB control — benign Append(Control, IdentityColumn=ControlItem, "
+            + "ControlItem=W8D-GapB-Benign-Item) :: "
+            + $"appended={result.Appended}; row={(result.Row?.ToString() ?? "<none>")}; reason={result.Reason} || "
+            + $"marker '{markerBefore}' -> '{markerAfter ?? "<UNREADABLE>"}'; "
+            + $"sha {beforeSha[..12]} -> {afterSha[..12]} "
+            + $"changed={!string.Equals(beforeSha, afterSha, StringComparison.OrdinalIgnoreCase)}";
+        Record(evidence);
+
+        // The control must APPEND: that is what proves the shadowing probe's refusal, if any, is
+        // about the marker. It must also leave the marker alone, which is the property under test.
+        Assert.True(result.Appended, evidence);
+        Assert.NotEqual(beforeSha, afterSha);
+        Assert.Equal(markerBefore, markerAfter);
+        Assert.Equal(WorkbookCompatibilityReader.AuthorityMarkerCandidate, markerAfter);
+        Assert.Equal(DevelopmentControlAuthority.Candidate,
+            new DevelopmentControlReader().Read(fixture.Copy).Authority);
+    }
+
+    // ================================================================ W8D PRODUCTION WIRING — regression
+    //
+    // The probes above close the two routes they were written for. These do something a route test
+    // cannot: they state the PROPERTY, so that closing an observed route is not mistaken for closing
+    // the class. That distinction earned its keep here — the sweep for "what else can shadow the
+    // marker" turned up a third governed route (see leg (b) below) that neither probe touched and
+    // that the row-scoped identity guard alone would have left open.
+
+    /// <summary>
+    /// THE PROPERTY: no ordinary governed write and no ordinary governed append can change what the
+    /// authority marker resolves to.
+    ///
+    /// <para>Stated over the operation rather than over the CVE. Four legs, each on its own fixture,
+    /// because a refusal is only evidence when the thing that would otherwise have happened is
+    /// visible:</para>
+    /// <list type="bullet">
+    /// <item><description><b>(a)</b> the marker row's own identity cell — the probe's route, kept
+    /// here so this test fails if that guard is ever removed.</description></item>
+    /// <item><description><b>(b)</b> a DIFFERENT row's identity cell claiming the marker's item
+    /// name. This is the route the sweep found: <c>00_Control</c> rows 11–22 are ordinary, writable,
+    /// non-envelope rows, and the resolver locates the marker by the item NAME, so renaming row 11's
+    /// <c>ControlItem</c> to <c>ControlState</c> makes a second marker row — after which last-wins in
+    /// ascending row order hands the authority to row 11. Guarding only the marker's own row leaves
+    /// this entirely open.</description></item>
+    /// <item><description><b>(c)</b> an append declaring the marker's item name.</description></item>
+    /// <item><description><b>(d)</b> the CONTROL: the same column, the same operation, with a value
+    /// that does not claim the marker's name, must still SUCCEED. Without it, every assertion above
+    /// also passes if the column was simply frozen — which would report "the marker is safe" while
+    /// measuring "governed writes to this sheet stopped working".</description></item>
+    /// </list>
+    ///
+    /// <para>Each leg asserts the bytes are unchanged, not merely that a refusal was reported: a
+    /// guard that returned "refused" while writing anyway passes every other assertion here.</para>
+    /// </summary>
+    [Fact]
+    public void NoOrdinaryGovernedWriteOrAppend_CanMoveWhatTheAuthorityMarkerResolvesTo()
+    {
+        DevelopmentControlWriterAuthorizer Writer() => new();
+
+        // ---- (a) the marker row's identity cell: 00_Control!A10.
+        using (var fixture = Fixture.Candidate())
+        {
+            var beforeSha = fixture.Sha256();
+            using var reservation = Hold(fixture, "w8d-reg-a");
+            var write = Writer().Write(reservation,
+                new DevelopmentControlCellWrite("Control", 10, "ControlItem", "ControlStateRenamed"));
+
+            Assert.False(write.Written, write.Reason);
+            Assert.Equal(DevelopmentControlWriteVerdict.RefusedAuthoritySite, write.Verdict);
+            Assert.Contains("GOVERNED_CELL", write.Reason, StringComparison.Ordinal);
+            Assert.Equal(beforeSha, fixture.Sha256());
+            Assert.Equal(WorkbookCompatibilityReader.AuthorityMarkerCandidate,
+                WorkbookCompatibilityReader.AuthorityMarker(WorkbookCompatibilityReader.Read(fixture.Copy)));
+
+            Record($"REG (a) marker row identity write refused :: verdict={write.Verdict}; "
+                 + $"sha unchanged=True; marker still CANDIDATE");
+        }
+
+        // ---- (b) ANOTHER row's identity cell, claiming the marker's item name.
+        using (var fixture = Fixture.Candidate())
+        {
+            var beforeRead = WorkbookCompatibilityReader.Read(fixture.Copy);
+            var beforeSha = fixture.Sha256();
+
+            // The premise, asserted rather than assumed: row 11 is a real row with a real item, it is
+            // not the marker row, and it is not an authority site at either layer — so nothing except
+            // the reserved-name rule stands between it and the marker.
+            Assert.Equal("MigrationVersion", beforeRead.Sheet("Control")!.Records.Single(r => r.Row == 11).Get("ControlItem"));
+            Assert.Null(DevelopmentControlAuthoritySites.FindPhysical("00_Control", "A", 11));
+            Assert.Null(DevelopmentControlAuthoritySites.FindLogical("Control", 11, "ControlItem"));
+            Assert.Null(DevelopmentControlAuthoritySites.FindPhysicalIdentity("00_Control", "A", 11));
+            Assert.Single(MarkerRows(beforeRead));
+
+            using var reservation = Hold(fixture, "w8d-reg-b");
+            var write = Writer().Write(reservation,
+                new DevelopmentControlCellWrite("Control", 11, "ControlItem",
+                    WorkbookCompatibilityReader.AuthorityMarkerItem));
+
+            var afterRead = WorkbookCompatibilityReader.Read(fixture.Copy);
+            var evidence =
+                $"REG (b) second-row identity claim Write(Control, 11, ControlItem, ControlState) :: "
+                + $"written={write.Written}; verdict={write.Verdict}; reason={write.Reason} || "
+                + $"marker-declaring rows {MarkerRows(beforeRead).Length} -> {MarkerRows(afterRead).Length}; "
+                + $"marker='{WorkbookCompatibilityReader.AuthorityMarker(afterRead) ?? "<UNREADABLE>"}'; "
+                + $"sha unchanged={string.Equals(beforeSha, fixture.Sha256(), StringComparison.OrdinalIgnoreCase)}";
+            Record(evidence);
+
+            // If this route were open, `ControlItems` would carry row 11's value under `ControlState`
+            // and the resolver would report Unknown — or, on a workbook where some later row carried
+            // AUTHORITATIVE, would promote it. Either way the marker moved.
+            Assert.False(write.Written, evidence);
+            Assert.Equal(DevelopmentControlWriteVerdict.RefusedAuthoritySite, write.Verdict);
+            Assert.Contains(WorkbookCompatibilityReader.AuthorityMarkerItem, write.Reason, StringComparison.Ordinal);
+            Assert.Equal(beforeSha, fixture.Sha256());
+            Assert.Single(MarkerRows(afterRead));
+            Assert.Equal(WorkbookCompatibilityReader.AuthorityMarkerCandidate,
+                WorkbookCompatibilityReader.AuthorityMarker(afterRead));
+        }
+
+        // ---- (c) an append declaring the marker's item name.
+        using (var fixture = Fixture.Candidate())
+        {
+            var beforeSha = fixture.Sha256();
+            var beforeRead = WorkbookCompatibilityReader.Read(fixture.Copy);
+
+            // The change id is deliberately NOT overridden here: the declared scope authorises
+            // `CHG-W8D-APPEND-0001`, and a record stamped with anything else is refused for that
+            // reason first — which would make this leg pass without ever reaching the marker guard
+            // it exists to exercise. The refusal REASON is asserted below for the same purpose.
+            var result = Append(fixture, Request(
+                logicalSheet: "Control",
+                identityColumn: "Value",
+                values: new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["ControlItem"] = WorkbookCompatibilityReader.AuthorityMarkerItem,
+                    ["Value"] = WorkbookCompatibilityReader.AuthorityMarkerAuthoritative,
+                }));
+
+            var afterRead = WorkbookCompatibilityReader.Read(fixture.Copy);
+            var evidence =
+                $"REG (c) append claiming the marker name :: appended={result.Appended}; "
+                + $"reason={result.Reason} || marker-declaring rows {MarkerRows(beforeRead).Length} -> "
+                + $"{MarkerRows(afterRead).Length}; "
+                + $"marker='{WorkbookCompatibilityReader.AuthorityMarker(afterRead) ?? "<UNREADABLE>"}'; "
+                + $"sha unchanged={string.Equals(beforeSha, fixture.Sha256(), StringComparison.OrdinalIgnoreCase)}";
+            Record(evidence);
+
+            Assert.False(result.Appended, evidence);
+            Assert.Contains(WorkbookCompatibilityReader.AuthorityMarkerItem, result.Reason, StringComparison.Ordinal);
+            Assert.Equal(beforeSha, fixture.Sha256());
+            Assert.Single(MarkerRows(afterRead));
+            Assert.Equal(DevelopmentControlAuthority.Candidate,
+                new DevelopmentControlReader().Read(fixture.Copy).Authority);
+        }
+
+        // ---- (d) CONTROL: the same column and the same operation, without the marker's name.
+        using (var fixture = Fixture.Candidate())
+        {
+            var beforeSha = fixture.Sha256();
+            var markerBefore = WorkbookCompatibilityReader.AuthorityMarker(
+                WorkbookCompatibilityReader.Read(fixture.Copy));
+
+            using var reservation = Hold(fixture, "w8d-reg-d");
+            var write = Writer().Write(reservation,
+                new DevelopmentControlCellWrite("Control", 22, "ControlItem", "W8D-Probe-Item-Renamed"));
+
+            var afterRead = WorkbookCompatibilityReader.Read(fixture.Copy);
+            var evidence =
+                $"REG (d) control — benign identity write to the same column :: written={write.Written}; "
+                + $"verdict={write.Verdict}; reason={write.Reason} || marker '{markerBefore}' -> "
+                + $"'{WorkbookCompatibilityReader.AuthorityMarker(afterRead) ?? "<UNREADABLE>"}'; "
+                + $"sha changed={!string.Equals(beforeSha, fixture.Sha256(), StringComparison.OrdinalIgnoreCase)}";
+            Record(evidence);
+
+            Assert.True(write.Written, evidence);
+            Assert.Equal(DevelopmentControlWriteVerdict.Allowed, write.Verdict);
+            Assert.NotEqual(beforeSha, fixture.Sha256());
+
+            // And it did NOT move the marker — a rename that does not claim the marker's name is an
+            // ordinary governed edit, which is the whole reason the rule above is about the VALUE.
+            Assert.Equal(markerBefore, WorkbookCompatibilityReader.AuthorityMarker(afterRead));
+            Assert.Equal(WorkbookCompatibilityReader.AuthorityMarkerCandidate,
+                WorkbookCompatibilityReader.AuthorityMarker(afterRead));
+            Assert.Single(MarkerRows(afterRead));
+        }
+    }
+
+    /// <summary>
+    /// THE CLASS, not the routes: a workbook in which the marker's item name is declared TWICE must
+    /// resolve its authority as unreadable, never to whichever row came last.
+    ///
+    /// <para><b>Why this cannot be done through the component.</b> After the guards above, no
+    /// governed operation can create the ambiguity — which is the point of them, and also why a test
+    /// that used one would be measuring the writer over again rather than the reader's rule. The
+    /// writer is not the only thing that can put a row in a sheet: an external editor, a repair
+    /// script or a second tool can each do it without ever calling this component, and a resolution
+    /// rule that GUESSES between two declarations is wrong however the second one arrived. So the
+    /// ambiguity is planted at the byte level here, deliberately outside this component, and the
+    /// reader is asked what it makes of it.</para>
+    ///
+    /// <para><b>The planted value is <c>AUTHORITATIVE</c>, and the row is the LAST one.</b> That is
+    /// the worst case on purpose: under last-wins it would PROMOTE the workbook, which is the exact
+    /// outcome the directive forbids and the one a silent rule would produce. The injection is
+    /// asserted to have landed before the verdict is read, because an injection that failed would
+    /// otherwise make this test pass by measuring nothing at all — the same trap the probes above
+    /// carry their premises for.</para>
+    /// </summary>
+    [Fact]
+    public void ADuplicatedMarkerRow_PlantedOutsideTheComponent_ResolvesToNothingRatherThanToTheShadow()
+    {
+        using var fixture = Fixture.Candidate();
+
+        // Row 22 is the candidate's last row, so the planted row resolves LAST under the old
+        // last-wins rule — the shadowing position, not the shadowed one.
+        ForceCellDirectly(fixture.Copy, "00_Control", "A22", WorkbookCompatibilityReader.AuthorityMarkerItem);
+        ForceCellDirectly(fixture.Copy, "00_Control", "B22", WorkbookCompatibilityReader.AuthorityMarkerAuthoritative);
+
+        var read = WorkbookCompatibilityReader.Read(fixture.Copy);
+
+        // --- the premise: the ambiguity is really there. Two rows now declare the marker item, and
+        // the planted one carries AUTHORITATIVE.
+        var rows = MarkerRows(read);
+        Assert.Equal(2, rows.Length);
+        Assert.Contains($"row 22 => '{WorkbookCompatibilityReader.AuthorityMarkerAuthoritative}'", rows);
+
+        var items = WorkbookCompatibilityReader.ControlItems(read);
+
+        // --- the rule, stated per key: the ambiguous key resolves to nothing, and its unambiguous
+        // neighbours are untouched. Asserting both halves is what distinguishes "fail closed on the
+        // duplicated key" from "the projection stopped working".
+        Assert.False(items.ContainsKey(WorkbookCompatibilityReader.AuthorityMarkerItem));
+        Assert.Equal("NEXUS-DEVELOPMENTCONTROL", items["SchemaId"]);
+        Assert.Equal("V3.0", items["SchemaVersion"]);
+
+        // --- the consequence that matters: the marker does not resolve to the shadow, and the
+        // workbook becomes loudly unwritable rather than quietly authoritative.
+        var marker = WorkbookCompatibilityReader.AuthorityMarker(read);
+        var authorisation = WorkbookCompatibilityReader.AuthorizeWrite(read, WorkbookForm.V3);
+
+        var evidence =
+            $"REG duplicate-marker-resolution :: marker-declaring rows=[{string.Join("; ", rows)}]; "
+            + $"ControlItems['{WorkbookCompatibilityReader.AuthorityMarkerItem}'] present={items.ContainsKey(WorkbookCompatibilityReader.AuthorityMarkerItem)}; "
+            + $"AuthorityMarker='{marker ?? "<null>"}' (NOT '{WorkbookCompatibilityReader.AuthorityMarkerAuthoritative}'); "
+            + $"AuthorizeWrite={authorisation.Verdict}; allowed={authorisation.Allowed}";
+        Record(evidence);
+
+        Assert.Null(marker);
+        Assert.False(authorisation.Allowed, evidence);
+        Assert.Equal(WorkbookCompatibilityReader.WriteVerdict.RefusedAuthorityMarkerUnreadable,
+            authorisation.Verdict);
+    }
+
+    /// <summary>
+    /// Resolves a physical sheet name to its part inside the package the way the component does —
+    /// through <c>xl/workbook.xml</c> and its relationship map, never by assuming a part name.
+    /// Shared by the byte-level helper below so that the injection addresses the same part the
+    /// reader does.
+    /// </summary>
+    private static string SheetPartOf(string workbookPath, string physicalSheetName)
+    {
+        System.Xml.Linq.XNamespace m = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+        System.Xml.Linq.XNamespace r = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+        System.Xml.Linq.XNamespace p = "http://schemas.openxmlformats.org/package/2006/relationships";
+
+        using var zip = System.IO.Compression.ZipFile.OpenRead(workbookPath);
+
+        System.Xml.Linq.XDocument Load(string part)
+        {
+            using var stream = zip.GetEntry(part)!.Open();
+            return System.Xml.Linq.XDocument.Load(stream);
+        }
+
+        var targets = Load("xl/_rels/workbook.xml.rels").Root!
+            .Elements(p + "Relationship")
+            .ToDictionary(e => (string)e.Attribute("Id")!, e => (string)e.Attribute("Target")!,
+                StringComparer.Ordinal);
+
+        var sheet = Load("xl/workbook.xml").Root!.Element(m + "sheets")!.Elements(m + "sheet")
+            .First(s => string.Equals((string?)s.Attribute("name"), physicalSheetName, StringComparison.Ordinal));
+
+        return targets[(string)sheet.Attribute(r + "id")!].TrimStart('/');
+    }
+
+    /// <summary>
+    /// Sets ONE cell of a physical sheet to an inline string, by editing the package DIRECTLY —
+    /// deliberately not through this component.
+    ///
+    /// <para>This exists to model the adversary the resolution rule is written for: something that
+    /// can put a row or a value in a sheet without holding the lock, without a reservation and
+    /// without passing a single guard. It is test-only and it never targets the live authority —
+    /// every caller hands it a <see cref="Fixture"/> copy in a temp directory.</para>
+    /// </summary>
+    private static void ForceCellDirectly(
+        string workbookPath, string physicalSheetName, string cellReference, string value)
+    {
+        System.Xml.Linq.XNamespace m = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+        var part = SheetPartOf(workbookPath, physicalSheetName);
+
+        using var zip = System.IO.Compression.ZipFile.Open(
+            workbookPath, System.IO.Compression.ZipArchiveMode.Update);
+
+        var entry = zip.GetEntry(part)!;
+
+        System.Xml.Linq.XDocument doc;
+        using (var stream = entry.Open()) doc = System.Xml.Linq.XDocument.Load(stream);
+
+        var rowNumber = int.Parse(new string(cellReference.SkipWhile(char.IsLetter).ToArray()),
+            System.Globalization.CultureInfo.InvariantCulture);
+
+        var row = doc.Root!.Element(m + "sheetData")!.Elements(m + "row")
+            .First(e => (string?)e.Attribute("r") == rowNumber.ToString(
+                System.Globalization.CultureInfo.InvariantCulture));
+
+        var replacement = new System.Xml.Linq.XElement(m + "c",
+            new System.Xml.Linq.XAttribute("r", cellReference),
+            new System.Xml.Linq.XAttribute("t", "inlineStr"),
+            new System.Xml.Linq.XElement(m + "is", new System.Xml.Linq.XElement(m + "t", value)));
+
+        row.Elements(m + "c")
+            .First(c => string.Equals((string?)c.Attribute("r"), cellReference, StringComparison.OrdinalIgnoreCase))
+            .ReplaceWith(replacement);
+
+        using var buffer = new MemoryStream();
+        doc.Save(buffer, System.Xml.Linq.SaveOptions.DisableFormatting);
+
+        using var target = entry.Open();
+        target.SetLength(0);
+        buffer.Position = 0;
+        buffer.CopyTo(target);
     }
 }
