@@ -21,6 +21,12 @@ public static class GovernanceServiceCollectionExtensions
     {
         services.AddSingleton<IProductRegistry>(_ => new ProductRegistryService(new InMemoryProductStore()));
 
+        // W8B. The deterministic governance evaluator is the Contract Plane's only implementation.
+        // Registered as the INTERFACE so a consuming host programs against IGovernanceEvaluator and
+        // never against this assembly's concrete type -- Forge depends on Contracts, and resolves
+        // the implementation here at its composition root rather than referencing it directly.
+        services.AddSingleton<IGovernanceEvaluator>(_ => new DeterministicGovernanceEvaluator());
+
         return services;
     }
 }

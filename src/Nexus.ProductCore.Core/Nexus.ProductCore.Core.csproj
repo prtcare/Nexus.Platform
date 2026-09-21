@@ -11,6 +11,73 @@
   </PropertyGroup>
 
   <!--
+    W8B / F-23 — CROSS-CONSUMER BINARY REPRODUCIBILITY.
+
+    THE DEFECT. Forge and Nexus.Developer both compile this project from source, through their
+    own build graphs (DevBridge/src/SharedDevelopmentControl.props and src/SharedDevelopmentControl.props
+    respectively). The Developer cross-host proofs compare the two consumers' copies of this
+    assembly BYTE FOR BYTE, and on 2026-09-17 a mismatch was reported as "STALE FORGE HARNESS, not a
+    host divergence" — the guard working, but the cause unlocated. W8D carried it as F-23.
+
+    THE CAUSE, measured rather than inferred. The compiler inputs are identical for an identical
+    property set: dumping csc's own command line via -p:ProvideCommandLineArgs=true and diffing the
+    two consumer builds yields ZERO differences across 234 arguments. What differs is the PROPERTY
+    SET — and the one that bites is $(NexusPlatformRoot), whose spelling each consumer supplies. A
+    build with D:\NEXUS\... and a build with D:\Nexus\... are the same tree to the file system and
+    two different strings to the compiler, and the path is embedded (the assembly's source
+    documents and its debug-directory linkage follow it). That is why the two consumers diverged
+    while each was internally reproducible: the same property set always produced the same bytes.
+
+    THE FIX IS HERE, NOT IN THE CONSUMERS. Owner direction: "Do not solve it by making each
+    consumer independently compensate." A PathMap set in a CONSUMER's props would not work in any
+    case — a <PropertyGroup> there sets the property on the importing project and does not flow into
+    this referenced one; only command-line globals do. Setting it in this project maps the paths
+    where the compilation actually happens, so the remedy cannot be applied to one consumer and not
+    the other, and cannot drift.
+
+    WHAT THIS DOES. /pathmap rewrites the absolute prefix of every source document the compiler
+    records to /_/nexus/, so the output no longer depends on where the tree is checked out or how
+    the path is spelled. Deterministic is already on by default in the SDK and is set explicitly
+    here so the property's absence can never be mistaken for its being satisfied.
+
+    Conditioned on PathMap being empty so an explicit -p:PathMap=... from a command line still wins;
+    a hard assignment would silently override a caller who knows better.
+  -->
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+
+    <!--
+      DeterministicSourcePaths is the half that PathMap does NOT cover, and finding that out was
+      the point of this task. PathMap rewrites the compiler's source DOCUMENTS; it does not touch
+      the SourceLink mapping, which the SDK derives separately from the repository root and embeds
+      in the PDB as {"documents":{"<absolute repo path>/*":"<url>/*"}}. Measured: with PathMap alone
+      but DeterministicSourcePaths off, the two consumers still produced different PDBs — and
+      therefore different DLLs, because the debug directory carries the PDB identity — because one
+      spelled the root D:\NEXUS\... and the other D:\Nexus\.... Roslyn's deterministic timestamp is
+      a hash of the whole compilation, options included, so a one-character difference anywhere in
+      those inputs changes the output.
+
+      With DeterministicSourcePaths on, the SDK maps repository paths to the fixed /_/ root instead
+      of the machine's absolute path, so the SourceLink mapping stops depending on where the tree
+      is or how its path is spelled. This is set HERE, in the shared project, and not in either
+      consumer's props: a <PropertyGroup> in a consumer cannot reach this project's compilation in
+      any case (only command-line globals flow down a ProjectReference), and even if it could, the
+      Owner's direction is explicit — "Do not solve it by making each consumer independently
+      compensate."
+    -->
+    <DeterministicSourcePaths>true</DeterministicSourcePaths>
+
+    <_NexusSharedRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</_NexusSharedRoot>
+    <PathMap Condition="'$(PathMap)' == ''">$(_NexusSharedRoot)=/_/nexus/</PathMap>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- SourceRoot is what DeterministicSourcePaths maps FROM; without it the SDK cannot produce
+         the deterministic mapping and leaves the absolute path in place. -->
+    <SourceRoot Include="$(_NexusSharedRoot)" />
+  </ItemGroup>
+
+  <!--
     W8D-R4 TASK 2 + TASK 3. Layer 06 SHARED PLATFORM - the canonical DevelopmentControl
     reader/writer/locking implementation, moved here from Forge per Owner decision R4-01,
     and exposed through the shared contract surface in Nexus.ProductCore.Contracts.

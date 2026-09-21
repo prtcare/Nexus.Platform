@@ -10,6 +10,26 @@
     <Description>Nexus V2 - Layer 06 Product Core - Nexus.ProductCore.Contracts</Description>
   </PropertyGroup>
 
+  <!--
+    W8B / F-23 — see the long explanation in Nexus.ProductCore.Core.csproj. The contract half of the
+    shared component is copied to both consumers too, so it needs the same location- and
+    spelling-independent build output; applying the remedy to only one of the two would leave the
+    consumers byte-comparable on one assembly and not the other.
+  -->
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <DeterministicSourcePaths>true</DeterministicSourcePaths>
+    <_NexusSharedRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</_NexusSharedRoot>
+    <PathMap Condition="'$(PathMap)' == ''">$(_NexusSharedRoot)=/_/nexus/</PathMap>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- See Nexus.ProductCore.Core.csproj for why SourceRoot is required alongside
+         DeterministicSourcePaths, and why both live in the shared project rather than in the
+         consumers. -->
+    <SourceRoot Include="$(_NexusSharedRoot)" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.11" />
   </ItemGroup>
