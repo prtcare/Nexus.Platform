@@ -17,7 +17,15 @@ public sealed class PlatformBoundaryTests
     private static readonly Assembly[] PlatformAssemblies =
     [
         typeof(Nexus.Platform.Contracts.Models.ModelDescriptor).Assembly,
-        typeof(Nexus.Platform.Core.PlatformServiceCollectionExtensions).Assembly
+        typeof(Nexus.Platform.Core.PlatformServiceCollectionExtensions).Assembly,
+
+        // W9.1: the L07 DELIVERY leaf set -- the deployment contracts and their deterministic Core
+        // implementations. Added here because the paragraph above is a standing obligation, not an
+        // observation: every test in this file iterates this array, so a Platform assembly that is
+        // not named here is a hole in the PRODUCT boundary, the GOVERNANCE boundary and the
+        // forbidden-product-name check at the same time.
+        typeof(Nexus.Delivery.Contracts.ReleaseBundle).Assembly,
+        typeof(Nexus.Delivery.Core.DeploymentStateMachine).Assembly
     ];
 
     private static readonly string[] ForbiddenProductTypeNames =
