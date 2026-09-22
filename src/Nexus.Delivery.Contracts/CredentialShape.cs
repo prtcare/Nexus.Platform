@@ -188,6 +188,30 @@ public static class CredentialShape
     }
 
     /// <summary>
+    /// A literal that is excluded from detection <b>by construction</b>: a placeholder, an indirection, a
+    /// redaction marker, or a bare name.
+    ///
+    /// <para>
+    /// <b>This is the single place that judgement is made, and that is the point.</b> It was previously made
+    /// twice — once on the value path and once on the connection-string path — and the two diverged: the
+    /// connection-string path consulted placeholders and indirections but omitted the redaction check, so
+    /// <c>Password=...</c> in a documentation table was extracted as a three-character "credential" and
+    /// reported. The W9.2 first proof run found exactly that, in three documentation files, and refused
+    /// certification for it — which is how a false positive is supposed to surface, and also why a gate that
+    /// fires on an ellipsis would have been muted within a week had nobody looked.
+    /// </para>
+    ///
+    /// <para>
+    /// Two implementations of one rule is one implementation too many. Both callers now call this.
+    /// </para>
+    /// </summary>
+    public static bool IsNonValueLiteral(string? value)
+        => IsPlaceholderShape(value)
+           || IsReferenceShape(value)
+           || IsRedactionMarker(value)
+           || IsBareIdentifierShape(value);
+
+    /// <summary>
     /// Whether a string looks like a credential <b>value</b> rather than a name, a placeholder, an
     /// indirection or a redaction.
     /// </summary>
@@ -198,8 +222,7 @@ public static class CredentialShape
             return false;
         }
 
-        if (IsPlaceholderShape(value) || IsReferenceShape(value) || IsRedactionMarker(value)
-            || IsBareIdentifierShape(value))
+        if (IsNonValueLiteral(value))
         {
             return false;
         }

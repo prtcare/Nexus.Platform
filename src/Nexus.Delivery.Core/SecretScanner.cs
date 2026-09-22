@@ -244,9 +244,10 @@ public sealed class SecretScanner
             var end = remainder.IndexOfAny([';', '"', '\'', ' ', ',']);
             var secret = end < 0 ? remainder : remainder[..end];
 
-            if (!string.IsNullOrWhiteSpace(secret)
-                && !CredentialShape.IsPlaceholderShape(secret)
-                && !CredentialShape.IsReferenceShape(secret))
+            // IsNonValueLiteral, not a hand-rolled pair of checks. The previous version consulted
+            // placeholders and indirections but not redaction markers, which made `Password=...` in a
+            // documentation table look like a credential and refused a certification for it.
+            if (!string.IsNullOrWhiteSpace(secret) && !CredentialShape.IsNonValueLiteral(secret))
             {
                 return true;
             }
