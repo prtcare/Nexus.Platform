@@ -32,4 +32,13 @@
     <Project Path="tests\Nexus.Governance.Tests\Nexus.Governance.Tests.csproj" />
     <Project Path="tests\Nexus.Delivery.Tests\Nexus.Delivery.Tests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <!-- W9.2: the build-and-certify driver. In the solution deliberately: a driver kept outside it is a
+         driver nothing builds, and this estate has already recorded the cost of that pattern twice (a
+         sample host that stopped compiling, and a test project that vanished from the solution and could
+         no longer fail). Being in the solution makes it subject to Platform's boundary suites, which is
+         correct — it reads source trees, so it is among the last components that should be trusted on its
+         own word to stay provider-neutral. -->
+    <Project Path="tools\Nexus.Delivery.Build\Nexus.Delivery.Build.csproj" />
+  </Folder>
 </Solution>

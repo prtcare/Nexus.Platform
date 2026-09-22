@@ -18,6 +18,8 @@
          So a new Platform assembly is not fully declared until it is named in both. -->
     <ProjectReference Include="..\..\src\Nexus.Delivery.Contracts\Nexus.Delivery.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Nexus.Delivery.Core\Nexus.Delivery.Core.csproj" />
+    <!-- W9.2: the build-and-certify driver, named in both boundary arrays for the same reason. -->
+    <ProjectReference Include="..\..\tools\Nexus.Delivery.Build\Nexus.Delivery.Build.csproj" />
     <!-- W5G / F-01: the Nexus.Platform.Providers.OpenAI ProjectReference was removed here.
          The provider moved to the AI Head, so this Platform test project can no longer
          see it; the provider-coupled assertions that used to live in

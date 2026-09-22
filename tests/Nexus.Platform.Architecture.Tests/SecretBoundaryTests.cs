@@ -41,7 +41,8 @@ public sealed class SecretBoundaryTests
         typeof(Nexus.Platform.Contracts.Models.ModelDescriptor).Assembly,
         typeof(Nexus.Platform.Core.PlatformServiceCollectionExtensions).Assembly,
         typeof(Nexus.Delivery.Contracts.ReleaseBundle).Assembly,
-        typeof(Nexus.Delivery.Core.DeploymentStateMachine).Assembly
+        typeof(Nexus.Delivery.Core.DeploymentStateMachine).Assembly,
+        typeof(Nexus.Delivery.Build.Program).Assembly
     ];
 
     // W5G / F-01: the former ProviderAssembly field --

@@ -25,7 +25,12 @@ public sealed class PlatformBoundaryTests
         // not named here is a hole in the PRODUCT boundary, the GOVERNANCE boundary and the
         // forbidden-product-name check at the same time.
         typeof(Nexus.Delivery.Contracts.ReleaseBundle).Assembly,
-        typeof(Nexus.Delivery.Core.DeploymentStateMachine).Assembly
+        typeof(Nexus.Delivery.Core.DeploymentStateMachine).Assembly,
+
+        // W9.2: the build-and-certify driver. A tool that lives in the solution and is not named here is a
+        // hole in the PRODUCT, GOVERNANCE and forbidden-name checks at once -- and this one reads whole
+        // source trees, so it is a poor candidate for being trusted on its own word.
+        typeof(Nexus.Delivery.Build.Program).Assembly
     ];
 
     private static readonly string[] ForbiddenProductTypeNames =
