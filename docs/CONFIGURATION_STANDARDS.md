@@ -2,7 +2,7 @@
 
 **Status:** Active
 **Owner:** DELIVERY (Layer 07 -- renumbered from 08, see LAYER_MODEL.md §2.2), with GOVERNANCE (03) owning the registry from M-03-6.1
-**Last updated:** 2026-08-21
+**Last updated:** 2026-09-22 (W9.1 — CURRENT blocks corrected against verified code and measurement; see the runtime-configuration note below)
 **Layer:** 07 DELIVERY — binding on every host and every client (renumbered from 08, see LAYER_MODEL.md §2.2)
 **Authoritative for:** the configuration hierarchy, `appsettings` files, environment overrides,
 environment variables, secret references, local developer configuration, feature flags, product
@@ -156,6 +156,22 @@ Two things follow, and both are frequently learned the hard way:
 
 An API key that must reach a third party goes through the backend. Always.
 
+**TARGET — W9's ruling changes (1), and only (1).** The Owner has ruled that environment-specific client
+configuration must move **out of build-time compilation**: `VITE_*`, `API_INTERNAL_URL` and equivalent
+environment endpoints must not require different application builds for DEV/TEST/PROD, and one
+application artifact must be promotable unchanged through environments. The reason is the build-once
+rule W9 exists to establish — and W9.0 measured the cost of not having it, in two places: the Experience
+client's `VITE_*` values and MarketSurvey's `API_INTERNAL_URL` build argument both bake an environment
+into an artifact, so promoting those units today would require a rebuild, which is exactly what the rule
+forbids.
+
+Point **(2) is unchanged and is not negotiable**: every frontend configuration value is public, so a
+frontend variable remains incapable of holding a secret regardless of how the value is delivered. A
+runtime configuration document fixes *when* the value is resolved; it does not make it private.
+
+The mechanism (a runtime configuration document fetched from the client's own origin is the working
+proposal) is not yet implemented, and this section will be rewritten when it is.
+
 ### 5.2 Typical values
 
 | Value | Kind |
@@ -165,9 +181,10 @@ An API key that must reach a third party goes through the backend. Always.
 | Environment name, for display | Public |
 | Anything at all secret | **Impossible — see §5.1** |
 
-The Chat API is at `http://localhost:5299` locally. The Intelligence API's port is in its own
-`launchSettings.json` and **has not been verified — do not put a number in a configuration file
-without reading it first** (`API_STANDARDS.md` §1).
+The Chat API is at `http://localhost:5095` locally. The Intelligence API is at `http://localhost:5000`.
+Both were **measured from `launchSettings.json` in W9.1** — this paragraph previously said 5299, which no
+host in the estate has ever served, and described the Intelligence port as unverified. Read the file
+before quoting a port (`API_STANDARDS.md` §1); the numbers here are a convenience, not the authority.
 
 ---
 
@@ -180,11 +197,16 @@ path to its value; neither holds the value.**
 {
   "Nexus": {
     "Providers": {
-      "OpenAI": { "ApiKeyRef": "nexus/openai/api-key" }
+      "OpenAI": { "ApiKeyRef": "NEXUS_OPENAI_API_KEY" }
     }
   }
 }
 ```
+
+The example above was `"nexus/openai/api-key"` until W9.1. The **shipped** convention is an upper-snake
+environment-variable name, which is what §14 requires and what the AI Head's README documents; the
+reference is resolved by `EnvironmentSecretResolver`, which reads the environment. A path-shaped example
+described a mechanism the estate does not have.
 
 | Rule | Statement |
 |---|---|
@@ -194,13 +216,18 @@ path to its value; neither holds the value.**
 | Never inline | A secret value in any `appsettings` file is a defect, in every environment |
 | Never in a comment | Including "// old key, no longer used" |
 
-**CURRENT.** `ISecretResolver` exists as a contract in `Nexus.Platform.Contracts/Secrets/` and has no
-implementation. `set-openai-key.ps1` in Nexus.Platform handles the OpenAI key today. That is the whole of
-secret configuration in Nexus.
+**CURRENT — corrected in W9.1 against the code.** `ISecretResolver` is a contract in
+`Nexus.Platform.Contracts/Secrets/` **and it has an implementation**: `EnvironmentSecretResolver`
+(`Nexus.Platform.Core/Secrets/EnvironmentSecretResolver.cs`), roadmap item **WI-01-5.1.1**, registered by
+`AddNexusPlatform` as `TryAddSingleton<ISecretResolver, EnvironmentSecretResolver>()` so that a host may
+bind its own. `Nexus.Intelligence.Api` resolves `Platform:Providers:OpenAI:ApiKeyRef` through it, and the
+committed value is the environment-variable **name**, never the credential. This paragraph previously
+said the contract "has no implementation"; that was stale, and planning against it would have rebuilt
+something that already exists. `set-openai-key.ps1` remains for local operator setup.
 
 **TARGET — M-01-5.1 Real secret resolver**, whose acceptance criteria include: no provider key,
 connection string or signing key appears in any appsettings file in any repository, and a secret scan
-runs in CI and fails the build on a match.
+runs in CI and fails the build on a match. **The scanning half is now met in Platform** — see §13.1.
 
 ### 6.1 Connection strings
 
@@ -385,11 +412,22 @@ malformed secret.
 
 ### 13.1 Enforcement
 
-**CURRENT: nothing enforces this.** There is no CI, therefore no secret scan. `.gitignore` is the
-only mechanism, and `.gitignore` does not stop a deliberate `git add -f`.
+**CURRENT — corrected in W9.1.** The premise of this paragraph was wrong: **there is CI.** Four
+repositories (`Nexus.Platform`, `Nexus.Intelligence`, `Nexus.Developer`, `Nexus.Experience`) run
+`.github/workflows/build.yml` since M-08-1.x. What was missing was the *scan*, not the pipeline — and the
+consequence is on record: W9.0 found a live-class credential committed in a tracked file in another
+repository of this estate, reachable from every clone of it.
 
-**TARGET — M-01-5.1**: a secret scan runs in CI and fails the build on a match. Until it exists,
-enforcement is review (`GIT_WORKFLOW.md` §9, check 4).
+**CURRENT — the scan now exists in Platform.** `Nexus.Platform.Architecture.Tests/SecretScanGateTests`
+scans this repository with the provider-neutral engine in `Nexus.Delivery.Core` and fails the build on a
+match. Platform's CI runs the whole solution with no `--filter` by design, so the gate runs on every push
+and pull request and cannot be bypassed by editing a workflow. Measured at W9.1: `verdict=Clean
+scanned=241 skipped=725 findings=0`.
+
+**TARGET — M-01-5.1 remains open for the other repositories.** Platform scans itself; Intelligence,
+Forge, Developer, Experience, ControlPanel, WorkBench, Graphify and MarketSurvey do not yet. A gate that
+covers one repository of nine has closed a third of the risk, and the W9.0 finding was in one of the
+eight that are not covered.
 
 ### 13.2 If a secret is committed
 
@@ -445,21 +483,22 @@ is not, renaming needs a transition period.
 | Area | State |
 |---|---|
 | `appsettings` per host | Present per ASP.NET Core convention; **the exact file set is not in the verified inventory — read before scripting** |
-| `launchSettings.json` | **CURRENT** — Chat API on `http://localhost:5299`; Intelligence port unverified |
+| `launchSettings.json` | **CURRENT, measured in W9.1** — Chat API `http://localhost:5095`, Intelligence `http://localhost:5000`, Developer `http://localhost:5195`, AtlasGraph `http://localhost:5210` |
 | `Directory.Build.props`, `global.json` | **CURRENT** — one per repository |
 | `nuget.config` | **CURRENT** — points at `C:\Personal\LocalNuGet`. **TARGET — M-08-1.1** GitHub Packages |
 | Frontend `VITE_` config | **CURRENT** — `config/environment.ts` |
-| Secret management | **CURRENT** — `set-openai-key.ps1`. **TARGET — M-01-5.1** `ISecretResolver` |
-| Secret scanning | **None.** TARGET — M-01-5.1 |
-| Environment definitions | **None anywhere.** TARGET — M-08-4.1, M-08-6.1 |
+| Secret management | **CURRENT, corrected in W9.1** — `ISecretResolver` is implemented (`EnvironmentSecretResolver`, WI-01-5.1.1) and bound by `AddNexusPlatform`. `set-openai-key.ps1` remains for local operator setup. **TARGET — M-01-5.1** for the remaining acceptance criteria |
+| Secret scanning | **PARTIAL — Platform only, since W9.1.** `SecretScanGateTests` fails the build on a match; measured `verdict=Clean scanned=241`. The other eight repositories are **TARGET — M-01-5.1** |
+| Environment definitions | **Ratified, not yet built.** The Owner has fixed the set as `ENV-DEV`, `ENV-TEST`, `ENV-PROD` (W9.1), and no environment infrastructure exists yet. **TARGET — M-08-4.1, M-08-6.1** |
 | Feature flags | **None.** TARGET — M-10-5.1 |
 | Product settings | **None.** TARGET — M-06-5.1 |
-| Configuration validation at startup | **Not implemented on any host** |
+| Configuration validation at startup | **Not implemented on any host** — re-verified in W9.1 by searching all nine repositories for `ValidateOnStart` / `IValidateOptions` / `ValidateDataAnnotations`: zero hits |
 | Configuration registry | **TARGET — M-03-6.1** GOVERNANCE |
 
-The two most consequential gaps: **no environment definitions exist anywhere**, so there is nothing
-to configure *for* beyond a developer machine; and **no secret scanning**, so §13 is enforced only by
-whoever is reading the diff.
+The two most consequential gaps, restated after W9.1: **no environment exists yet**, though the three are
+now named and ratified, so there is still nothing to configure *for* beyond a developer machine; and
+**secret scanning covers one repository of nine**, so §13 is enforced everywhere else only by whoever is
+reading the diff — which is exactly how the W9.0 finding got in.
 
 ---
 
