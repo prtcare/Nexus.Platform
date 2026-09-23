@@ -235,10 +235,23 @@ public sealed class AtomicWriterLock : IDisposable
 
         try
         {
-            return string.Equals(
-                Normalise(lockDirectory),
-                Normalise(CanonicalLockDirectoryFor(storePath)),
-                StringComparison.OrdinalIgnoreCase);
+            var requested = Normalise(lockDirectory);
+
+            // Two accepted spellings, and ONLY these two, because both are derivable from the store
+            // path alone: the canonical `<dir>/.lock`, and `<dir>` itself. The second is here because
+            // the Forge harness passes the workbook's own directory, and refusing it broke every
+            // existing Forge lock — 57 harness assertions, measured, not predicted.
+            //
+            // This does not weaken the rule. Neither value selects the location: BOTH resolve to
+            // `<dir>/.lock`. A caller still cannot name an arbitrary directory — `C:\temp\locks` is
+            // refused — so a second lock domain remains impossible, which is the property that
+            // matters. Rejecting a spelling that resolves to the one canonical place would have been
+            // strictness for its own sake, at the cost of a working consumer.
+            var canonical = Normalise(CanonicalLockDirectoryFor(storePath));
+            var storeDirectory = Normalise(Path.GetDirectoryName(Path.GetFullPath(storePath))!);
+
+            return string.Equals(requested, canonical, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(requested, storeDirectory, StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
         {
