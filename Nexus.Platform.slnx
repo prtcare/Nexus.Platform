@@ -9,6 +9,7 @@
     <Project Path="src\Nexus.Platform.Identity\Nexus.Platform.Identity.csproj" />
     <Project Path="src\Nexus.Platform.Persistence\Nexus.Platform.Persistence.csproj" />
     <Project Path="src\Nexus.Delivery.Contracts\Nexus.Delivery.Contracts.csproj" />
+    <Project Path="src\Nexus.Delivery.Core\Nexus.Delivery.Core.csproj" />
     <Project Path="src\Nexus.Governance.Contracts\Nexus.Governance.Contracts.csproj" />
     <Project Path="src\Nexus.Governance.Core\Nexus.Governance.Core.csproj" />
     <Project Path="src\Nexus.ProductCore.Contracts\Nexus.ProductCore.Contracts.csproj" />
@@ -40,5 +41,21 @@
          wrong reason. -->
     <Project Path="tests\Nexus.ProductCore.DevelopmentControl.Tests\Nexus.ProductCore.DevelopmentControl.Tests.csproj" />
     <Project Path="tests\Nexus.Governance.Tests\Nexus.Governance.Tests.csproj" />
+    <Project Path="tests\Nexus.Delivery.Tests\Nexus.Delivery.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <!-- W9.2: the build-and-certify driver. In the solution deliberately: a driver kept outside it is a
+         driver nothing builds, and this estate has already recorded the cost of that pattern twice (a
+         sample host that stopped compiling, and a test project that vanished from the solution and could
+         no longer fail). Being in the solution makes it subject to Platform's boundary suites, which is
+         correct — it reads source trees, so it is among the last components that should be trusted on its
+         own word to stay provider-neutral. -->
+    <Project Path="tools\Nexus.Delivery.Build\Nexus.Delivery.Build.csproj" />
+    <!-- W9.3: the release-bundle driver. In the solution for the same reason as the build driver, and
+         subject to the same boundary suites. Its dependency graph is itself a control: it references
+         Nexus.Delivery.Core and nothing else, so no packager, compiler or test runner is in scope and the
+         no-rebuild rule is a property of the build rather than a promise in a comment. A driver kept out
+         of the solution would not be checked for that. -->
+    <Project Path="tools\Nexus.Delivery.Release\Nexus.Delivery.Release.csproj" />
   </Folder>
 </Solution>

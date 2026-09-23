@@ -17,7 +17,26 @@ public sealed class PlatformBoundaryTests
     private static readonly Assembly[] PlatformAssemblies =
     [
         typeof(Nexus.Platform.Contracts.Models.ModelDescriptor).Assembly,
-        typeof(Nexus.Platform.Core.PlatformServiceCollectionExtensions).Assembly
+        typeof(Nexus.Platform.Core.PlatformServiceCollectionExtensions).Assembly,
+
+        // W9.1: the L07 DELIVERY leaf set -- the deployment contracts and their deterministic Core
+        // implementations. Added here because the paragraph above is a standing obligation, not an
+        // observation: every test in this file iterates this array, so a Platform assembly that is
+        // not named here is a hole in the PRODUCT boundary, the GOVERNANCE boundary and the
+        // forbidden-product-name check at the same time.
+        typeof(Nexus.Delivery.Contracts.ReleaseBundle).Assembly,
+        typeof(Nexus.Delivery.Core.DeploymentStateMachine).Assembly,
+
+        // W9.2: the build-and-certify driver. A tool that lives in the solution and is not named here is a
+        // hole in the PRODUCT, GOVERNANCE and forbidden-name checks at once -- and this one reads whole
+        // source trees, so it is a poor candidate for being trusted on its own word.
+        typeof(Nexus.Delivery.Build.Program).Assembly,
+
+        // W9.3: the release-bundle driver. Named here for the same standing reason -- an assembly that
+        // ships and is not listed is a hole in every test in this file at once. This one reads release
+        // records, artifact stores and a working tree's git refs, so it has more ways to become
+        // non-neutral than most, not fewer.
+        typeof(Nexus.Delivery.Release.Program).Assembly
     ];
 
     private static readonly string[] ForbiddenProductTypeNames =

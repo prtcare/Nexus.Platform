@@ -11,6 +11,18 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Nexus.Platform.Core\Nexus.Platform.Core.csproj" />
     <ProjectReference Include="..\..\src\Nexus.Platform.Contracts\Nexus.Platform.Contracts.csproj" />
+    <!-- W9.1: the L07 DELIVERY leaf set joins the boundary suites. PlatformBoundaryTests'
+         PlatformAssemblies and SecretBoundaryTests' NeutralAssemblies are both deliberately
+         EXHAUSTIVE over the Platform assemblies that ship, and both say so in their own comments:
+         "an assembly NOT listed here is a silent hole in every test that iterates this array".
+         So a new Platform assembly is not fully declared until it is named in both. -->
+    <ProjectReference Include="..\..\src\Nexus.Delivery.Contracts\Nexus.Delivery.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Nexus.Delivery.Core\Nexus.Delivery.Core.csproj" />
+    <!-- W9.2: the build-and-certify driver, named in both boundary arrays for the same reason. -->
+    <ProjectReference Include="..\..\tools\Nexus.Delivery.Build\Nexus.Delivery.Build.csproj" />
+    <!-- W9.3: the release-bundle driver, named in both boundary arrays for the same reason. It reads
+         release records and a repository's refs, so it is not on its own word about staying neutral. -->
+    <ProjectReference Include="..\..\tools\Nexus.Delivery.Release\Nexus.Delivery.Release.csproj" />
     <!-- W5G / F-01: the Nexus.Platform.Providers.OpenAI ProjectReference was removed here.
          The provider moved to the AI Head, so this Platform test project can no longer
          see it; the provider-coupled assertions that used to live in

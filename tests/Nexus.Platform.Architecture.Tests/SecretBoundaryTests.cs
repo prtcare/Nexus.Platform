@@ -30,13 +30,22 @@ namespace Nexus.Platform.Architecture.Tests;
 public sealed class SecretBoundaryTests
 {
     /// <summary>
-    /// The NEUTRAL Platform assemblies. After V3 completion these are the only two
-    /// Platform assemblies that may exist without provider-specific knowledge.
+    /// The NEUTRAL Platform assemblies: every Platform assembly that ships and may hold no
+    /// provider-specific knowledge. This was two assemblies before W9.1; the L07 DELIVERY leaf set
+    /// joins them rather than being exempted, because a component that handles credential <i>shapes</i>
+    /// is the last one that should be trusted on its own word to stay neutral. Listing it here means
+    /// the token scan above runs against the code that talks about credentials most.
     /// </summary>
     private static readonly Assembly[] NeutralAssemblies =
     [
         typeof(Nexus.Platform.Contracts.Models.ModelDescriptor).Assembly,
-        typeof(Nexus.Platform.Core.PlatformServiceCollectionExtensions).Assembly
+        typeof(Nexus.Platform.Core.PlatformServiceCollectionExtensions).Assembly,
+        typeof(Nexus.Delivery.Contracts.ReleaseBundle).Assembly,
+        typeof(Nexus.Delivery.Core.DeploymentStateMachine).Assembly,
+        typeof(Nexus.Delivery.Build.Program).Assembly,
+
+        // W9.3: the release-bundle driver, added to both arrays rather than exempted from either.
+        typeof(Nexus.Delivery.Release.Program).Assembly
     ];
 
     // W5G / F-01: the former ProviderAssembly field --
