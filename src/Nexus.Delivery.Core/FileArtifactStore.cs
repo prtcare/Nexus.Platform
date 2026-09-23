@@ -348,33 +348,12 @@ public sealed class FileArtifactStore : IArtifactStore
     private ArtifactStoreEntry? TryReadEntryByValue(string artifactIdValue)
     {
         // The id is read back from an index this store wrote, so it is re-parsed rather than trusted: an
-        // index line that no longer parses is skipped instead of aborting the whole lookup.
-        var separator = artifactIdValue.IndexOf('/', StringComparison.Ordinal);
-        if (separator <= 0)
-        {
-            return null;
-        }
-
-        var unitId = artifactIdValue[..separator];
-        var remainder = artifactIdValue[(separator + 1)..];
-        var typeSegment = remainder[..remainder.IndexOf('/', StringComparison.Ordinal)];
-        var nameAndVersion = remainder[(typeSegment.Length + 1)..];
-        var at = nameAndVersion.LastIndexOf('@');
-        if (at <= 0)
-        {
-            return null;
-        }
-
-        try
-        {
-            var type = TypeFromSegment(typeSegment);
-
-            return ReadEntry(Path.Combine(ArtifactDirectory(DeploymentUnitId.Parse(unitId), type, nameAndVersion[..at], nameAndVersion[(at + 1)..]), EntryFileName));
-        }
-        catch (ArgumentException)
-        {
-            return null;
-        }
+        // index line that no longer parses is skipped instead of aborting the whole lookup. The parse
+        // itself lives on ArtifactId, so this store and every other reader of a stored id agree by
+        // construction rather than by keeping two switches in step.
+        return ArtifactId.TryParse(artifactIdValue, out var artifactId) && artifactId is not null
+            ? ReadEntry(Path.Combine(ArtifactDirectory(artifactId), EntryFileName))
+            : null;
     }
 
     private ArtifactStoreEntry? ReadEntry(string entryPath)
@@ -416,8 +395,8 @@ public sealed class FileArtifactStore : IArtifactStore
         return true;
     }
 
-    private string ArtifactDirectory(DeploymentUnitId unitId, ArtifactType type, string name, string version)
-        => Path.Combine(_root, ArtifactsDirectoryName, ArtifactId.For(unitId, type, name, version).Value.Replace('/', Path.DirectorySeparatorChar));
+    private string ArtifactDirectory(ArtifactId artifactId)
+        => Path.Combine(_root, ArtifactsDirectoryName, artifactId.Value.Replace('/', Path.DirectorySeparatorChar));
 
     private sealed record EntryDto(
         [property: JsonPropertyOrder(0)] string ArtifactId,
@@ -441,67 +420,15 @@ public sealed class FileArtifactStore : IArtifactStore
             entry.SupersededBy?.Value,
             entry.FileName);
 
-        internal ArtifactStoreEntry ToEntry()
-        {
-            var separator = ArtifactId.IndexOf('/', StringComparison.Ordinal);
-            var remainder = ArtifactId[(separator + 1)..];
-            var typeSegment = remainder[..remainder.IndexOf('/', StringComparison.Ordinal)];
-            var nameAndVersion = remainder[(typeSegment.Length + 1)..];
-            var at = nameAndVersion.LastIndexOf('@');
-
-            var type = typeSegment switch
-            {
-                "dotnet-app" => ArtifactType.DotnetApplication,
-                "dotnet-lib" => ArtifactType.DotnetLibrary,
-                "client-bundle" => ArtifactType.StaticClientBundle,
-                "package" => ArtifactType.Package,
-                "container-image" => ArtifactType.ContainerImage,
-                _ => throw new JsonException($"Unknown artifact type segment '{typeSegment}'.")
-            };
-
-            return new ArtifactStoreEntry(
-                Contracts.ArtifactId.For(DeploymentUnitId.Parse(ArtifactId[..separator]), type, nameAndVersion[..at], nameAndVersion[(at + 1)..]),
-                Contracts.BuildId.Parse(BuildId),
-                Contracts.ArtifactDigest.Parse(ContentDigest),
-                SizeBytes,
-                DateTimeOffset.Parse(PublishedAt, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind),
-                Enum.Parse<ArtifactLifecycleState>(Lifecycle),
-                LifecycleReason,
-                SupersededBy is null ? null : Contracts.ArtifactId.For(
-                    DeploymentUnitId.Parse(SupersededBy[..SupersededBy.IndexOf('/', StringComparison.Ordinal)]),
-                    TypeFromSegment(ResolveTypeSegment(SupersededBy)),
-                    ResolveName(SupersededBy),
-                    ResolveVersion(SupersededBy)),
-                FileName);
-        }
-
-        private static string ResolveTypeSegment(string value)
-        {
-            var remainder = value[(value.IndexOf('/', StringComparison.Ordinal) + 1)..];
-            return remainder[..remainder.IndexOf('/', StringComparison.Ordinal)];
-        }
-
-        private static string ResolveName(string value)
-        {
-            var remainder = value[(value.IndexOf('/', StringComparison.Ordinal) + 1)..];
-            var afterType = remainder[(remainder.IndexOf('/', StringComparison.Ordinal) + 1)..];
-            return afterType[..afterType.LastIndexOf('@')];
-        }
-
-        private static string ResolveVersion(string value) => value[(value.LastIndexOf('@') + 1)..];
+        internal ArtifactStoreEntry ToEntry() => new(
+            Contracts.ArtifactId.Parse(ArtifactId),
+            Contracts.BuildId.Parse(BuildId),
+            Contracts.ArtifactDigest.Parse(ContentDigest),
+            SizeBytes,
+            DateTimeOffset.Parse(PublishedAt, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind),
+            Enum.Parse<ArtifactLifecycleState>(Lifecycle),
+            LifecycleReason,
+            SupersededBy is null ? null : Contracts.ArtifactId.Parse(SupersededBy),
+            FileName);
     }
-
-    /// <summary>
-    /// Maps the artifact-id type segment back to its enum. Shared by every reader of a stored id, so that
-    /// adding a type is a one-place change rather than three that can drift.
-    /// </summary>
-    private static ArtifactType TypeFromSegment(string segment) => segment switch
-    {
-        "dotnet-app" => ArtifactType.DotnetApplication,
-        "dotnet-lib" => ArtifactType.DotnetLibrary,
-        "client-bundle" => ArtifactType.StaticClientBundle,
-        "package" => ArtifactType.Package,
-        "container-image" => ArtifactType.ContainerImage,
-        _ => throw new FormatException($"Unknown artifact type segment '{segment}'.")
-    };
 }

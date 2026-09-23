@@ -57,22 +57,113 @@ public sealed record ArtifactId
                 nameof(version));
         }
 
-        var typeSegment = type switch
-        {
-            ArtifactType.DotnetApplication => "dotnet-app",
-            ArtifactType.DotnetLibrary => "dotnet-lib",
-            ArtifactType.StaticClientBundle => "client-bundle",
-            ArtifactType.Package => "package",
-            ArtifactType.ContainerImage => "container-image",
-            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unmapped artifact type; add its id segment beside its packager.")
-        };
-
         return new ArtifactId(
-            $"{unitId.Value}/{typeSegment}/{name}@{version}",
+            $"{unitId.Value}/{SegmentFor(type)}/{name}@{version}",
             unitId,
             type,
             name,
             version);
+    }
+
+    /// <summary>
+    /// Reads an id back from its wire form.
+    ///
+    /// <para>
+    /// <b>This is the counterpart of <see cref="For"/>, and it lives here so that there is one of it.</b>
+    /// The W9.2 store parsed this shape in two separate methods, which meant the type-segment mapping existed
+    /// as two switches that had to be kept in step by hand — the same defect class that made the W9.2 secret
+    /// scanner report an ellipsis as a credential, where one judgement implemented twice drifted apart. A
+    /// third reader is what this method exists to prevent.
+    /// </para>
+    /// </summary>
+    public static ArtifactId Parse(string value)
+        => TryParse(value, out var artifactId)
+            ? artifactId!
+            : throw new ArgumentException(
+                "Not an artifact id (expected '<unitId>/<type>/<name>@<version>', e.g. "
+                + "'marketsurvey.api/dotnet-app/marketsurvey.api@0.1.0').",
+                nameof(value));
+
+    /// <summary>Parses without throwing, so a stored id that no longer parses can be skipped rather than aborting a read.</summary>
+    public static bool TryParse(string? value, out ArtifactId? artifactId)
+    {
+        artifactId = null;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var firstSeparator = value.IndexOf('/', StringComparison.Ordinal);
+        if (firstSeparator <= 0)
+        {
+            return false;
+        }
+
+        var remainder = value[(firstSeparator + 1)..];
+        var secondSeparator = remainder.IndexOf('/', StringComparison.Ordinal);
+        if (secondSeparator <= 0)
+        {
+            return false;
+        }
+
+        var typeSegment = remainder[..secondSeparator];
+        var nameAndVersion = remainder[(secondSeparator + 1)..];
+
+        var at = nameAndVersion.LastIndexOf('@');
+        if (at <= 0 || at == nameAndVersion.Length - 1)
+        {
+            return false;
+        }
+
+        if (!TryTypeForSegment(typeSegment, out var type))
+        {
+            return false;
+        }
+
+        try
+        {
+            artifactId = For(
+                DeploymentUnitId.Parse(value[..firstSeparator]),
+                type,
+                nameAndVersion[..at],
+                nameAndVersion[(at + 1)..]);
+
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Canonical wire segment for an artifact type. The one switch, shared by <see cref="For"/> and every reader.</summary>
+    public static string SegmentFor(ArtifactType type) => type switch
+    {
+        ArtifactType.DotnetApplication => "dotnet-app",
+        ArtifactType.DotnetLibrary => "dotnet-lib",
+        ArtifactType.StaticClientBundle => "client-bundle",
+        ArtifactType.Package => "package",
+        ArtifactType.ContainerImage => "container-image",
+        _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unmapped artifact type; add its id segment beside its packager.")
+    };
+
+    /// <summary>
+    /// The inverse of <see cref="SegmentFor"/>, for callers that read an id off disk and want a typed answer
+    /// rather than an exception. Returns false for a segment this contract does not know, so an id written by
+    /// a future version is skipped instead of failing a whole read.
+    /// </summary>
+    public static bool TryTypeForSegment(string? segment, out ArtifactType type)
+    {
+        switch (segment)
+        {
+            case "dotnet-app": type = ArtifactType.DotnetApplication; return true;
+            case "dotnet-lib": type = ArtifactType.DotnetLibrary; return true;
+            case "client-bundle": type = ArtifactType.StaticClientBundle; return true;
+            case "package": type = ArtifactType.Package; return true;
+            case "container-image": type = ArtifactType.ContainerImage; return true;
+            default: type = default; return false;
+        }
     }
 
     public static bool IsValidVersion(string? version)
