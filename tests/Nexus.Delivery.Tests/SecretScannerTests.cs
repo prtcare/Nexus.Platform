@@ -44,8 +44,42 @@ public sealed class SecretScannerTests
     /// <summary>A 25-character dense mixed-case token.</summary>
     private static string TokenShape() => TestData.RandomAlnum(25);
 
-    /// <summary>A 16-character password — short enough that only the connection-string rule can judge it.</summary>
-    private static string ShortPasswordShape() => TestData.RandomAlnum(16);
+    /// <summary>
+    /// A 16-character password — short enough that only the connection-string rule can judge it.
+    ///
+    /// <para>
+    /// <b>Guaranteed to be value-shaped, because <c>RandomAlnum(16)</c> was not.</b> This estate's own rule
+    /// is that a name declares itself structurally: a bare alphanumeric token with no digit, or with a
+    /// single case, is a NAME and not a value (<c>CredentialShape.IsBareIdentifierShape</c>). A digit-free
+    /// draw was therefore correctly declined by the scanner and produced no finding — so
+    /// <c>Assert.Single</c> failed on the fixture rather than on the rule, roughly once in seventeen runs.
+    /// The W9.2 suite was green on the runs that happened to draw a digit, which is the worst way for a
+    /// flake to behave: it looked like a passing gate and was a coin toss.
+    /// </para>
+    ///
+    /// <para>
+    /// The retry condition is the production judgement itself rather than a second copy of it. Re-deriving
+    /// "is this a value?" here would be the drift this codebase has already recorded once, in this very
+    /// scanner, where the value path and the connection-string path each implemented the judgement and
+    /// disagreed. The assertion is unchanged and no allowance was added.
+    /// </para>
+    /// </summary>
+    private static string ShortPasswordShape()
+    {
+        for (var attempt = 0; attempt < 64; attempt++)
+        {
+            var candidate = TestData.RandomAlnum(16);
+
+            if (!CredentialShape.IsNonValueLiteral(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        throw new InvalidOperationException(
+            "Could not draw a value-shaped 16-character fixture in 64 attempts, which should be impossible; "
+            + "the shape rules have changed and this fixture needs re-deriving from them.");
+    }
 
     // =============================================================================================
     // The two genuine findings. Both must be caught.
