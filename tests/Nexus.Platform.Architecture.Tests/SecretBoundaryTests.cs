@@ -42,7 +42,10 @@ public sealed class SecretBoundaryTests
         typeof(Nexus.Platform.Core.PlatformServiceCollectionExtensions).Assembly,
         typeof(Nexus.Delivery.Contracts.ReleaseBundle).Assembly,
         typeof(Nexus.Delivery.Core.DeploymentStateMachine).Assembly,
-        typeof(Nexus.Delivery.Build.Program).Assembly
+        typeof(Nexus.Delivery.Build.Program).Assembly,
+
+        // W9.3: the release-bundle driver, added to both arrays rather than exempted from either.
+        typeof(Nexus.Delivery.Release.Program).Assembly
     ];
 
     // W5G / F-01: the former ProviderAssembly field --

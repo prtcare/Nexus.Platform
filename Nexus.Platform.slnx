@@ -40,5 +40,11 @@
          correct — it reads source trees, so it is among the last components that should be trusted on its
          own word to stay provider-neutral. -->
     <Project Path="tools\Nexus.Delivery.Build\Nexus.Delivery.Build.csproj" />
+    <!-- W9.3: the release-bundle driver. In the solution for the same reason as the build driver, and
+         subject to the same boundary suites. Its dependency graph is itself a control: it references
+         Nexus.Delivery.Core and nothing else, so no packager, compiler or test runner is in scope and the
+         no-rebuild rule is a property of the build rather than a promise in a comment. A driver kept out
+         of the solution would not be checked for that. -->
+    <Project Path="tools\Nexus.Delivery.Release\Nexus.Delivery.Release.csproj" />
   </Folder>
 </Solution>
