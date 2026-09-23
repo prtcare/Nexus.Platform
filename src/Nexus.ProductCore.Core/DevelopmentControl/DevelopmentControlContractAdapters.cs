@@ -267,6 +267,7 @@ public sealed class DevelopmentControlLockService : IDevelopmentControlLockServi
                 AcquireOutcome.BusyStaleLive => DevelopmentControlLockOutcome.BusyStaleLive,
                 AcquireOutcome.Reclaimable => DevelopmentControlLockOutcome.Reclaimable,
                 AcquireOutcome.ReclaimBlocked => DevelopmentControlLockOutcome.ReclaimBlocked,
+                AcquireOutcome.LockDirectoryNotCanonical => DevelopmentControlLockOutcome.LockDirectoryNotCanonical,
                 _ => DevelopmentControlLockOutcome.Unknown,
             },
             Detail: result.Detail,

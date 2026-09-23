@@ -63,6 +63,17 @@ public enum AcquireOutcome
 
     /// <summary>The lock could not be created or opened (I/O, permissions, path).</summary>
     IoFailure = 5,
+
+    /// <summary>
+    /// The caller named a lock directory that is not the one this store's identity derives.
+    ///
+    /// <para>Refused rather than honoured, because honouring it is the defect this outcome exists
+    /// to close: the lock's identity comes from the store path but its <i>location</i> used to come
+    /// from the caller, so two callers naming two directories created two unrelated files for one
+    /// logical lock and both believed they held it. Mutual exclusion was a convention — every caller
+    /// must agree — instead of a property the component enforces.</para>
+    /// </summary>
+    LockDirectoryNotCanonical = 6,
 }
 
 /// <summary>The result of one acquisition attempt, carrying the evidence for the outcome.
@@ -174,14 +185,85 @@ public sealed class AtomicWriterLock : IDisposable
 
     public string LockPath => _lockPath;
 
-    /// <summary>The lock file name for a store, derived from the canonical lock identity so a
-    /// different spelling of the same workbook reaches the same file.</summary>
-    public static string LockPathFor(string storePath, string lockDirectory, bool useCanonicalIdentity = true)
+    /// <summary>
+    /// The directory a store's lock must live in, derived from the store path and nothing else.
+    ///
+    /// <para><b>Why this is derived rather than supplied.</b> The lock's file NAME already comes from
+    /// the canonical store identity, so two spellings of one workbook reach the same name. Its
+    /// DIRECTORY did not, and that made the identity half a coordination key: two callers naming two
+    /// directories produced two files with the same name, neither visible to the other, and both
+    /// callers held "the lock". A safety property that holds only when every caller independently
+    /// agrees on a path is a convention, not a control — the same reasoning W9.0 decision D-3 applies
+    /// to artifact immutability.</para>
+    ///
+    /// <para>The rule is "beside the thing it guards": <c>&lt;workbook directory&gt;/.lock</c>. It
+    /// needs no configuration, cannot drift between hosts, and is what the estate's own harnesses
+    /// already used by hand before it was enforced.</para>
+    /// </summary>
+    public static string CanonicalLockDirectoryFor(string storePath)
+    {
+        if (string.IsNullOrWhiteSpace(storePath))
+        {
+            throw new ArgumentException("A lock needs the store it guards.", nameof(storePath));
+        }
+
+        var directory = Path.GetDirectoryName(Path.GetFullPath(storePath));
+
+        if (string.IsNullOrEmpty(directory))
+        {
+            throw new ArgumentException(
+                $"'{storePath}' has no directory, so there is nowhere canonical to place its lock.",
+                nameof(storePath));
+        }
+
+        return Path.Combine(directory, ".lock");
+    }
+
+    /// <summary>
+    /// Whether a caller-named directory is the canonical one. A null or blank value means "no opinion"
+    /// and is canonical by definition, which is how a caller opts into the derived location.
+    /// </summary>
+    public static bool IsCanonicalLockDirectory(string storePath, string? lockDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(lockDirectory))
+        {
+            return true;
+        }
+
+        static string Normalise(string path) =>
+            Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        try
+        {
+            return string.Equals(
+                Normalise(lockDirectory),
+                Normalise(CanonicalLockDirectoryFor(storePath)),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            // A directory that cannot even be resolved is not the canonical one.
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The lock file path for a store.
+    ///
+    /// <para><b>The canonical directory always wins.</b> <paramref name="lockDirectory"/> is accepted
+    /// only so existing callers keep compiling and is <i>validated</i>, never honoured:
+    /// <see cref="TryAcquire"/> refuses a mismatch with
+    /// <see cref="AcquireOutcome.LockDirectoryNotCanonical"/> before reaching here. This method
+    /// therefore cannot be used to form a second lock domain even when called directly.</para>
+    /// </summary>
+    public static string LockPathFor(string storePath, string? lockDirectory = null, bool useCanonicalIdentity = true)
     {
         var id = useCanonicalIdentity
             ? DevelopmentControlStoreIdentity.CanonicalFromWorkbookPath(storePath)
             : DevelopmentControlStoreIdentity.FromWorkbookPath(storePath);
-        return Path.Combine(lockDirectory, id.LockFileName);
+
+        _ = lockDirectory;
+        return Path.Combine(CanonicalLockDirectoryFor(storePath), id.LockFileName);
     }
 
     /// <summary>
@@ -192,16 +274,33 @@ public sealed class AtomicWriterLock : IDisposable
     /// </summary>
     public static AcquireResult TryAcquire(
         string storePath,
-        string lockDirectory,
+        string? lockDirectory,
         ReservationLease requested,
         IHostIdentity host,
         IReservationReclaimGuard? reclaimGuard = null)
     {
-        var lockPath = LockPathFor(storePath, lockDirectory);
+        // Validated BEFORE anything is created. A caller-named directory that is not the canonical one
+        // does not get a lock file: honouring it is precisely how two callers came to hold two files
+        // for one identity. Refusing here means the mistake is visible at the call that made it,
+        // rather than as two writers proceeding concurrently three weeks later.
+        if (!IsCanonicalLockDirectory(storePath, lockDirectory))
+        {
+            return new AcquireResult(
+                AcquireOutcome.LockDirectoryNotCanonical,
+                null,
+                $"Refused: the lock directory '{lockDirectory}' is not the one this store's identity "
+                + $"derives, which is '{CanonicalLockDirectoryFor(storePath)}'. The lock's location is a "
+                + "function of the store, not of the caller; two directories for one store would be two "
+                + "lock domains and neither would exclude the other.",
+                Array.Empty<string>());
+        }
+
+        var canonicalDirectory = CanonicalLockDirectoryFor(storePath);
+        var lockPath = LockPathFor(storePath, canonicalDirectory);
 
         try
         {
-            Directory.CreateDirectory(lockDirectory);
+            Directory.CreateDirectory(canonicalDirectory);
         }
         catch (Exception ex)
         {
@@ -392,7 +491,12 @@ public sealed class AtomicWriterLock : IDisposable
     /// stale the instant it is returned, so a caller must never treat "not held" as permission
     /// to write. Acquisition remains the single <see cref="TryAcquire"/> open.
     /// </summary>
-    public static bool IsHeldByAnotherProcess(string storePath, string lockDirectory, bool useCanonicalIdentity = true)
+    /// <summary>
+    /// Whether the store's lock is currently held. <b>The directory argument is ignored</b>: the probe
+    /// always reads the canonical location, which is the only file a claimant can now hold. That makes
+    /// the answer a fact about the store rather than about which directory the asker had in mind.
+    /// </summary>
+    public static bool IsHeldByAnotherProcess(string storePath, string? lockDirectory = null, bool useCanonicalIdentity = true)
     {
         var lockPath = LockPathFor(storePath, lockDirectory, useCanonicalIdentity);
         if (!File.Exists(lockPath)) return false;

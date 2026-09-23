@@ -84,10 +84,14 @@ public sealed class DevelopmentControlAppendSafetyTests
         public Fixture(string source)
         {
             Root = Path.Combine(Path.GetTempPath(), "w8d-append-" + Guid.NewGuid().ToString("N")[..10]);
-            LockDir = Path.Combine(Root, "locks");
-            Directory.CreateDirectory(LockDir);
+            Directory.CreateDirectory(Root);
             Copy = Path.Combine(Root, "NEXUS_DEVELOPMENT_CONTROL.xlsx");
             File.Copy(source, Copy, overwrite: false);
+            // The CANONICAL lock directory: beside the workbook it guards, derived from it. A
+            // caller-named directory is no longer accepted — that is how two writers came to hold two
+            // files for one identity.
+            LockDir = AtomicWriterLock.CanonicalLockDirectoryFor(Copy);
+            Directory.CreateDirectory(LockDir);
         }
 
         public static Fixture Candidate() => new(CandidateWorkbook);
