@@ -870,6 +870,13 @@ public enum DevelopmentControlLockOutcome
 
     /// <summary>The path is one a writer must never claim.</summary>
     RefusedPath = 6,
+
+    /// <summary>
+    /// The caller named a lock directory that is not the one the store's identity derives. The claim is
+    /// REFUSED rather than taken elsewhere, because taking it elsewhere is the defect: a lock whose
+    /// location is the caller's choice is a lock two callers can both hold.
+    /// </summary>
+    LockDirectoryNotCanonical = 7,
 }
 
 /// <summary>The result of a claim attempt.</summary>

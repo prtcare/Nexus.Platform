@@ -1,3 +1,4 @@
+using Nexus.DevelopmentControl.Safety;
 using Nexus.ProductCore.Contracts.DevelopmentControl;
 using Nexus.ProductCore.Core.DevelopmentControl;
 
@@ -85,8 +86,24 @@ internal static class Program
                 return 1;
             }
 
+            // The lock's LOCATION is derived from the store, not named by this caller. The directory
+            // argument is still accepted so the invocation recorded in the W9.3 evidence runs unchanged,
+            // but it is validated rather than honoured: a caller-chosen location is how two writers came
+            // to hold two files for one identity.
+            var canonicalLockDir = AtomicWriterLock.CanonicalLockDirectoryFor(storePath);
+
+            if (!string.IsNullOrWhiteSpace(lockDir) && !AtomicWriterLock.IsCanonicalLockDirectory(storePath, lockDir))
+            {
+                Console.Error.WriteLine(
+                    $"REFUSED: lock directory '{lockDir}' is not the one this store derives "
+                    + $"('{canonicalLockDir}'). The lock's location is a function of the store, not of the caller.");
+                return 1;
+            }
+
+            Console.WriteLine($"lock directory    : {canonicalLockDir} (derived from the store)");
+
             using var reservation = new DevelopmentControlLockService()
-                .TryAcquire(storePath, lockDir, "w9.3-governed-lineage-closure").Reservation
+                .TryAcquire(storePath, canonicalLockDir, "w9.3-governed-lineage-closure").Reservation
                 ?? throw new InvalidOperationException(
                     "the canonical shared lock was not acquired. A second writer may hold it; the closure "
                     + "does not proceed without it.");

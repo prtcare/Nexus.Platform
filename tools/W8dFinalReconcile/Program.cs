@@ -1,3 +1,4 @@
+using Nexus.DevelopmentControl.Safety;
 using Nexus.ProductCore.Contracts.DevelopmentControl;
 using Nexus.ProductCore.Core.DevelopmentControl;
 
@@ -198,7 +199,14 @@ internal static class Program
     private static IDevelopmentControlReservation Acquire(
         string storePath, string lockDir, string owner)
     {
-        var attempt = new DevelopmentControlLockService().TryAcquire(storePath, lockDir, owner);
+        // The lock's LOCATION is derived from the store. The parameter is kept so the command line this
+        // driver documents still parses, but it no longer selects the location: a caller-chosen
+        // directory is how two writers came to hold two independent files for one lock identity. A
+        // non-canonical value is now refused by the primitive rather than honoured.
+        var canonicalLockDir = AtomicWriterLock.CanonicalLockDirectoryFor(storePath);
+        _ = lockDir;
+
+        var attempt = new DevelopmentControlLockService().TryAcquire(storePath, canonicalLockDir, owner);
 
         Console.WriteLine($"lock              : {attempt.Outcome} — {attempt.Detail}");
 

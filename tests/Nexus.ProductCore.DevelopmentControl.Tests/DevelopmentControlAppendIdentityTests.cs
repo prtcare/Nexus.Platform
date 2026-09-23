@@ -520,10 +520,13 @@ public sealed class DevelopmentControlAppendIdentityTests
         public Fixture()
         {
             Root = Path.Combine(Path.GetTempPath(), "w8d-identity-" + Guid.NewGuid().ToString("N")[..10]);
-            LockDir = Path.Combine(Root, "locks");
-            Directory.CreateDirectory(LockDir);
+            Directory.CreateDirectory(Root);
             Copy = Path.Combine(Root, "NEXUS_DEVELOPMENT_CONTROL.xlsx");
             File.Copy(CandidateWorkbook, Copy, overwrite: false);
+            // The CANONICAL lock directory: beside the workbook it guards, derived from it. The fixture
+            // used to name its own directory, which the hardening now refuses.
+            LockDir = AtomicWriterLock.CanonicalLockDirectoryFor(Copy);
+            Directory.CreateDirectory(LockDir);
         }
 
         public string Sha256() => WorkbookCompatibilityReader.Sha256Of(Copy).ToUpperInvariant();
