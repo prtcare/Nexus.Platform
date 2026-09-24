@@ -12,25 +12,82 @@ namespace Nexus.Delivery.Tests;
 /// reports as object type <c>tag</c>) from a lightweight one (which it reports as <c>commit</c>), because
 /// that single word is the whole annotated/lightweight distinction the policy reads.
 /// </para>
+///
+/// <para>
+/// <b>The remote is a separate namespace, because it is.</b> <see cref="WriteAnnotatedTag"/> writes to the
+/// local repository and <c>ls-remote</c> reads the remote refs, which are modelled independently: a tag can
+/// be published to the remote that the local repository does not have, and a local governed tag exists
+/// before anything is published. A fake sharing one dictionary would make "the remote holds a different
+/// tag" unrepresentable, which is the condition the pre-deployment gate exists to detect.
+/// </para>
+///
+/// <para>
+/// <b><c>ls-remote</c> models the measured output shape, not a convenient one.</b> A tag object's id covers
+/// its target and its message, so this fake derives it from (ref name, target commit, tagger, message) —
+/// which is what makes a re-pointed tag detectable at all: the re-pointer can keep the name and restore the
+/// target, but cannot restore the object id without reproducing the annotation byte for byte.
+/// <see cref="DefaultTagger"/> is held constant so that a tag published to the remote and the local tag it
+/// was published from share an id, exactly as git's does when the content is identical. A test that wants
+/// to model <i>re-creation</i> — same message, later time — passes a different tagger, because real git puts
+/// the tagger identity and timestamp inside the object and therefore changes the id even then.
+/// </para>
 /// </summary>
 internal sealed class FakeGit : IProcessRunner
 {
+    /// <summary>
+    /// A fixed tagger identity. Held constant so identical content produces an identical tag object id.
+    /// Real git varies this by time, so the default model is <i>under</i>-strict about re-creation; a test
+    /// that exercises re-creation names a different tagger, as NegativeControlTests does.
+    /// </summary>
+    internal const string DefaultTagger = "Nexus Estate <nexus@estate.invalid> 1789000000 +0000";
+
     private readonly Dictionary<string, string> _annotatedMessages = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _annotatedTargets = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _annotatedTaggers = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _lightweightTargets = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _branchTargets = new(StringComparer.Ordinal);
 
+    private readonly Dictionary<string, string> _remoteAnnotatedMessages = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _remoteAnnotatedTargets = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _remoteAnnotatedTaggers = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _remoteLightweightTargets = new(StringComparer.Ordinal);
+
     public int TagCreationCount { get; private set; }
 
-    public void WriteAnnotatedTag(string refName, string commitSha, string message)
+    /// <summary>How many times the remote was queried. A control asserts the query happened, not only its result.</summary>
+    public int RemoteQueryCount { get; private set; }
+
+    /// <summary>When set, the remote answers with a non-zero exit and a diagnostic — an unreachable host.</summary>
+    public bool RemoteIsUnreachable { get; set; }
+
+    public void WriteAnnotatedTag(string refName, string commitSha, string message) =>
+        WriteAnnotatedTag(refName, commitSha, message, DefaultTagger);
+
+    public void WriteAnnotatedTag(string refName, string commitSha, string message, string tagger)
     {
         _annotatedMessages[refName] = message;
         _annotatedTargets[refName] = commitSha;
+        _annotatedTaggers[refName] = tagger;
     }
 
     public void WriteLightweightTag(string refName, string commitSha) => _lightweightTargets[refName] = commitSha;
 
     public void WriteBranch(string refName, string commitSha) => _branchTargets[refName] = commitSha;
+
+    /// <summary>Publishes an annotated tag to the remote. Nothing about the local repository changes.</summary>
+    public void PublishAnnotatedTagToRemote(string refName, string commitSha, string message) =>
+        PublishAnnotatedTagToRemote(refName, commitSha, message, DefaultTagger);
+
+    public void PublishAnnotatedTagToRemote(string refName, string commitSha, string message, string tagger)
+    {
+        _remoteAnnotatedMessages[refName] = message;
+        _remoteAnnotatedTargets[refName] = commitSha;
+        _remoteAnnotatedTaggers[refName] = tagger;
+    }
+
+    /// <summary>Publishes a lightweight tag to the remote. It carries no message, so it carries no governed block.</summary>
+    public void PublishLightweightTagToRemote(string refName, string commitSha) =>
+        _remoteLightweightTargets[refName] = commitSha;
 
     public Task<ProcessResult> RunAsync(
         string fileName,
@@ -47,6 +104,7 @@ internal sealed class FakeGit : IProcessRunner
             "rev-list" => RevList(arguments),
             "for-each-ref" => ForEachRef(arguments),
             "tag" => Tag(arguments),
+            "ls-remote" => LsRemote(arguments),
             "merge-base" => new ProcessResult(1, string.Empty, string.Empty),
             _ => new ProcessResult(129, string.Empty, $"unsupported: {command}")
         });
@@ -153,10 +211,84 @@ internal sealed class FakeGit : IProcessRunner
         return new ProcessResult(0, string.Empty, string.Empty);
     }
 
-    /// <summary>A stable, obviously-fake tag object id derived from the ref name, so assertions can name it.</summary>
-    private static string TagObjectSha(string refName)
+    /// <summary>
+    /// <c>git ls-remote &lt;remote&gt; &lt;ref&gt; &lt;ref&gt;^{}</c>, modelled on what was measured against git.
+    ///
+    /// <para>
+    /// The measured behaviour, which the production verifier and this fake must agree on: an annotated tag
+    /// produces <b>one line per pattern that matched</b> — the bare ref name resolves to the tag object, and
+    /// only the explicit <c>^{}</c> pattern produces the peeled commit. A lightweight tag produces one line
+    /// and no peel line, because there is no tag object to peel. An absent ref produces <b>no lines and exit
+    /// 0</b>. Only an unreachable remote produces a non-zero exit.
+    /// </para>
+    /// </summary>
+    private ProcessResult LsRemote(IReadOnlyList<string> arguments)
     {
-        var hash = System.Security.Cryptography.SHA1.HashData(System.Text.Encoding.UTF8.GetBytes(refName));
+        RemoteQueryCount++;
+
+        if (RemoteIsUnreachable)
+        {
+            return new ProcessResult(
+                128,
+                string.Empty,
+                "fatal: unable to access 'https://example.invalid/estate.git/': Could not resolve host: example.invalid");
+        }
+
+        if (arguments.Count < 2)
+        {
+            return new ProcessResult(129, string.Empty, "usage: git ls-remote <repository> [<refs>...]");
+        }
+
+        var listings = new List<(string Name, string Sha)>();
+
+        foreach (var pattern in arguments.Skip(2))
+        {
+            if (pattern.EndsWith("^{}", StringComparison.Ordinal))
+            {
+                var baseName = pattern[..^3];
+
+                if (_remoteAnnotatedTargets.TryGetValue(baseName, out var target))
+                {
+                    listings.Add((pattern, target));
+                }
+
+                continue;
+            }
+
+            if (_remoteAnnotatedMessages.TryGetValue(pattern, out var message))
+            {
+                listings.Add((pattern, RemoteTagObjectSha(pattern, message)));
+            }
+            else if (_remoteLightweightTargets.TryGetValue(pattern, out var lightweight))
+            {
+                listings.Add((pattern, lightweight));
+            }
+        }
+
+        // git sorts its output by ref name, so the peel line follows the ref line. The verifier parses by
+        // name and does not depend on the order, but the fake emits git's order anyway.
+        var output = string.Concat(
+            listings
+                .OrderBy(l => l.Name, StringComparer.Ordinal)
+                .Select(l => $"{l.Sha}\t{l.Name}\n"));
+
+        return new ProcessResult(0, output, string.Empty);
+    }
+
+    private string RemoteTagObjectSha(string refName, string message) =>
+        TagObjectSha(refName, _remoteAnnotatedTargets[refName], _remoteAnnotatedTaggers[refName], message);
+
+    /// <summary>
+    /// A stable, obviously-fake tag object id derived from the tag's content — ref name, target commit,
+    /// tagger and message — so assertions can name it, and so two tags with the same content share it.
+    /// </summary>
+    private string TagObjectSha(string refName) =>
+        TagObjectSha(refName, _annotatedTargets[refName], _annotatedTaggers[refName], _annotatedMessages[refName]);
+
+    private static string TagObjectSha(string refName, string commitSha, string tagger, string message)
+    {
+        var hash = System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes($"{refName}\n{commitSha}\n{tagger}\n{message}"));
         return Convert.ToHexStringLower(hash);
     }
 }
@@ -171,6 +303,17 @@ public sealed class ReleaseTagTests
 
     private static ReleaseRecord Release(char digestFill = 'a')
         => ReleaseTestData.Record(identity: ReleaseTestData.Identity(digestFill: digestFill));
+
+    /// <summary>
+    /// A publisher whose release is already registered — the state rule 1 requires before any reference may
+    /// be created. Every publisher test that is not specifically about rule 1 starts from it.
+    /// </summary>
+    private static GitReleaseTagPublisher PublisherFor(FakeGit git, ReleaseRecord release)
+    {
+        var registry = new FakeReleaseRegistry();
+        registry.Register(release);
+        return new GitReleaseTagPublisher(git, new GitReleaseTagPolicy(git), registry);
+    }
 
     [Fact]
     public void RefNameFor_FollowsTheOwnerRuling_AndLivesInTheTagNamespace()
@@ -372,7 +515,7 @@ public sealed class ReleaseTagTests
     {
         var release = Release();
         var git = new FakeGit();
-        var publisher = new GitReleaseTagPublisher(git, new GitReleaseTagPolicy(git));
+        var publisher = PublisherFor(git, release);
 
         var first = publisher.PublishAsync(RepositoryLabel, ".", release, BuildTestData.CommitA).GetAwaiter().GetResult();
 
@@ -394,7 +537,7 @@ public sealed class ReleaseTagTests
         var refName = IReleaseTagPolicy.RefNameFor(release);
 
         var git = new FakeGit();
-        var publisher = new GitReleaseTagPublisher(git, new GitReleaseTagPolicy(git));
+        var publisher = PublisherFor(git, release);
 
         // A governed reference already exists for a DIFFERENT release.
         git.WriteAnnotatedTag(refName, BuildTestData.CommitA, ReleaseTagAnnotation.Format(other));
@@ -423,7 +566,7 @@ public sealed class ReleaseTagTests
     {
         var release = Release();
         var git = new FakeGit();
-        var publisher = new GitReleaseTagPublisher(git, new GitReleaseTagPolicy(git));
+        var publisher = PublisherFor(git, release);
 
         var outcome = publisher.PublishAsync(RepositoryLabel, ".", release, BuildTestData.CommitA).GetAwaiter().GetResult();
 
@@ -446,7 +589,7 @@ public sealed class ReleaseTagTests
         var release = Release();
         var git = new FakeGit();
 
-        var outcome = new GitReleaseTagPublisher(git, new GitReleaseTagPolicy(git))
+        var outcome = PublisherFor(git, release)
             .PublishAsync(RepositoryLabel, ".", release, BuildTestData.CommitB).GetAwaiter().GetResult();
 
         Assert.False(outcome.IsCreated);

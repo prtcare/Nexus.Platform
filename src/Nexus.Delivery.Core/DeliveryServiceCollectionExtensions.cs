@@ -138,7 +138,19 @@ public static class DeliveryServiceCollectionExtensions
             serverSideProtectionVerified));
         services.AddSingleton<IReleaseTagPublisher>(provider => new GitReleaseTagPublisher(
             provider.GetRequiredService<IProcessRunner>(),
-            provider.GetRequiredService<IReleaseTagPolicy>()));
+            provider.GetRequiredService<IReleaseTagPolicy>(),
+            provider.GetRequiredService<IReleaseRegistry>()));
+
+        // The remote observer and the pre-deployment gate. Read-only in the direction that matters: the
+        // verifier cannot publish, so the gate it feeds cannot satisfy its own check. The publisher above
+        // remains the only writer of a release reference in the estate.
+        services.AddSingleton<IRemoteReleaseTagVerifier>(provider => new GitRemoteReleaseTagVerifier(
+            provider.GetRequiredService<IProcessRunner>()));
+        services.AddSingleton(provider => new ReleaseRefPreDeploymentGate(
+            provider.GetRequiredService<IReleaseTagPolicy>(),
+            provider.GetRequiredService<IRemoteReleaseTagVerifier>(),
+            provider.GetRequiredService<IArtifactStore>()));
+
         services.AddSingleton<ReleaseBundleAssembler>();
         services.AddSingleton<ReleaseLineageResolver>();
 

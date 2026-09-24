@@ -152,17 +152,33 @@ public static class ReleaseLifecycleMachine
         ReleaseTransition.RegisterArtifact => [ReleaseLifecycleState.BuildCertified],
         ReleaseTransition.DraftRelease => [ReleaseLifecycleState.ArtifactRegistered],
         ReleaseTransition.CertifyRelease => [ReleaseLifecycleState.ReleaseDraft],
-        ReleaseTransition.DeclareReadyForDev => [ReleaseLifecycleState.ReleaseCertified],
+        // Two predecessors, and the second one is a W9.4 change to this contract. Readiness may now be
+        // declared from ReleaseCertified (the first time, with evidence) OR from
+        // ReadyForDevPendingSecurityAction (the security action has since been satisfied). The second
+        // predecessor is not a shortcut past the gate: EvaluateGates still consults
+        // ReleaseCertificationGate and still refuses with SecurityActionOutstanding while the verdict is
+        // CertifiedPendingSecurityAction, so this edge only becomes traversable when the outstanding action
+        // is actually cleared. Widening the predecessor without widening the gate is what keeps the state
+        // from being reachable by assignment, which the C-2 deviation forbids outright.
+        ReleaseTransition.DeclareReadyForDev =>
+        [
+            ReleaseLifecycleState.ReleaseCertified,
+            ReleaseLifecycleState.ReadyForDevPendingSecurityAction
+        ],
+
         ReleaseTransition.DeclareReadyForDevPendingSecurityAction => [ReleaseLifecycleState.ReleaseCertified],
 
         // A refusal is an observation, not a decision, so it may fire from any state that has not already
-        // reached a terminal one.
+        // reached a terminal one. ReadyForDevPendingSecurityAction belongs on this list for the C-2 reason:
+        // a release waiting on a security action is exactly the release whose reference can drift while it
+        // waits, and a state it could not be refused from would leave a drifted release with nowhere to go.
         ReleaseTransition.Refuse =>
         [
             ReleaseLifecycleState.BuildCertified,
             ReleaseLifecycleState.ArtifactRegistered,
             ReleaseLifecycleState.ReleaseDraft,
-            ReleaseLifecycleState.ReleaseCertified
+            ReleaseLifecycleState.ReleaseCertified,
+            ReleaseLifecycleState.ReadyForDevPendingSecurityAction
         ],
 
         ReleaseTransition.Withdraw => [], // from anywhere, Owner-reserved

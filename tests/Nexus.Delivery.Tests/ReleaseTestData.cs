@@ -18,10 +18,11 @@ internal static class ReleaseTestData
         long size = 5434178,
         string name = "marketsurvey.api",
         string version = "0.1.0",
-        ArtifactType type = ArtifactType.DotnetApplication)
+        ArtifactType type = ArtifactType.DotnetApplication,
+        ArtifactDigest? digest = null)
         => new(
             ArtifactId.For(unitId ?? BuildTestData.Unit, type, name, version),
-            ArtifactDigest.Parse($"sha256:{new string(digestFill, 64)}"),
+            digest ?? ArtifactDigest.Parse($"sha256:{new string(digestFill, 64)}"),
             size);
 
     internal static ReleaseIdentity Identity(
@@ -29,14 +30,16 @@ internal static class ReleaseTestData
         string version = "0.1.0",
         string commit = BuildTestData.CommitA,
         char digestFill = 'a',
-        string? refName = null)
+        string? refName = null,
+        ArtifactDigest? artifactDigest = null,
+        long artifactSize = 5434178)
         => new(
             DeploymentUnitId.Parse(unitId),
             version,
             BuildTestData.Identity(unitId: unitId, commit: commit).BuildId,
             [commit],
             refName ?? $"refs/tags/release/{unitId}/{version}",
-            [ArtifactIdentity(DeploymentUnitId.Parse(unitId), digestFill, version: version)]);
+            [ArtifactIdentity(DeploymentUnitId.Parse(unitId), digestFill, artifactSize, version: version, digest: artifactDigest)]);
 
     internal static BundleId BundleId => Contracts.BundleId.Parse("nexus-2026.09.23-w93rel");
 
@@ -182,6 +185,112 @@ internal static class ReleaseTestData
         BuildManifest Manifest,
         ArtifactDigest Digest,
         ArtifactPublishOutcome Outcome);
+}
+
+/// <summary>
+/// An in-memory <see cref="IReleaseRegistry"/> that models the one property the publisher depends on: a
+/// ReleaseId either is registered, with the record digest it was registered with, or it is not.
+///
+/// <para>
+/// <b>Why a double rather than the real <c>FileReleaseRegistry</c>.</b> The real registry is exercised by its
+/// own suite, including its immutability refusal. What the publisher needs from it here is an answer to
+/// "does this ReleaseId already exist, and with which digest", and that answer must be settable to null —
+/// which no correctly-used real registry can produce for a record it was just handed. Rule 1's whole content
+/// is the difference between registered and not, so a fixture that could only ever be registered could not
+/// test it.
+/// </para>
+///
+/// <para>
+/// It still refuses a re-registration with different content rather than overwriting, so a test cannot
+/// accidentally build a state the real system would have refused to create.
+/// </para>
+/// </summary>
+internal sealed class FakeReleaseRegistry : IReleaseRegistry
+{
+    private readonly Dictionary<string, (ArtifactDigest Digest, ReleaseLifecycleState Lifecycle)> _entries =
+        new(StringComparer.Ordinal);
+
+    /// <summary>Register a release as the real registry would, immutability refusal included.</summary>
+    public void Register(ReleaseRecord release, ReleaseLifecycleState lifecycle = ReleaseLifecycleState.ReleaseCertified)
+    {
+        var id = release.ReleaseId.Value;
+        var digest = release.ComputeRecordDigest();
+
+        if (_entries.TryGetValue(id, out var existing) && existing.Digest != digest)
+        {
+            throw new InvalidOperationException(
+                $"{id} is already registered with different content. A fixture must not create a state the registry refuses.");
+        }
+
+        _entries[id] = (digest, lifecycle);
+    }
+
+    /// <summary>Register a digest that is deliberately NOT the presented record's, to model a drifted registry.</summary>
+    public void RegisterWithDigest(ReleaseRecord release, ArtifactDigest digest) =>
+        _entries[release.ReleaseId.Value] = (digest, ReleaseLifecycleState.ReleaseCertified);
+
+    public Task<ReleaseRegistrationOutcome> RegisterAsync(ReleaseRecord release, CancellationToken cancellationToken = default)
+    {
+        var id = release.ReleaseId.Value;
+        var digest = release.ComputeRecordDigest();
+        var alreadyPresent = _entries.ContainsKey(id);
+
+        if (alreadyPresent && _entries[id].Digest != digest)
+        {
+            return Task.FromResult(ReleaseRegistrationOutcome.Refused(
+                ReleaseRegistryRefusalReason.ReleaseIdExistsWithDifferentContent,
+                $"{id} is already registered with different content."));
+        }
+
+        _entries[id] = (digest, ReleaseLifecycleState.ReleaseCertified);
+        return Task.FromResult(ReleaseRegistrationOutcome.Accepted(EntryFor(release), alreadyPresent));
+    }
+
+    public Task<bool> ExistsAsync(ReleaseId releaseId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_entries.ContainsKey(releaseId.Value));
+
+    public Task<ReleaseRecord?> TryOpenAsync(ReleaseId releaseId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<ReleaseRecord?>(null);
+
+    public Task<ReleaseRegistryEntry?> TryGetEntryAsync(ReleaseId releaseId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_entries.TryGetValue(releaseId.Value, out var entry)
+            ? new ReleaseRegistryEntry(
+                releaseId,
+                entry.Digest,
+                entry.Lifecycle,
+                DateTimeOffset.UnixEpoch,
+                BuildTestData.Unit,
+                "0.1.0",
+                BuildTestData.Identity().BuildId,
+                ReleaseTestData.BundleId,
+                $"refs/tags/release/{BuildTestData.Unit.Value}/0.1.0")
+            : null);
+
+    public Task<ReleaseVerification> VerifyAsync(ReleaseId releaseId, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("The publisher does not verify records; the registry's own suite covers that.");
+
+    public Task<ReleaseRegistryEntry> SetLifecycleAsync(
+        ReleaseId releaseId,
+        ReleaseLifecycleState state,
+        string reason,
+        ReleaseId? supersededBy = null,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("The publisher does not move lifecycle state.");
+
+    public Task<IReadOnlyList<ReleaseRegistryEntry>> ListAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ReleaseRegistryEntry>>([]);
+
+    private static ReleaseRegistryEntry EntryFor(ReleaseRecord release) =>
+        new(
+            release.ReleaseId,
+            release.ComputeRecordDigest(),
+            ReleaseLifecycleState.ReleaseCertified,
+            DateTimeOffset.UnixEpoch,
+            release.Identity.UnitId,
+            release.Identity.Version,
+            release.Identity.BuildId,
+            release.BundleId,
+            release.Identity.ReleaseRefName);
 }
 
 /// <summary>Creates a temp directory that is deleted when the test ends.</summary>

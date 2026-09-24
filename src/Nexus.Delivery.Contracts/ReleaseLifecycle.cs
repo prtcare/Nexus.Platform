@@ -190,5 +190,29 @@ public enum ReleaseRefusalReason
     NoOutstandingSecurityAction,
 
     /// <summary>An act was requested on a release that was withdrawn. Withdrawal is terminal; a new release is the remedy.</summary>
-    ReleaseIsWithdrawn
+    ReleaseIsWithdrawn,
+
+    /// <summary>
+    /// <b><c>RELEASE_REFERENCE_DRIFT</c>.</b> The remote holds a ref at the release reference name that is
+    /// not this release's governed reference — a different tag object, a lightweight tag, or a tag pointing
+    /// at a commit other than the certified source. Deployment stops.
+    ///
+    /// <para>
+    /// Deliberately distinct from <see cref="RemoteReleaseRefAbsent"/>: drift is the remote contradicting the
+    /// chain, and absence is the remote not yet holding it. The first is a security event and the second is a
+    /// stage boundary, and a control that reported them identically would make the first indistinguishable
+    /// from ordinary progress.
+    /// </para>
+    /// </summary>
+    ReleaseReferenceDrift,
+
+    /// <summary>
+    /// The remote holds no ref at the release reference name. <b>Not drift and not a pass.</b> The
+    /// pre-deployment verification did not happen, so deployment is refused until the governed publisher
+    /// has published the reference.
+    /// </summary>
+    RemoteReleaseRefAbsent,
+
+    /// <summary>The remote could not be queried, so nothing about the reference is established.</summary>
+    RemoteReleaseRefUnreachable
 }

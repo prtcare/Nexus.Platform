@@ -58,7 +58,7 @@ public static class Program
             var lineage = new FileReleaseLineageLog(plan.LineageRoot);
             var runner = new ProcessRunner();
             var tagPolicy = new GitReleaseTagPolicy(runner, plan.ReleaseRefServerSideProtectionVerified);
-            var tagPublisher = new GitReleaseTagPublisher(runner, tagPolicy);
+            var tagPublisher = new GitReleaseTagPublisher(runner, tagPolicy, registry);
 
             // ---- 1. Verify the certified artifact, without rebuilding it -----------------------------
             var artifactId = plan.ResolveArtifactId();

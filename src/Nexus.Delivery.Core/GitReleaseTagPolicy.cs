@@ -253,22 +253,46 @@ public sealed class GitReleaseTagPolicy : IReleaseTagPolicy
 /// Creates the governed release reference.
 ///
 /// <para>
-/// <b>The only thing in the estate that writes a release tag.</b> It refuses in four directions, and each
-/// refusal is the mechanism for one of TASK 14's requirements: it will not overwrite an existing reference,
-/// it will not move one, it will not point one at a commit the release does not carry, and it will not
-/// write a tag whose target cannot be resolved. A creation that is asked for twice with the same release is
-/// a no-op rather than a second write, so a retried release run does not fail for having succeeded.
+/// <b>The only thing in the estate that writes a release tag.</b> It refuses in five directions, and each
+/// refusal is the mechanism for one of TASK 14's requirements: it will not create a reference for a release
+/// that is not already established in the immutable chain (rule 1), it will not overwrite an existing
+/// reference, it will not move one, it will not point one at a commit the release does not carry (rule 2),
+/// and it will not write a tag whose target cannot be resolved. A creation that is asked for twice with the
+/// same release is a no-op rather than a second write, so a retried release run does not fail for having
+/// succeeded.
+/// </para>
+///
+/// <para>
+/// <b>Rule 1, and why it is "is registered" rather than "is certified".</b> The C-2 rule reads "the tag is
+/// created only for an already-certified ReleaseId". Read literally as <i>lifecycle-certified</i> the rule is
+/// circular on this estate, because the certification gate refuses on
+/// <see cref="ReleaseRefusalReason.ReleaseRefNotGoverned"/> when the reference is absent — so certification
+/// cannot precede the creation of the reference the certification requires. The checkable, non-circular
+/// content of the rule is the thing the Owner actually needs: <b>a tag cannot bring a ReleaseId into
+/// existence.</b> The ReleaseId must already exist in the immutable registry, and its registered record must
+/// digest to the record being tagged, before any reference is written for it. A fabricated tag therefore
+/// cannot create a release — it can only point at one that already exists — which is exactly what negative
+/// control C-3 asserts.
+/// </para>
+///
+/// <para>
+/// <b>The registry and not a boolean.</b> The publisher asks the registry rather than accepting a caller's
+/// assertion that the release exists, for the same reason the deployment stage re-verifies the remote rather
+/// than trusting a recorded flag: a caller-supplied boolean is a check that can only ever agree with the
+/// caller.
 /// </para>
 /// </summary>
 public sealed class GitReleaseTagPublisher : IReleaseTagPublisher
 {
     private readonly IProcessRunner _runner;
     private readonly IReleaseTagPolicy _policy;
+    private readonly IReleaseRegistry _registry;
 
-    public GitReleaseTagPublisher(IProcessRunner runner, IReleaseTagPolicy policy)
+    public GitReleaseTagPublisher(IProcessRunner runner, IReleaseTagPolicy policy, IReleaseRegistry registry)
     {
         _runner = runner ?? throw new ArgumentNullException(nameof(runner));
         _policy = policy ?? throw new ArgumentNullException(nameof(policy));
+        _registry = registry ?? throw new ArgumentNullException(nameof(registry));
     }
 
     public async Task<ReleaseTagCreationOutcome> PublishAsync(
@@ -284,17 +308,46 @@ public sealed class GitReleaseTagPublisher : IReleaseTagPublisher
         var refName = IReleaseTagPolicy.RefNameFor(release);
         var shortName = IReleaseTagPolicy.ShortNameFor(release.UnitId, release.Version);
 
-        // The tag may only point at a commit the certified build recorded. Without this the governed
-        // reference could be placed at any commit, and "the release reference identifies the certified
-        // source state" would stop being true.
-        if (!release.Identity.SourceCommits.Contains(tagTargetCommitSha, StringComparer.OrdinalIgnoreCase))
+        // ---- Rule 1: the ReleaseId must already exist, and be the record being tagged --------------------
+        var entry = await _registry
+            .TryGetEntryAsync(release.ReleaseId, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (entry is null)
+        {
+            return ReleaseTagCreationOutcome.Refused(
+                refName,
+                [ReleaseTagRefusalReason.ReleaseNotEligibleForReference],
+                [
+                    $"No release '{release.ReleaseId}' is registered, so no reference may be created for it.",
+                    "A release reference is published for a ReleaseId that already exists in the immutable chain. A tag never brings a release into existence."
+                ]);
+        }
+
+        var presentedDigest = release.ComputeRecordDigest();
+
+        if (entry.RecordDigest != presentedDigest)
+        {
+            return ReleaseTagCreationOutcome.Refused(
+                refName,
+                [ReleaseTagRefusalReason.ReleaseNotEligibleForReference],
+                [
+                    $"The registry holds {release.ReleaseId} with record digest {entry.RecordDigest}, but the record presented hashes to {presentedDigest}.",
+                    "The reference may only be created for the release as it was registered. Changed content is a NEW release, never a re-pointed reference."
+                ]);
+        }
+
+        // ---- Rule 2: the tag may only point at a commit the certified build recorded ---------------------
+        // Judged by ReleaseRefTargetRule and not by an inline Contains, because the deployment gate judges
+        // the same claim about a remote observation. One judgement, one place.
+        if (!ReleaseRefTargetRule.PointsAtACommitTheReleaseCarries(release, tagTargetCommitSha))
         {
             return ReleaseTagCreationOutcome.Refused(
                 refName,
                 [ReleaseTagRefusalReason.TagDoesNotContainBuildCommit],
                 [
-                    $"{tagTargetCommitSha} is not among the commits the certified build recorded "
-                    + $"({string.Join(", ", release.Identity.SourceCommits)})."
+                    ReleaseRefTargetRule.DescribeRefusal(release, tagTargetCommitSha),
+                    "Without this the governed reference could be placed at any commit, and 'the release reference identifies the certified source state' would stop being true."
                 ]);
         }
 
