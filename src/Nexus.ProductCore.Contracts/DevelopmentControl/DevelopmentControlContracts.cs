@@ -822,27 +822,187 @@ public interface IDevelopmentControlReservation : IDisposable
     IReservationLease Lease { get; }
 }
 
-/// <summary>Acquires writer reservations. The only sanctioned way to obtain one.</summary>
+/// <summary>
+/// Acquires writer reservations, and answers whether one is held. The only sanctioned way to do
+/// either.
+///
+/// <para><b>W9.3 (D-W9.3-LOCK-01): the lock's LOCATION belongs to this component, not to the
+/// caller.</b> Every member here that used to require a caller-named lock directory now treats it
+/// as optional and unhonoured: omit it, or pass null, and the canonical location
+/// (<c>&lt;store directory&gt;\.lock</c>, derived from the store path alone) is used. A value that
+/// is not that location — the store's own directory and its <c>.lock</c> child are both accepted
+/// as canonical-equivalent — is <b>refused</b>, never honoured, because honouring it is the defect
+/// the change exists to close: two callers naming two directories produced two unrelated files for
+/// one logical lock and both believed they held it. Mutual exclusion was a convention every caller
+/// had to keep, rather than a property the component enforces.</para>
+///
+/// <para><b>Why the parameter was not simply deleted.</b> It is retained, and deprecated, under
+/// explicit Owner approval, so that existing call sites keep compiling while they migrate. Its
+/// only remaining legal values are "no opinion" (null/omitted) and the canonical location. Every
+/// active caller in Platform and Forge has been migrated to the authority-owned form and passes
+/// nothing; the removal of the parameter is the clean end state, gated on the remaining consumers
+/// migrating. See each member's own remarks.</para>
+/// </summary>
 public interface IDevelopmentControlLockService
 {
     /// <summary>
     /// Attempts to claim <paramref name="storePath"/>. Never throws on contention - contention
     /// is a normal outcome, reported as <see cref="DevelopmentControlLockOutcome.BusyLive"/> or
     /// <see cref="DevelopmentControlLockOutcome.BusyStaleLive"/>.
+    ///
+    /// <para><b>The preferred call shape names the store and nothing else:</b>
+    /// <c>TryAcquire(storePath)</c>. The lock is placed wherever this component's canonical rule
+    /// places it.</para>
     /// </summary>
+    /// <param name="lockDirectory">
+    /// <b>Deprecated. Omit it.</b> Null and blank mean "no opinion" and resolve to the canonical
+    /// location, which is the preferred shape. The canonical location itself - and the store's own
+    /// directory, which is its parent - are accepted as canonical-equivalent. Anything else is
+    /// refused with <see cref="DevelopmentControlLockOutcome.LockDirectoryNotCanonical"/>.
+    /// <para>Retained under Owner approval (D-W9.3-LOCK-01) so unmigrated call sites keep
+    /// compiling. It is validated, never honoured: the value cannot change where the lock goes.
+    /// Nothing should be read into it, and it is a removal candidate once its consumers no longer
+    /// pass it.</para>
+    /// </param>
     DevelopmentControlLockAttempt TryAcquire(
         string storePath,
-        string lockDirectory,
+        string? lockDirectory = null,
         string? owner = null);
 
-    /// <summary>True when some other live process holds the claim.</summary>
-    bool IsHeldByAnotherProcess(string storePath, string lockDirectory);
+    /// <summary>
+    /// True when some other live process holds the claim. The boolean form of
+    /// <see cref="TryIsHeldByAnotherProcess"/>, kept because most callers only need the answer.
+    ///
+    /// <para><b>This shape cannot express the refusal.</b> A caller that names a directory this
+    /// component will not honour gets the truth about the <i>canonical</i> lock here - a fact about
+    /// the store, and the only lock any claimant can now hold - because a bare <c>bool</c> has no
+    /// way to say "your argument was refused and nothing was probed". A caller that needs to know
+    /// that must use <see cref="TryIsHeldByAnotherProcess"/>, which reports it deterministically.
+    /// This is the only reason the two members coexist; it is not a licence to probe an arbitrary
+    /// directory.</para>
+    /// </summary>
+    /// <param name="lockDirectory">
+    /// <b>Deprecated. Omit it.</b> Null and blank mean "no opinion" and resolve to the canonical
+    /// location. Retained under Owner approval so unmigrated call sites - Nexus.Developer's
+    /// <c>DevelopmentControlEndpoint</c> is the last one - keep compiling while they migrate to the
+    /// one-argument form. It is validated and then ignored, never honoured.
+    /// </param>
+    bool IsHeldByAnotherProcess(string storePath, string? lockDirectory = null);
+
+    /// <summary>
+    /// W9.3. The same liveness question, answered as a value so a NON-CANONICAL lock location is a
+    /// deterministic typed refusal rather than an unrepresentable one.
+    ///
+    /// <para><b>Why an additive member and not a change of return type.</b> The Owner requires a
+    /// deterministic <c>NON_CANONICAL_LOCK_LOCATION</c> refusal for a bad directory. Three shapes
+    /// were weighed and two rejected on evidence:</para>
+    ///
+    /// <list type="bullet">
+    /// <item><b>Changing <see cref="IsHeldByAnotherProcess"/>'s return type to this result.</b>
+    /// Rejected: it breaks every existing caller at the source level, and one of them -
+    /// Nexus.Developer's <c>DevelopmentControlEndpoint</c> - is in a repository this change is not
+    /// permitted to edit. A contract change that leaves a consumer uncompilable is not a change
+    /// this component can ship alone.</item>
+    /// <item><b>Keeping <c>bool</c> and refusing by throwing.</b> Rejected on both counts: a thrown
+    /// exception is not the typed refusal that was asked for, and it would change the behaviour of
+    /// an existing, currently inert call into a crash. Nexus.Developer's endpoint passes
+    /// <c>&lt;authority directory&gt;\locks</c>, which IS non-canonical, so the legacy call it makes
+    /// today would begin throwing on every request.</item>
+    /// <item><b>An additive member returning a small result.</b> Chosen. It carries the refusal,
+    /// breaks no caller, and leaves the legacy shape's behaviour exactly as it is.</item>
+    /// </list>
+    ///
+    /// <para>Null and blank mean "no opinion" and resolve to the canonical location, exactly as
+    /// <see cref="TryAcquire"/> now does. No second lock implementation and no second lock location
+    /// exist anywhere in this contract: this member delegates to the same primitive, over the same
+    /// canonical file, as every other member here.</para>
+    ///
+    /// <para><b>It answers; it does not grant.</b> <see cref="DevelopmentControlLockProbeOutcome.NotHeld"/>
+    /// is not permission to write. The answer is stale the instant it is returned, and a write still
+    /// requires a reservation from <see cref="TryAcquire"/>.</para>
+    /// </summary>
+    DevelopmentControlLockProbeResult TryIsHeldByAnotherProcess(
+        string storePath,
+        string? lockDirectory = null);
 
     /// <summary>
     /// The canonical lock identity for a workbook path. Exposed so a host can assert that it
     /// derives the same identity as the other host <b>without</b> acquiring anything.
     /// </summary>
     string LockIdentityFor(string storePath);
+}
+
+/// <summary>
+/// W9.3. The three ways a liveness probe can end. Kept apart because collapsing any two of them
+/// produces an answer a caller may act on when it should not: <see cref="NotHeld"/> read as
+/// "granted" would authorise a write nobody holds a claim for, and a refusal read as
+/// <see cref="NotHeld"/> would report a lock free on the strength of an argument that was never
+/// used.
+/// </summary>
+public enum DevelopmentControlLockProbeOutcome
+{
+    /// <summary>Not determined.</summary>
+    Unknown = 0,
+
+    /// <summary>
+    /// The probe answered: no live process holds the store's canonical lock.
+    /// <b>Not permission to write</b> - see
+    /// <see cref="IDevelopmentControlLockService.TryIsHeldByAnotherProcess"/>.
+    /// </summary>
+    NotHeld = 1,
+
+    /// <summary>The probe answered: another live process holds the store's canonical lock.</summary>
+    HeldByAnotherProcess = 2,
+
+    /// <summary>
+    /// REFUSED. The caller named a lock location this component does not own, so nothing was
+    /// probed. The Owner's <c>NON_CANONICAL_LOCK_LOCATION</c> condition, and the same condition
+    /// <see cref="DevelopmentControlLockOutcome.LockDirectoryNotCanonical"/> reports for a claim
+    /// attempt - one condition, named consistently on both members rather than spelled two ways.
+    /// The refusal is deterministic: the same store and the same directory always produce it, it
+    /// creates nothing, and it touches nothing.
+    /// </summary>
+    LockDirectoryNotCanonical = 3,
+}
+
+/// <summary>
+/// W9.3. The result of a liveness probe. A value rather than a <c>bool</c> so that "the lock is not
+/// held" and "your lock directory was refused" are never the same answer.
+///
+/// <para><see cref="LockPath"/> is null exactly when the probe was refused: no path was probed, and
+/// naming one would report a fact about a lock the caller never asked about.</para>
+/// </summary>
+public sealed record DevelopmentControlLockProbeResult(
+    DevelopmentControlLockProbeOutcome Outcome,
+    string? LockPath,
+    string Detail)
+{
+    /// <summary>
+    /// The refusal token for <see cref="DevelopmentControlLockProbeOutcome.LockDirectoryNotCanonical"/>.
+    ///
+    /// <para>Declared once, and carried on <see cref="RefusalToken"/>, for the same reason the
+    /// estate's other operator-facing tokens are: a token a host emits and a token an operator
+    /// greps for must not be spelled independently. A caller must branch on
+    /// <see cref="Outcome"/>; this is for the message a human reads.</para>
+    /// </summary>
+    public const string NonCanonicalLockLocationToken = "NON_CANONICAL_LOCK_LOCATION";
+
+    /// <summary>True only when the probe answered AND the answer was "another live process holds
+    /// it". False is NOT "free to write" - see <see cref="Answered"/> and the interface member.</summary>
+    public bool HeldByAnotherProcess =>
+        Outcome == DevelopmentControlLockProbeOutcome.HeldByAnotherProcess;
+
+    /// <summary>True when the named lock location was refused and nothing was probed.</summary>
+    public bool Refused => Outcome == DevelopmentControlLockProbeOutcome.LockDirectoryNotCanonical;
+
+    /// <summary>True when the probe actually answered the question. False means the outcome is a
+    /// refusal or undetermined, and <see cref="HeldByAnotherProcess"/> carries no information.</summary>
+    public bool Answered =>
+        Outcome is DevelopmentControlLockProbeOutcome.NotHeld
+                or DevelopmentControlLockProbeOutcome.HeldByAnotherProcess;
+
+    /// <summary><see cref="NonCanonicalLockLocationToken"/> when refused, otherwise null.</summary>
+    public string? RefusalToken => Refused ? NonCanonicalLockLocationToken : null;
 }
 
 /// <summary>Why a claim attempt ended as it did.</summary>

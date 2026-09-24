@@ -491,7 +491,7 @@ public sealed class DevelopmentControlAppendIdentityTests
     private static DevelopmentControlAppendResult Append(Fixture fixture, DevelopmentControlAppendRecord request)
     {
         using var reservation = new DevelopmentControlLockService()
-            .TryAcquire(fixture.Copy, fixture.LockDir, "w8d-identity-suite").Reservation
+            .TryAcquire(fixture.Copy, owner: "w8d-identity-suite").Reservation
             ?? throw new InvalidOperationException("the fixture lock was not acquired");
 
         return new DevelopmentControlWriterAuthorizer().Append(reservation, request);
