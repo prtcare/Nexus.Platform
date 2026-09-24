@@ -42,7 +42,27 @@ public sealed class SecretScannerTests
     private static string VendorKeyShape() => "sk-" + TestData.RandomAlnum(32);
 
     /// <summary>A 25-character dense mixed-case token.</summary>
-    private static string TokenShape() => TestData.RandomAlnum(25);
+    private static string TokenShape() => string.Concat('a', 'Z', '7', new string('q', 22));
+
+    [Theory]
+    [InlineData("WorkbookCompatibilityReader.AuthorizeWrite(")]
+    [InlineData("AnotherLongCompatibilityReader.Resolve()")]
+    public void UnquotedMemberCall_IsNotALiteral(string expression)
+    {
+        Assert.Empty(_scanner.ScanText("source.cs", "var auth = " + expression));
+        Assert.NotEmpty(_scanner.ScanText("source.cs", "var auth = \"" + expression + "\";"));
+    }
+
+    [Fact]
+    public void MemberCall_DoesNotHideOtherAssignmentsOrArguments()
+    {
+        var token = TokenShape();
+        var prefix = "var auth = WorkbookCompatibilityReader.AuthorizeWrite(";
+        Assert.NotEmpty(_scanner.ScanText("source.cs", prefix + " password: \"" + token + "\");"));
+        Assert.NotEmpty(_scanner.ScanText("source.cs", prefix + token + ");"));
+        Assert.NotEmpty(_scanner.ScanText("source.cs", prefix + "\napi_key = \"" + token + "\";"));
+        Assert.NotEmpty(_scanner.ScanText("config.txt", "auth = " + token));
+    }
 
     /// <summary>
     /// A 16-character password — short enough that only the connection-string rule can judge it.

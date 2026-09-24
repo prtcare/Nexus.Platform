@@ -100,6 +100,15 @@ public sealed class SecretScanner
             {
                 var key = match.Groups["key"].Value;
 
+                // Only an unquoted member-call prefix is executable syntax. Do not exempt
+                // quoted values, arguments, or the rest of the line: those can contain secrets.
+                if (match.Groups["barevalue"].Success
+                    && Regex.IsMatch(match.Groups["barevalue"].Value,
+                        @"\A[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+\(\)?\z"))
+                {
+                    continue;
+                }
+
                 var value = match.Groups["value"].Success
                     ? match.Groups["value"].Value
                     : match.Groups["barevalue"].Value;
