@@ -86,10 +86,12 @@ internal static class Program
                 return 1;
             }
 
-            // The lock's LOCATION is derived from the store, not named by this caller. The directory
-            // argument is still accepted so the invocation recorded in the W9.3 evidence runs unchanged,
-            // but it is validated rather than honoured: a caller-chosen location is how two writers came
-            // to hold two files for one identity.
+            // The lock's LOCATION is derived from the store, not named by this caller. W9.3 moved the
+            // deriving into the authority: the acquisition below passes the store and nothing else,
+            // so this driver cannot place the shared lock anywhere. The directory argument is still
+            // accepted so the invocation recorded in the W9.3 evidence runs unchanged, and it is
+            // checked against the authority's own rule before anything is attempted — a caller that
+            // names a different location is refused by name rather than quietly ignored.
             var canonicalLockDir = AtomicWriterLock.CanonicalLockDirectoryFor(storePath);
 
             if (!string.IsNullOrWhiteSpace(lockDir) && !AtomicWriterLock.IsCanonicalLockDirectory(storePath, lockDir))
@@ -103,7 +105,7 @@ internal static class Program
             Console.WriteLine($"lock directory    : {canonicalLockDir} (derived from the store)");
 
             using var reservation = new DevelopmentControlLockService()
-                .TryAcquire(storePath, canonicalLockDir, "w9.3-governed-lineage-closure").Reservation
+                .TryAcquire(storePath, owner: "w9.3-governed-lineage-closure").Reservation
                 ?? throw new InvalidOperationException(
                     "the canonical shared lock was not acquired. A second writer may hold it; the closure "
                     + "does not proceed without it.");

@@ -235,11 +235,20 @@ public sealed class DevelopmentControlWriterAuthorizer : IDevelopmentControlWrit
     }
 }
 
-/// <summary>The canonical writer lock, exposed through the shared contract.</summary>
+/// <summary>
+/// The canonical writer lock, exposed through the shared contract.
+///
+/// <para><b>W9.3 (D-W9.3-LOCK-01): the lock's location is this component's to place.</b> No member
+/// here lets a caller choose it. The directory argument the contract still accepts - deprecated,
+/// and retained only so unmigrated call sites keep compiling - is passed down to
+/// <see cref="AtomicWriterLock"/>, which validates it and then ignores it: the canonical location
+/// always wins, and a value that is not canonical is refused. This adapter adds no lock domain of
+/// its own and no policy of its own; it is a projection of the one primitive.</para>
+/// </summary>
 public sealed class DevelopmentControlLockService : IDevelopmentControlLockService
 {
     public DevelopmentControlLockAttempt TryAcquire(
-        string storePath, string lockDirectory, string? owner = null)
+        string storePath, string? lockDirectory = null, string? owner = null)
     {
         var requested = new ReservationLease
         {
@@ -276,8 +285,72 @@ public sealed class DevelopmentControlLockService : IDevelopmentControlLockServi
             Reservation: reservation);
     }
 
-    public bool IsHeldByAnotherProcess(string storePath, string lockDirectory) =>
+    /// <summary>
+    /// The boolean probe. The directory argument is validated and then ignored - the answer is
+    /// always about the store's canonical lock, which is the only file a claimant can hold.
+    /// <para>Deprecated argument; see the contract. This shape cannot report a non-canonical
+    /// location as a refusal, so a caller that needs that uses
+    /// <see cref="TryIsHeldByAnotherProcess"/>.</para>
+    /// </summary>
+    public bool IsHeldByAnotherProcess(string storePath, string? lockDirectory = null) =>
         AtomicWriterLock.IsHeldByAnotherProcess(storePath, lockDirectory);
+
+    /// <summary>
+    /// W9.3. The typed probe: the same liveness question, with a deterministic refusal for a
+    /// lock location this component does not own.
+    ///
+    /// <para><b>The refusal is decided before anything is read.</b> A non-canonical directory does
+    /// not get a probe of the canonical lock reported under it, because that would answer a
+    /// question the caller did not ask and would make a refused argument look like an accepted
+    /// one. Nothing is created, read or opened on the refusal path.</para>
+    ///
+    /// <para><b>One lock, one location.</b> Both outcomes that answer delegate to
+    /// <see cref="AtomicWriterLock.IsHeldByAnotherProcess"/> over the canonical path - the same
+    /// primitive, and the same file, as <see cref="TryAcquire"/> contends on.</para>
+    /// </summary>
+    public DevelopmentControlLockProbeResult TryIsHeldByAnotherProcess(
+        string storePath, string? lockDirectory = null)
+    {
+        if (!AtomicWriterLock.IsCanonicalLockDirectory(storePath, lockDirectory))
+        {
+            // The refusal names the canonical directory so the remedy is in the message. Deriving it
+            // is guarded because a store path that cannot resolve is exactly one of the inputs that
+            // reaches this branch, and a REFUSAL THAT THROWS is not the deterministic refusal this
+            // member exists to provide.
+            string canonical;
+            try
+            {
+                canonical = AtomicWriterLock.CanonicalLockDirectoryFor(storePath);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                canonical = $"(underivable from the store path: {ex.Message})";
+            }
+
+            return new DevelopmentControlLockProbeResult(
+                DevelopmentControlLockProbeOutcome.LockDirectoryNotCanonical,
+                LockPath: null,
+                Detail: $"{DevelopmentControlLockProbeResult.NonCanonicalLockLocationToken}: the lock "
+                      + $"directory '{lockDirectory}' is not the one this store's identity derives, "
+                      + $"which is '{canonical}'. The lock's location is a function of the store, not "
+                      + "of the caller; probing elsewhere would answer a question about a lock no "
+                      + "claimant can hold. Pass null to probe the canonical location.");
+        }
+
+        var lockPath = AtomicWriterLock.LockPathFor(storePath);
+        var held = AtomicWriterLock.IsHeldByAnotherProcess(storePath);
+
+        return new DevelopmentControlLockProbeResult(
+            held
+                ? DevelopmentControlLockProbeOutcome.HeldByAnotherProcess
+                : DevelopmentControlLockProbeOutcome.NotHeld,
+            lockPath,
+            held
+                ? $"Another live process holds the canonical lock for this store ({lockPath})."
+                : $"No live process holds the canonical lock for this store ({lockPath}). This is a "
+                + "probe, not permission: the answer is stale the instant it is returned, and a write "
+                + "still requires a reservation from TryAcquire.");
+    }
 
     /// <summary>
     /// The canonical lock identity for a path, so a host can assert cross-host agreement without

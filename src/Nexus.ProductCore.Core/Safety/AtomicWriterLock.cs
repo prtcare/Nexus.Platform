@@ -220,8 +220,30 @@ public sealed class AtomicWriterLock : IDisposable
     }
 
     /// <summary>
-    /// Whether a caller-named directory is the canonical one. A null or blank value means "no opinion"
-    /// and is canonical by definition, which is how a caller opts into the derived location.
+    /// Whether a caller-named directory is one this component will accept. Exactly three inputs are
+    /// accepted, and they all resolve to the same single lock file:
+    ///
+    /// <list type="bullet">
+    /// <item><b>null or blank</b> — "no opinion": the caller opts into the derived location. This is
+    /// the preferred call shape and the one every migrated caller now uses.</item>
+    /// <item><b>the canonical directory</b>, <c>&lt;store directory&gt;\.lock</c>.</item>
+    /// <item><b>the store's own directory</b>, <c>&lt;store directory&gt;</c>. Accepted as a
+    /// canonical-<i>equivalent</i> spelling and resolved to the canonical directory, which is what
+    /// makes "validated, never honoured" visible rather than merely asserted: the caller names a
+    /// place, and the lock still goes beside the thing it guards.</item>
+    /// </list>
+    ///
+    /// <para><b>W9.3 note: the third form was NOT accepted before this change.</b> The comparison
+    /// named only the canonical directory, so a caller passing the store's own directory was refused
+    /// with <see cref="AcquireOutcome.LockDirectoryNotCanonical"/> even though the contract this
+    /// component implements describes the form as accepted. Widening by exactly that one
+    /// non-arbitrary value is what closes the gap; it creates no second lock domain, because
+    /// <see cref="LockPathFor"/> and <see cref="TryAcquire"/> both place the lock at the canonical
+    /// path regardless.</para>
+    ///
+    /// <para>Everything else is refused. A directory that is neither the store's own nor its
+    /// <c>.lock</c> child is a place this component does not own, and honouring it is the defect the
+    /// refusal exists to close.</para>
     /// </summary>
     public static bool IsCanonicalLockDirectory(string storePath, string? lockDirectory)
     {
@@ -235,9 +257,20 @@ public sealed class AtomicWriterLock : IDisposable
 
         try
         {
+            var named = Normalise(lockDirectory);
+            var canonical = Normalise(CanonicalLockDirectoryFor(storePath));
+
+            if (string.Equals(named, canonical, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            // The store's own directory is accepted as a canonical-equivalent spelling. Both sides are
+            // already fully resolved, so this is a comparison of two absolute paths and not of one
+            // absolute path against a caller-shaped one.
             return string.Equals(
-                Normalise(lockDirectory),
-                Normalise(CanonicalLockDirectoryFor(storePath)),
+                named,
+                Normalise(Path.GetDirectoryName(Path.GetFullPath(storePath))!),
                 StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)

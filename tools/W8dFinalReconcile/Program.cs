@@ -199,14 +199,14 @@ internal static class Program
     private static IDevelopmentControlReservation Acquire(
         string storePath, string lockDir, string owner)
     {
-        // The lock's LOCATION is derived from the store. The parameter is kept so the command line this
-        // driver documents still parses, but it no longer selects the location: a caller-chosen
-        // directory is how two writers came to hold two independent files for one lock identity. A
-        // non-canonical value is now refused by the primitive rather than honoured.
-        var canonicalLockDir = AtomicWriterLock.CanonicalLockDirectoryFor(storePath);
+        // The lock's LOCATION is derived from the store, and W9.3 moved the deriving INTO the
+        // authority. This driver no longer names a directory at all: the call below passes the store
+        // and the owner, and the shared component places the lock by its canonical rule. The `--lock`
+        // argument is still accepted so the command line this driver documents keeps parsing, and it
+        // is reported back as inert rather than silently reinterpreted.
         _ = lockDir;
 
-        var attempt = new DevelopmentControlLockService().TryAcquire(storePath, canonicalLockDir, owner);
+        var attempt = new DevelopmentControlLockService().TryAcquire(storePath, owner: owner);
 
         Console.WriteLine($"lock              : {attempt.Outcome} — {attempt.Detail}");
 

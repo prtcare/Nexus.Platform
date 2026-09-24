@@ -285,4 +285,127 @@ public sealed class AtomicWriterLockCanonicalDirectoryTests : IDisposable
         Assert.Equal(DevelopmentControlLockOutcome.LockDirectoryNotCanonical, attempt.Outcome);
         Assert.Null(attempt.Reservation);
     }
+
+    // =============================================================================================
+    // 7. W9.3: the authority-owned call shape, and the typed refusal the bool could not express.
+    // =============================================================================================
+
+    /// <summary>
+    /// The preferred shape, and the one every migrated caller now uses: the store is named and the
+    /// lock directory is not. The lock lands where the authority places it, with the caller having
+    /// expressed no opinion about location at all.
+    /// </summary>
+    [Fact]
+    public void TheAuthorityOwnedCallShape_PlacesTheLockCanonically_WithNoDirectoryNamed()
+    {
+        var store = Store();
+
+        var attempt = new DevelopmentControlLockService().TryAcquire(store);
+
+        Assert.Equal(DevelopmentControlLockOutcome.Acquired, attempt.Outcome);
+        Assert.NotNull(attempt.Reservation);
+        Assert.Equal(store, attempt.Reservation!.StorePath);
+
+        // The one canonical file, in the one canonical directory — and nothing the caller named.
+        Assert.True(File.Exists(AtomicWriterLock.LockPathFor(store)));
+        Assert.Equal(Path.Combine(_root, ".lock"), Path.GetDirectoryName(AtomicWriterLock.LockPathFor(store)));
+
+        attempt.Reservation.Dispose();
+    }
+
+    /// <summary>
+    /// The store's OWN directory is accepted as a canonical-equivalent spelling, and it is still not
+    /// honoured: the lock goes to <c>&lt;store directory&gt;\.lock</c>, not beside the workbook. This
+    /// is the negative control for the third accepted form — accepted, and incapable of forming a
+    /// second lock domain.
+    /// </summary>
+    [Fact]
+    public void TheStoresOwnDirectory_IsAccepted_AndStillPlacesTheLockInTheCanonicalDirectory()
+    {
+        var store = Store();
+
+        Assert.True(AtomicWriterLock.IsCanonicalLockDirectory(store, _root));
+
+        var attempt = new DevelopmentControlLockService().TryAcquire(store, _root, "own-directory-caller");
+        Assert.Equal(DevelopmentControlLockOutcome.Acquired, attempt.Outcome);
+        attempt.Reservation!.Dispose();
+
+        // Beside the thing it guards, not in the directory the caller named: the only entry in the
+        // store's own directory is the canonical `.lock` directory itself.
+        Assert.Equal(
+            new[] { Path.Combine(_root, ".lock") },
+            Directory.GetFileSystemEntries(_root));
+    }
+
+    /// <summary>
+    /// The refusal shape added for <see cref="IDevelopmentControlLockService.TryIsHeldByAnotherProcess"/>.
+    /// A bare <c>bool</c> cannot say "your directory was refused and nothing was probed", so a caller
+    /// reading <c>false</c> would take a refusal for "the lock is free" — the one misreading a
+    /// liveness probe must never permit.
+    /// </summary>
+    [Fact]
+    public void TryIsHeldByAnotherProcess_RefusesANonCanonicalDirectory_Deterministically()
+    {
+        var store = Store();
+        var wrong = Path.Combine(_root, "elsewhere");
+        var service = new DevelopmentControlLockService();
+
+        var first = service.TryIsHeldByAnotherProcess(store, wrong);
+        var second = service.TryIsHeldByAnotherProcess(store, wrong);
+
+        Assert.Equal(DevelopmentControlLockProbeOutcome.LockDirectoryNotCanonical, first.Outcome);
+        Assert.Equal(first.Outcome, second.Outcome);
+
+        // The three members keep the refusal apart from an answer. `HeldByAnotherProcess` is false
+        // here, and `Answered` is what stops that false from reading as "not held".
+        Assert.True(first.Refused);
+        Assert.False(first.Answered);
+        Assert.False(first.HeldByAnotherProcess);
+        Assert.Equal(DevelopmentControlLockProbeResult.NonCanonicalLockLocationToken, first.RefusalToken);
+        Assert.Equal("NON_CANONICAL_LOCK_LOCATION", first.RefusalToken);
+
+        // No path was probed, so none is reported: naming one would describe a lock nobody asked about.
+        Assert.Null(first.LockPath);
+
+        // The refusal names the remedy, and nothing was created in the refused directory.
+        Assert.Contains(AtomicWriterLock.CanonicalLockDirectoryFor(store), first.Detail, StringComparison.Ordinal);
+        Assert.Contains("Pass null", first.Detail, StringComparison.Ordinal);
+        Assert.False(Directory.Exists(wrong));
+    }
+
+    /// <summary>
+    /// And with no directory named the same member answers the real question, about the store's own
+    /// canonical lock — held while a holder lives, and answered as not-held once it is released.
+    /// </summary>
+    [Fact]
+    public void TryIsHeldByAnotherProcess_AnswersAboutTheCanonicalLock_WhenNoDirectoryIsNamed()
+    {
+        var store = Store();
+        var service = new DevelopmentControlLockService();
+
+        var before = service.TryIsHeldByAnotherProcess(store);
+        Assert.Equal(DevelopmentControlLockProbeOutcome.NotHeld, before.Outcome);
+        Assert.True(before.Answered);
+        Assert.False(before.HeldByAnotherProcess);
+        Assert.Null(before.RefusalToken);
+        Assert.Equal(AtomicWriterLock.LockPathFor(store), before.LockPath);
+
+        using (var held = service.TryAcquire(store).Reservation)
+        {
+            Assert.NotNull(held);
+
+            var whileHeld = service.TryIsHeldByAnotherProcess(store);
+            Assert.Equal(DevelopmentControlLockProbeOutcome.HeldByAnotherProcess, whileHeld.Outcome);
+            Assert.True(whileHeld.HeldByAnotherProcess);
+            Assert.True(whileHeld.Answered);
+        }
+
+        var after = service.TryIsHeldByAnotherProcess(store);
+        Assert.Equal(DevelopmentControlLockProbeOutcome.NotHeld, after.Outcome);
+
+        // The canonical-equivalent spellings reach the same answer rather than a refusal, so the
+        // acceptance and the typed refusal are two different paths and not one.
+        Assert.True(service.TryIsHeldByAnotherProcess(store, AtomicWriterLock.CanonicalLockDirectoryFor(store)).Answered);
+        Assert.True(service.TryIsHeldByAnotherProcess(store, _root).Answered);
+    }
 }

@@ -157,7 +157,7 @@ public sealed class DevelopmentControlAppendSafetyTests
                 ChangeScopeAccessMode.Write, "NEXUS_DEVELOPMENT_CONTROL.xlsx")]);
 
     private static IDevelopmentControlReservation Hold(Fixture fixture, string owner = "w8d-t3") =>
-        new DevelopmentControlLockService().TryAcquire(fixture.Copy, fixture.LockDir, owner).Reservation
+        new DevelopmentControlLockService().TryAcquire(fixture.Copy, owner: owner).Reservation
         ?? throw new InvalidOperationException("the fixture lock was not acquired");
 
     private static DevelopmentControlAppendResult Append(Fixture fixture, DevelopmentControlAppendRecord request)
@@ -473,7 +473,7 @@ public sealed class DevelopmentControlAppendSafetyTests
         using var fixture = Fixture.Candidate();
 
         var service = new DevelopmentControlLockService();
-        var reservation = service.TryAcquire(fixture.Copy, fixture.LockDir, "w8d-t5-t2").Reservation!;
+        var reservation = service.TryAcquire(fixture.Copy, owner: "w8d-t5-t2").Reservation!;
         reservation.Dispose();
 
         var result = new DevelopmentControlWriterAuthorizer().Append(reservation, Request());
@@ -497,7 +497,7 @@ public sealed class DevelopmentControlAppendSafetyTests
         var before = fixture.Sha256();
 
         var service = new DevelopmentControlLockService();
-        var attempt = service.TryAcquire(fixture.Copy, fixture.LockDir, "w8d-t3-released");
+        var attempt = service.TryAcquire(fixture.Copy, owner: "w8d-t3-released");
         var reservation = attempt.Reservation!;
 
         // Released: this caller no longer excludes another writer.
@@ -524,7 +524,7 @@ public sealed class DevelopmentControlAppendSafetyTests
         // The contender cannot obtain a reservation at all — which is the property that makes the
         // single-writer guarantee hold: there is no handle to append with.
         var contender = new DevelopmentControlLockService()
-            .TryAcquire(fixture.Copy, fixture.LockDir, "contender");
+            .TryAcquire(fixture.Copy, owner: "contender");
 
         Assert.NotEqual(DevelopmentControlLockOutcome.Acquired, contender.Outcome);
         Assert.Null(contender.Reservation);
@@ -534,7 +534,7 @@ public sealed class DevelopmentControlAppendSafetyTests
         // is contention and not a broken lock service.
         holder.Dispose();
         var second = new DevelopmentControlLockService()
-            .TryAcquire(fixture.Copy, fixture.LockDir, "contender");
+            .TryAcquire(fixture.Copy, owner: "contender");
         Assert.Equal(DevelopmentControlLockOutcome.Acquired, second.Outcome);
         Assert.NotNull(second.Reservation);
         second.Reservation!.Dispose();
