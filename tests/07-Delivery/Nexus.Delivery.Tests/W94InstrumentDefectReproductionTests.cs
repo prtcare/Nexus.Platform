@@ -214,17 +214,50 @@ public sealed class W94InstrumentDefectReproductionTests
     [Fact]
     public void D_R2_Termination_IsSafeAgainstAProcessThatWasAlreadyDisposed()
     {
-        var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd", "/c exit 0")
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true
-        })!;
+        // W10.0A FINAL: this used `Process.Start("cmd", "/c exit 0")`. The subject is platform-neutral —
+        // a Process object that no longer addresses a process — so the Windows shell was an accidental
+        // dependency, and it made this control unrunnable on the Linux CI runner. The helper starts a
+        // real process on both platforms; see PortableProcess for why it is a helper.
+        var process = PortableProcess.StartOneThatExitsImmediately();
 
         process.WaitForExit();
+
+        // Non-vacuity, read BEFORE the dispose: the process must have been REAL. Without this the test
+        // would also pass if the helper had quietly returned something that never ran — which is the
+        // "no process was ever tracked" case, tested separately below, and not the one under test here.
+        // (Reading Id after Dispose would itself throw, which is the very behaviour being exercised.)
+        Assert.True(
+            process.Id > 0,
+            "the child process must have been started for this control to reproduce D-R2");
+
         process.Dispose();
 
         // The disposed object is the shape the driver held. This is what must not throw.
         var outcome = ProcessTermination.Terminate(process);
+
+        Assert.Equal(ProcessTerminationOutcome.AlreadyExitedOrUnavailable, outcome);
+    }
+
+    /// <summary>
+    /// <b>The other half of the same contract, and the half that needs no child process at all.</b>
+    /// <c>ProcessTermination</c> documents that it "never throws for a disposed, <b>never-started</b> or
+    /// already-exited process". The never-started case is reachable without launching anything, so it is
+    /// tested without launching anything — a control that depends on nothing cannot be host-dependent.
+    ///
+    /// <para>
+    /// This is the twin the portable suite needed: the D-R2 reproduction above uses a real process,
+    /// which is faithful but depends on the host being able to start one. This one asserts the same
+    /// outcome for the same underlying reason (<c>HasExited</c> throws because the object addresses no
+    /// process), from a state this process constructs entirely by itself.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Termination_IsSafeAgainstAProcessThatWasNeverStarted()
+    {
+        var neverStarted = new System.Diagnostics.Process();
+        neverStarted.Dispose();
+
+        var outcome = ProcessTermination.Terminate(neverStarted);
 
         Assert.Equal(ProcessTerminationOutcome.AlreadyExitedOrUnavailable, outcome);
     }

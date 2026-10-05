@@ -18,6 +18,25 @@ namespace Nexus.ProductCore.DevelopmentControl.Tests;
 ///
 /// <para>The rule now is W9.0 D-3's, applied to locking: enforced by the component, not by convention.</para>
 /// </summary>
+// W10.0A FINAL — LANE: WindowsOnly.
+//
+// This class exercises `DevelopmentControlStoreIdentity`'s path canonicalisation, which is
+// Windows-shaped BY CONSTRUCTION, not by accident: separators fold to `\`, the anchor is a drive root
+// or a UNC share, and `IsFullyQualifiedLocal` requires `X:\`. A POSIX path cannot satisfy it — the
+// component reports `/tmp/x` as "relative", which is true of nothing on the platform the path came
+// from. These tests therefore build their store under `Path.GetTempPath()`, which is drive-rooted on
+// Windows and is refused on Linux.
+//
+// The classification is deliberate and is the `WINDOWS_SPECIFIC_INTEGRATION` case: the production
+// component is the canonical DevelopmentControl lock for Nexus Forge and Nexus.Developer, both
+// Windows desktop hosts operating on estate workbooks. Its behaviour is real and load-bearing there,
+// and it is not expressible on Linux — so the tests run in the Windows lane rather than being
+// weakened, skipped inside the portable lane, or "fixed" by teaching a shared lock-identity
+// implementation a second path grammar it has no consumer for.
+//
+// Nothing here is silently dropped: the Windows lane runs these, and the portable lane does not
+// claim them. See PORTABLE_TEST_ARCHITECTURE.md for the two-lane contract.
+[Trait("Lane", "WindowsOnly")]
 public sealed class AtomicWriterLockCanonicalDirectoryTests : IDisposable
 {
     private readonly string _root;

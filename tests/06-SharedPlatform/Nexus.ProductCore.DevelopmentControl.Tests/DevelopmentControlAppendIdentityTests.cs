@@ -41,16 +41,25 @@ namespace Nexus.ProductCore.DevelopmentControl.Tests;
 /// pre-cutover candidate to a throwaway directory and appends there. The authoritative workbook is
 /// never opened for write by this file, and no case demonstrates a refusal by damaging one.</para>
 /// </summary>
+// W10.0A FINAL — LANE: WindowsOnly, at CLASS level. Same reason as
+// DevelopmentControlAppendSafetyTests: every test here appends, and the append path acquires a
+// reservation whose lock file name comes from a normaliser that requires a drive-rooted path. See
+// that file's class comment for the measurement, and PORTABLE_TEST_ARCHITECTURE.md for the contract.
+[Trait("Lane", "WindowsOnly")]
 public sealed class DevelopmentControlAppendIdentityTests
 {
     /// <summary>
-    /// The preserved reconciled V3 candidate — the same revision the rest of the W8D suites fixture
-    /// against. It is a CANDIDATE, so an append that lands correctly must not promote it.
+    /// A reconciled V3 CANDIDATE — the state the rest of the W8D suites fixture against, so an append
+    /// that lands correctly must not promote it.
+    ///
+    /// <para>
+    /// W10.0A FINAL: generated rather than read from the estate's preserved pre-cutover revision.
+    /// Everything asserted in this file is about identity binding and the append contract, and none of
+    /// it depends on which file the workbook came from — which is exactly why it must not have needed
+    /// one developer's machine to run. See <see cref="WorkbookFixtures"/>.
+    /// </para>
     /// </summary>
-    private static string CandidateWorkbook =>
-        Environment.GetEnvironmentVariable("W1_V3_CANDIDATE")
-        ?? @"D:\NEXUS\Archives\Legacy-DevelopmentControl"
-         + @"\NEXUS_DEVELOPMENT_CONTROL_20260917_pre-cutover-candidate.xlsx";
+    private static string CandidateWorkbook => WorkbookFixtures.Candidate;
 
     /// <summary>The change every well-formed request in this file is written under.</summary>
     private const string Change = "CHG-W8D-IDN-0001";

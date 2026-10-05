@@ -29,6 +29,30 @@ namespace Nexus.ProductCore.DevelopmentControl.Tests;
 /// record at row 5 — which is the condition TASK 8 needs and the one most likely to break, since
 /// every other sheet already has rows to inherit structure from.</para>
 /// </summary>
+// W10.0A FINAL — LANE: WindowsOnly, at CLASS level, and deliberately a slight over-approximation.
+//
+// Nearly every test here exercises the append path, and the append path acquires a reservation
+// through `AtomicWriterLock.LockPathFor`, which derives its lock file name from
+// `DevelopmentControlStoreIdentity.CanonicalFromWorkbookPath`. That normaliser is Windows-shaped BY
+// CONSTRUCTION — separators fold to `\`, the anchor is a drive root or a UNC share, and
+// `IsFullyQualifiedLocal` requires `X:\`. MEASURED, not inferred: fed the literal
+// `/tmp/nexus-fixture/NEXUS_DEVELOPMENT_CONTROL.xlsx` it refuses with "Store path must be fully
+// qualified; '/tmp/…' is relative" — on a Windows host, exactly as it would on Linux. The component
+// is the canonical DevelopmentControl lock for Nexus Forge and Nexus.Developer, both Windows desktop
+// hosts, and it has no consumer for a POSIX path grammar.
+//
+// WHY THE CLASS RATHER THAN THE METHOD. A method-level split was attempted and measured INCOMPLETE:
+// the local `Append(fixture, …)` helper holds the reservation, so "does this test acquire a lock" is
+// a property of transitive call shape, not of the method body — 25 further callers were missed by a
+// body-level scan. A classification that is quietly wrong is worse than one that is openly broad, so
+// this is the conservative superset: a handful of read-only tests here (the marker-shadowing probes,
+// which write into the container directly and take no lock) could still run portably and are moved
+// to the Windows lane with the rest.
+//
+// Nothing is skipped inside a lane: the Windows lane runs this class, and the portable lane does not
+// claim it. See PORTABLE_TEST_ARCHITECTURE.md for the two-lane contract and for the one production
+// change that would move the whole class into portable CI.
+[Trait("Lane", "WindowsOnly")]
 public sealed class DevelopmentControlAppendSafetyTests
 {
     /// <summary>
@@ -44,22 +68,40 @@ public sealed class DevelopmentControlAppendSafetyTests
     /// do; re-running a cutover is a no-op rather than a second promotion"). That refusal is the
     /// guarantee, not a defect: there is no second cutover.</para>
     /// </summary>
-    private static string CandidateWorkbook =>
-        Environment.GetEnvironmentVariable("W1_V3_CANDIDATE")
-        ?? @"D:\NEXUS\Archives\Legacy-DevelopmentControl"
-         + @"\NEXUS_DEVELOPMENT_CONTROL_20260917_pre-cutover-candidate.xlsx";
+    /// <summary>
+    /// W10.0A FINAL: this was the estate's preserved pre-cutover revision at an absolute
+    /// <c>D:\NEXUS\…</c> path, overridable by its own environment variable. It is now a GENERATED
+    /// fixture. The assertions below are unchanged — they are about how the append and cutover paths
+    /// treat a V3 CANDIDATE workbook, which is a property of the schema, not of the file's address.
+    /// See <see cref="WorkbookFixtures"/> and <see cref="TestEstate"/>.
+    /// </summary>
+    private static string CandidateWorkbook => WorkbookFixtures.Candidate;
 
-    /// <summary>The live canonical workbook — since the cutover, the authority itself.</summary>
-    private static string V3Workbook =>
-        Environment.GetEnvironmentVariable("W1_V3_WORKBOOK")
-        ?? @"D:\NEXUS\DevelopmentControl\NEXUS_DEVELOPMENT_CONTROL.xlsx";
+    /// <summary>
+    /// The estate's live canonical workbook — since the cutover, the authority itself.
+    ///
+    /// <para>
+    /// W10.0A FINAL: resolved through the one governed boundary rather than a hardcoded path. The
+    /// single test that asserts a property of the <b>live</b> file is
+    /// <c>TheLiveCanonicalWorkbook_IsTheAuthority_AndReadsAsAuthoritative</c>, and it is the only
+    /// caller; every other test in this file proves contract behaviour against the generated
+    /// fixture and must not need a machine with an estate on it.
+    /// </para>
+    /// </summary>
+    private static string V3Workbook => Path.Combine(
+        TestEstate.Root, "DevelopmentControl", "NEXUS_DEVELOPMENT_CONTROL.xlsx");
 
-    /// <summary>The preserved 14-sheet revision. Read-only in every sense: tests copy it, and the
-    /// component must refuse to append to the copy.</summary>
-    private static string LegacyWorkbook =>
-        Environment.GetEnvironmentVariable("W1_LEGACY_WORKBOOK")
-        ?? @"D:\NEXUS\Archives\Legacy-DevelopmentControl"
-         + @"\NEXUS_DEVELOPMENT_CONTROL_20260830_pre-cutover-backup.xlsx";
+    /// <summary>
+    /// The legacy form. Read-only in every sense: tests copy it, and the component must refuse to
+    /// append to the copy.
+    ///
+    /// <para>
+    /// W10.0A FINAL: generated rather than read from the preserved estate revision. The legacy form is
+    /// identified by two sheet NAMES, so a two-sheet workbook built from those names is the same form
+    /// to every reader and to the write gate — which is what the refusals below assert.
+    /// </para>
+    /// </summary>
+    private static string LegacyWorkbook => WorkbookFixtures.Legacy;
 
     private static readonly object EvidenceGate = new();
 
@@ -95,7 +137,19 @@ public sealed class DevelopmentControlAppendSafetyTests
         }
 
         public static Fixture Candidate() => new(CandidateWorkbook);
-        public static Fixture Authoritative() => new(V3Workbook);
+
+        /// <summary>
+        /// The LIVE canonical workbook. Estate-backed by construction — the only factory here that is,
+        /// and it exists because exactly one test asserts a property of the real file.
+        /// </summary>
+        public static Fixture LiveAuthority() => new(V3Workbook);
+
+        /// <summary>
+        /// A generated AUTHORITATIVE V3 workbook. This is the portable twin of
+        /// <see cref="LiveAuthority"/>: same form, same authority, same marker, no estate required.
+        /// </summary>
+        public static Fixture AuthoritativeFixture() => new(WorkbookFixtures.Authoritative);
+
         public static Fixture Legacy() => new(LegacyWorkbook);
 
         public void Dispose()
@@ -640,10 +694,26 @@ public sealed class DevelopmentControlAppendSafetyTests
             .OrderBy(k => k, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(new[] { "xl/worksheets/sheet14.xml" }, changed);   // 13_GitLineage
+        // W10.0A FINAL: the expected part is DERIVED from the workbook's own sheet order rather than
+        // hardcoded. It used to read "xl/worksheets/sheet14.xml", which was true of the archived
+        // revision this test happened to run against and is a property of that FILE, not of the
+        // behaviour under test. The behaviour is: exactly one part changes, and it is the part the
+        // append target belongs to.
+        var appendTarget = SheetNames(fixture.Copy).ToList().IndexOf("13_GitLineage") + 1;
+        Assert.True(appendTarget > 0, "the fixture must declare 13_GitLineage");
+        Assert.Equal(new[] { $"xl/worksheets/sheet{appendTarget}.xml" }, changed);
 
-        // The shared string table is byte-identical: the writer appended no string to it.
-        Assert.Equal(beforeParts["xl/sharedStrings.xml"], afterParts["xl/sharedStrings.xml"]);
+        // The writer appends inline strings, so it must neither add a shared-string table nor alter one
+        // it found. The fixture has none, so the assertion is written for both cases rather than
+        // indexing a part that need not exist — an absent table that stays absent is the same claim.
+        Assert.Equal(
+            beforeParts.ContainsKey("xl/sharedStrings.xml"),
+            afterParts.ContainsKey("xl/sharedStrings.xml"));
+
+        if (beforeParts.ContainsKey("xl/sharedStrings.xml"))
+        {
+            Assert.Equal(beforeParts["xl/sharedStrings.xml"], afterParts["xl/sharedStrings.xml"]);
+        }
 
         // And the unbound-sheet claim is unchanged, so nothing new escaped projection.
         Assert.Equal(beforeRead.UnboundSheets.OrderBy(x => x, StringComparer.Ordinal),
@@ -1071,10 +1141,15 @@ public sealed class DevelopmentControlAppendSafetyTests
     /// bytes and must NOT fail this test, whereas a demotion must. (The Developer suite pins the hash
     /// instead, on purpose, as a staleness detector — see <c>FixtureWriteProofTests</c> there.)</para>
     /// </summary>
+    // W10.0A FINAL: this test asserts a property of the LIVE estate file, so it carries the EstateHost
+    // lane trait and runs in the estate lane (TASK 7B). Its portable twin, immediately below, proves
+    // the same contract behaviour against a generated workbook — so the component's ability to read an
+    // authoritative V3 workbook is still proved on every Linux CI run, and nothing is silently skipped.
     [Fact]
+    [Trait("Lane", "EstateHost")]
     public void TheLiveCanonicalWorkbook_IsTheAuthority_AndReadsAsAuthoritative()
     {
-        using var fixture = Fixture.Authoritative();
+        using var fixture = Fixture.LiveAuthority();
 
         var read = new DevelopmentControlReader().Read(fixture.Copy);
 
@@ -1087,6 +1162,33 @@ public sealed class DevelopmentControlAppendSafetyTests
 
         Record($"T3.13 live canonical authority :: form={read.Form} authority={read.Authority} "
              + $"sha={fixture.Sha256()[..12]}...");
+    }
+
+    /// <summary>
+    /// <b>The portable twin of the test above.</b> Same form, same authority, same marker — against a
+    /// workbook this process generated, so it runs on any host.
+    ///
+    /// <para>
+    /// This is what TASK 3 asks for when a control is split: <i>"preserve equivalent platform-neutral
+    /// contract proof in normal CI."</i> The estate test above answers <b>"is the live file still the
+    /// authority?"</b>; this one answers <b>"does the component read an authoritative V3 workbook as
+    /// authoritative?"</b>. They are different questions, and the second one must not stop being asked
+    /// on the machine that cannot answer the first.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void AnAuthoritativeV3Workbook_ReadsAsAuthoritative()
+    {
+        using var fixture = Fixture.AuthoritativeFixture();
+
+        var read = new DevelopmentControlReader().Read(fixture.Copy);
+
+        Assert.Equal(DevelopmentControlForm.V3, read.Form);
+        Assert.Equal(DevelopmentControlAuthority.Authoritative, read.Authority);
+
+        Assert.Equal(WorkbookCompatibilityReader.AuthorityMarkerAuthoritative,
+            WorkbookCompatibilityReader.AuthorityMarker(
+                WorkbookCompatibilityReader.Read(fixture.Copy)));
     }
 
     // ================================================================ W8D PRODUCTION WIRING — marker-safety probe

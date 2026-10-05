@@ -39,7 +39,12 @@ public sealed class AuthorityResolutionTests
     /// The positive half, and the control for every refusal below: the canonical path is ACCEPTED.
     /// Without this, a resolver that refused everything would pass all the other tests in this file.
     /// </summary>
+    // W10.0A FINAL — LANE: EstateHost. This asserts a property of the LIVE canonical workbook, so it
+    // can only hold where that file exists. The refusals below are portable and stay in the portable
+    // lane; this pair is the positive control that keeps them from being vacuous, so it must keep
+    // running — in the lane whose subject it actually is. See PORTABLE_TEST_ARCHITECTURE.md.
     [Fact]
+    [Trait("Lane", "EstateHost")]
     public void TheCanonicalAuthority_ResolvesAsAvailable()
     {
         var resolution = WorkbookCompatibilityReader.ResolveAuthority(Canonical);
@@ -56,6 +61,7 @@ public sealed class AuthorityResolutionTests
 
     /// <summary>A path spelled with forward slashes and different case is not a bypass.</summary>
     [Fact]
+    [Trait("Lane", "EstateHost")]
     public void TheCanonicalAuthority_ResolvesTheSame_UnderAMixedSpelling()
     {
         var resolution = WorkbookCompatibilityReader.ResolveAuthority(
