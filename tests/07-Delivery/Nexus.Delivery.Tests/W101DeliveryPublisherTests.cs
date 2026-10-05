@@ -91,18 +91,38 @@ public sealed class W101DeliveryPublisherTests : IDisposable
         Assert.True(Publisher().Publish(_destination, ObservedAt).Published);
         var before = File.ReadAllBytes(PublishedPath);
 
-        // Block the staging write.
-        Directory.CreateDirectory(PublishedPath + ".staging");
+        // W10.4 REMEDIATION — the injection had to change with the defect.
+        //
+        // This test used to block the staging write by creating a DIRECTORY at
+        // `PublishedPath + ".staging"` — the fixed staging path. That injection worked precisely
+        // BECAUSE the staging name was fixed, which is the defect that was just fixed: the name now
+        // carries a unique suffix, so a squat at the old path blocks nothing and the publish succeeds.
+        //
+        // The ASSERTION is unchanged and still the point — an interrupted publication must leave the
+        // previous snapshot byte-identical and readable. Only the injection moved, to a condition that
+        // genuinely prevents the commit: a read-only destination, which the publisher classifies as
+        // permanent and refuses WITHOUT consuming its retry budget.
+        File.SetAttributes(PublishedPath, FileAttributes.ReadOnly);
 
-        var outcome = Publisher().Publish(_destination, "2026-10-05T13:00:00.0000000+00:00");
+        try
+        {
+            var outcome = Publisher().Publish(_destination, "2026-10-05T13:00:00.0000000+00:00");
 
-        Assert.False(outcome.Published);
-        Assert.Contains("staging", outcome.Reason, StringComparison.OrdinalIgnoreCase);
+            Assert.False(outcome.Published);
+            Assert.Contains("read-only", outcome.Reason, StringComparison.OrdinalIgnoreCase);
+            // A permanent condition is refused at once: spending the budget on it would be exactly the
+            // "real authorization failure turned into a retry" that the remediation forbids.
+            Assert.DoesNotContain("gave up", outcome.Reason, StringComparison.OrdinalIgnoreCase);
 
-        // The published document is untouched — same bytes, still valid.
-        Assert.Equal(before, File.ReadAllBytes(PublishedPath));
-        var model = JsonSerializer.Deserialize<DeliveryReadModel>(File.ReadAllText(PublishedPath))!;
-        Assert.Equal(DeliveryReadContract.SchemaVersion, model.SchemaVersion);
+            // The published document is untouched — same bytes, still valid.
+            Assert.Equal(before, File.ReadAllBytes(PublishedPath));
+            var model = JsonSerializer.Deserialize<DeliveryReadModel>(File.ReadAllText(PublishedPath))!;
+            Assert.Equal(DeliveryReadContract.SchemaVersion, model.SchemaVersion);
+        }
+        finally
+        {
+            File.SetAttributes(PublishedPath, FileAttributes.Normal);
+        }
     }
 
     /// <summary>An invalid projection replaces nothing.</summary>

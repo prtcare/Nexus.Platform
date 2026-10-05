@@ -135,27 +135,187 @@ public sealed class DeliveryReadPublisher
             return DeliveryReadPublishOutcome.Refused(refusal, digest);
         }
 
+        // Serialised ONCE. Every retry below commits these exact bytes — the retry never re-reads the
+        // authority, re-projects, re-validates or re-digests. See the retry note on CommitAtomically.
         var json = JsonSerializer.Serialize(model, WriteOptions);
         var finalPath = Path.Combine(destinationDirectory, DeliveryReadContract.FileName);
-        var stagingPath = finalPath + ".staging";
 
+        return CommitAtomically(finalPath, json, digest, out var commitReason)
+            ? new DeliveryReadPublishOutcome(true, finalPath, digest, "published")
+            : DeliveryReadPublishOutcome.Refused(commitReason, digest);
+    }
+
+    // ================================================================ the commit boundary
+
+    /// <summary>
+    /// How many times the commit boundary may be attempted before the publication is refused.
+    /// </summary>
+    // The attempt ceiling is a backstop, not the real bound: CommitBudget is. The first version used 5
+    // attempts with a flat small backoff, which exhausted all five in ~216 ms — consuming 11% of the
+    // budget and giving up while most of the contention window remained. MEASURED, from the retry
+    // message the publisher itself emits.
+    private const int MaxCommitAttempts = 20;
+
+    /// <summary>Backoff between attempts. Small: this absorbs a transient handle, not an outage.</summary>
+    private static readonly TimeSpan[] CommitBackoff =
+    [
+        TimeSpan.FromMilliseconds(10),
+        TimeSpan.FromMilliseconds(20),
+        TimeSpan.FromMilliseconds(40),
+        TimeSpan.FromMilliseconds(80),
+        TimeSpan.FromMilliseconds(160),
+        TimeSpan.FromMilliseconds(200)
+    ];
+
+    /// <summary>
+    /// The whole retry budget. Bounded independently of the attempt count, so a slow filesystem cannot
+    /// turn five attempts into a long stall.
+    /// </summary>
+    private static readonly TimeSpan CommitBudget = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// W10.4 REMEDIATION — per-destination serialisation.
+    ///
+    /// <para>
+    /// Keyed on the <b>destination path</b>, not the process. Two publishers writing to the same
+    /// directory are serialised; two publishers writing to different directories are not, which is why
+    /// this is not a process-wide lock.
+    /// </para>
+    ///
+    /// <para>
+    /// This does not change the publication contract. An atomic replace has always been
+    /// last-writer-wins; what this removes is the case where "who wins" was decided by which publisher
+    /// happened to lose a race on a shared scratch file.
+    /// </para>
+    /// </summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, object> CommitGates =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// <b>The stage-then-move commit, made robust to transient contention.</b>
+    ///
+    /// <para>
+    /// <b>The defect this replaces.</b> The staging path was the fixed string <c>finalPath + ".staging"</c>.
+    /// Every publisher writing to one destination therefore shared ONE scratch file, so two concurrent
+    /// publishers collided on it and one was denied with
+    /// <see cref="UnauthorizedAccessException"/>. Measured, not theorised: the W10.4 regression
+    /// reproduces it on demand.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Two changes, both at this boundary and nowhere else.</b> The staging file now carries a unique
+    /// suffix, so no two publishers can ever share a scratch path; and the commit is retried a bounded
+    /// number of times on contention. Nothing upstream is repeated — <paramref name="json"/> is the
+    /// already-validated payload, computed once by the caller.
+    /// </para>
+    /// </summary>
+    private bool CommitAtomically(string finalPath, string json, string digest, out string reason)
+    {
+        // A unique scratch name per attempt-run. Collisions are now impossible by construction rather
+        // than unlikely, which is what the fixed name got wrong.
+        var stagingPath = finalPath + "." + Guid.NewGuid().ToString("N")[..12] + ".staging";
+
+        var gate = CommitGates.GetOrAdd(finalPath, _ => new object());
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+
+        lock (gate)
+        {
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    File.WriteAllText(stagingPath, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                    // The commit point. Same directory as the destination, so this is a rename and not a
+                    // cross-volume copy.
+                    File.Move(stagingPath, finalPath, overwrite: true);
+
+                    reason = "published";
+                    return true;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+                {
+                    TryRemoveStaging(stagingPath);
+
+                    // A read-only destination is a CONFIGURATION condition, not contention. Retrying it
+                    // would spend the budget on an outcome that cannot change, so it is refused at once.
+                    if (IsReadOnlyDestination(finalPath))
+                    {
+                        reason = $"publication refused: '{finalPath}' is read-only. This is a configuration "
+                               + "condition, not transient contention, so it is not retried.";
+                        return false;
+                    }
+
+                    var transient = IsTransientCommitContention(ex);
+                    var attemptsLeft = attempt < MaxCommitAttempts;
+                    var budgetLeft = clock.Elapsed < CommitBudget;
+
+                    if (!transient || !attemptsLeft || !budgetLeft)
+                    {
+                        reason = transient
+                            ? $"publication failed while staging '{stagingPath}': {ex.Message}. Retried "
+                              + $"{attempt} time(s) over {clock.ElapsedMilliseconds} ms and gave up "
+                              + $"(budget: {MaxCommitAttempts} attempts / {CommitBudget.TotalSeconds:0} s). "
+                              + "The previously published snapshot, if any, is unchanged."
+                            : $"publication failed while staging '{stagingPath}': {ex.Message}. This is not a "
+                              + "transient-contention condition, so it is not retried. The previously "
+                              + "published snapshot, if any, is unchanged.";
+                        return false;
+                    }
+
+                    Thread.Sleep(CommitBackoff[Math.Min(attempt - 1, CommitBackoff.Length - 1)]);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether the destination exists and is read-only — a condition retrying cannot change.
+    /// </summary>
+    private static bool IsReadOnlyDestination(string finalPath)
+    {
         try
         {
-            // Stage beside the destination, then move over it. The move is the commit point.
-            File.WriteAllText(stagingPath, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            File.Move(stagingPath, finalPath, overwrite: true);
+            return File.Exists(finalPath) && File.GetAttributes(finalPath).HasFlag(FileAttributes.ReadOnly);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            TryRemoveStaging(stagingPath);
-
-            // The destination was not replaced. Whatever was published before is still published.
-            return DeliveryReadPublishOutcome.Refused(
-                $"publication failed while staging '{stagingPath}': {ex.Message}. The previously published "
-                + "snapshot, if any, is unchanged.", digest);
+            // If the attribute cannot be read, fall through to the normal classification rather than
+            // inventing a permanent verdict from a failed probe.
+            return false;
         }
+    }
 
-        return new DeliveryReadPublishOutcome(true, finalPath, digest, "published");
+    /// <summary>
+    /// <b>The exceptions this boundary will retry, enumerated and justified.</b>
+    ///
+    /// <para>
+    /// Deliberately NOT a broad catch. Anything not named here propagates unretried, because a retry
+    /// loop that swallows everything is how a disk-full or a permissions mistake becomes a two-second
+    /// stall before the same failure.
+    /// </para>
+    /// </summary>
+    private static bool IsTransientCommitContention(Exception ex)
+    {
+        switch (ex)
+        {
+            // The measured defect. Windows raises UnauthorizedAccessException — not IOException — when
+            // another handle is open on the target. ValidateDestination has ALREADY proven the directory
+            // is creatable, so a directory-level ACL failure cannot reach this point; what remains at
+            // this boundary is a transient handle.
+            case UnauthorizedAccessException:
+                return true;
+
+            // The canonical transient-contention codes. Any other IOException is a genuine I/O fault
+            // (full disk, bad path) and is not retried.
+            case IOException io:
+                const int ErrorSharingViolation = 32;
+                const int ErrorLockViolation = 33;
+                var code = io.HResult & 0xFFFF;
+                return code is ErrorSharingViolation or ErrorLockViolation;
+
+            default:
+                return false;
+        }
     }
 
     private static string? ValidateDestination(string destinationDirectory)

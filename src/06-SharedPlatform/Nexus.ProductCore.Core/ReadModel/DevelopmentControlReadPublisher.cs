@@ -116,24 +116,136 @@ public sealed class DevelopmentControlReadPublisher
             return DevelopmentControlPublishOutcome.Refused(refusal, digest);
         }
 
+        // Serialised ONCE. Every retry below commits these exact bytes.
         var json = JsonSerializer.Serialize(model, WriteOptions);
         var finalPath = Path.Combine(destinationDirectory, DevelopmentControlReadContract.FileName);
-        var stagingPath = finalPath + ".staging";
 
+        return CommitAtomically(finalPath, json, digest, out var commitReason)
+            ? new DevelopmentControlPublishOutcome(true, finalPath, digest, "published")
+            : DevelopmentControlPublishOutcome.Refused(commitReason, digest);
+    }
+
+    // ================================================================ the commit boundary
+
+    // W10.4 REMEDIATION. This boundary is deliberately DUPLICATED from DeliveryReadPublisher rather
+    // than shared, and the reason is structural, not an oversight: the two publishers live in
+    // different assemblies (Nexus.ProductCore.Core and Nexus.Delivery.Core), and ProductCore.Core has
+    // zero references BY CONSTRUCTION — see its csproj. A shared helper would require a new common
+    // assembly, which is an architectural change this remediation is not authorised to make.
+    //
+    // The duplication is the lesser evil here, and the defect being fixed is the same one: the staging
+    // path was the fixed string `finalPath + ".staging"`, so two concurrent publishers to one
+    // destination shared a single scratch file and one was denied. Left unfixed in this sibling, the
+    // identical defect would simply be waiting for its own parallel test to be written.
+
+    // The attempt ceiling is a backstop, not the real bound: CommitBudget is. The first version used 5
+    // attempts with a flat small backoff, which exhausted all five in ~216 ms — consuming 11% of the
+    // budget and giving up while most of the contention window remained. MEASURED, from the retry
+    // message the publisher itself emits.
+    private const int MaxCommitAttempts = 20;
+
+    private static readonly TimeSpan[] CommitBackoff =
+    [
+        TimeSpan.FromMilliseconds(10),
+        TimeSpan.FromMilliseconds(20),
+        TimeSpan.FromMilliseconds(40),
+        TimeSpan.FromMilliseconds(80),
+        TimeSpan.FromMilliseconds(160),
+        TimeSpan.FromMilliseconds(200)
+    ];
+
+    private static readonly TimeSpan CommitBudget = TimeSpan.FromSeconds(2);
+
+    /// <summary>Per-destination gate. Narrower than a process-wide lock, and sufficient.</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, object> CommitGates =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The stage-then-move commit, made robust to transient contention: a unique scratch path per
+    /// attempt-run, and a bounded retry on contention only. Nothing upstream is repeated —
+    /// <paramref name="json"/> is the already-validated payload, computed once by the caller.
+    /// </summary>
+    private bool CommitAtomically(string finalPath, string json, string digest, out string reason)
+    {
+        var stagingPath = finalPath + "." + Guid.NewGuid().ToString("N")[..12] + ".staging";
+
+        var gate = CommitGates.GetOrAdd(finalPath, _ => new object());
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+
+        lock (gate)
+        {
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    File.WriteAllText(stagingPath, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                    File.Move(stagingPath, finalPath, overwrite: true);
+
+                    reason = "published";
+                    return true;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+                {
+                    TryRemoveStaging(stagingPath);
+
+                    if (IsReadOnlyDestination(finalPath))
+                    {
+                        reason = $"publication refused: '{finalPath}' is read-only. This is a configuration "
+                               + "condition, not transient contention, so it is not retried.";
+                        return false;
+                    }
+
+                    var transient = IsTransientCommitContention(ex);
+                    if (!transient || attempt >= MaxCommitAttempts || clock.Elapsed >= CommitBudget)
+                    {
+                        reason = transient
+                            ? $"publication failed while staging '{stagingPath}': {ex.Message}. Retried "
+                              + $"{attempt} time(s) over {clock.ElapsedMilliseconds} ms and gave up. The "
+                              + "previously published snapshot, if any, is unchanged."
+                            : $"publication failed while staging '{stagingPath}': {ex.Message}. This is not a "
+                              + "transient-contention condition, so it is not retried. The previously "
+                              + "published snapshot, if any, is unchanged.";
+                        return false;
+                    }
+
+                    Thread.Sleep(CommitBackoff[Math.Min(attempt - 1, CommitBackoff.Length - 1)]);
+                }
+            }
+        }
+    }
+
+    private static bool IsReadOnlyDestination(string finalPath)
+    {
         try
         {
-            File.WriteAllText(stagingPath, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            File.Move(stagingPath, finalPath, overwrite: true);
+            return File.Exists(finalPath) && File.GetAttributes(finalPath).HasFlag(FileAttributes.ReadOnly);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            TryRemoveStaging(stagingPath);
-            return DevelopmentControlPublishOutcome.Refused(
-                $"publication failed while staging '{stagingPath}': {ex.Message}. The previously published "
-                + "snapshot, if any, is unchanged.", digest);
+            return false;
         }
+    }
 
-        return new DevelopmentControlPublishOutcome(true, finalPath, digest, "published");
+    /// <summary>The exceptions this boundary retries, enumerated. Anything else propagates unretried.</summary>
+    private static bool IsTransientCommitContention(Exception ex)
+    {
+        switch (ex)
+        {
+            case UnauthorizedAccessException:
+                // The measured defect: Windows raises this when another handle is open on the target.
+                // ValidateDestination already proved the directory creatable, so a directory-level ACL
+                // failure cannot reach this point.
+                return true;
+
+            case IOException io:
+                const int ErrorSharingViolation = 32;
+                const int ErrorLockViolation = 33;
+                var code = io.HResult & 0xFFFF;
+                return code is ErrorSharingViolation or ErrorLockViolation;
+
+            default:
+                return false;
+        }
     }
 
     private static string? ValidateDestination(string destinationDirectory)
