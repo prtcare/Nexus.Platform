@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Nexus.Delivery.Release</RootNamespace>
+    <AssemblyName>Nexus.Delivery.Release</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <Description>Nexus V2 - Layer 07 Delivery - the W9.3 release-bundle driver</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\07-Delivery\Nexus.Delivery.Core\Nexus.Delivery.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- W9.4: the driver's gate-evidence assembly is opened to the Delivery test suite so that "the gates
+         read the governed plan and nothing else" can be TESTED rather than restated. The alternative was
+         for the suite to re-express the plan→evidence mapping, which would have tested the test's copy of
+         the rule and would drift from the driver the first time either changed. Only the one internal
+         helper is visible; the entry point stays private. -->
+    <InternalsVisibleTo Include="Nexus.Delivery.Tests" />
+  </ItemGroup>
+
+</Project>

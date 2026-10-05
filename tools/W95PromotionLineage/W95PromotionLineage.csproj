@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    W9.5 GOVERNED PROMOTION-LINEAGE CLOSURE driver.
+
+    A CONSOLE DRIVER, not product code. It records the W9.5 ENV-TEST promotion lineage into the
+    authoritative DevelopmentControl workbook, by CALLING the shared DevelopmentControl component under the
+    canonical shared lock. It adds ONE row to 13_GitLineage.
+
+    WHY A NEW TOOL RATHER THAN EXTENDING W94DeploymentLineage: that driver refuses any record whose
+    transition is not DeployToDev, BY DESIGN, and its transcript is W9.4 acceptance evidence. The refusal is
+    correct - a closure that recorded whatever it happened to find would be a closure with no subject - and
+    loosening it to admit a PromoteToTest would change the program that produced L-W9-2. W9.3's record says
+    to record such a thing, not to edit the tool that wrote an immutable record. This one reads its facts
+    from the governed deployment ledger, as that one does, and states the FULL chain the W9.5 directive
+    requires: WorkItem to SourceCommit to BuildId to ArtifactId to ReleaseId to DEV DeploymentId to
+    VerifiedDev to TEST DeploymentId to VerifiedTest.
+
+    Deliberately NOT referenced: any XML, ZIP or OOXML package - same reasoning as W94DeploymentLineage and
+    W9LineageClosure. A driver that could open the workbook itself would be able to do something the
+    governed writer cannot.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>W95PromotionLineage</AssemblyName>
+    <RootNamespace>Nexus.W95PromotionLineage</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\06-SharedPlatform\Nexus.ProductCore.Core\Nexus.ProductCore.Core.csproj" />
+    <ProjectReference Include="..\..\src\06-SharedPlatform\Nexus.ProductCore.Contracts\Nexus.ProductCore.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\07-Delivery\Nexus.Delivery.Core\Nexus.Delivery.Core.csproj" />
+  </ItemGroup>
+
+</Project>

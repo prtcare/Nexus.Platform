@@ -3,6 +3,18 @@
 > **Status** Authoritative · **Owner** Durai · **Last updated** 2026-08-23 · **Architecture version** v2.2
 > **Authoritative for** what is actually built and running right now, separate from what the roadmap plans. Facts below were verified against the live repositories on 2026-08-23 — see `_incoming\landing-report.md` for full evidence per item.
 >
+> **CANONICAL INTEGRATION NOTICE (2026-10-05):** The canonical Platform tree now carries **no
+> provider/model-specific AI implementation**. `Nexus.Platform.Providers.OpenAI` and
+> `.Providers.Anthropic` — named as live/stub projects in the 2026-08-23 facts below — were moved to
+> the AI Head (W5G / F-01 and W5 / W4L-202) and the model domain went with them; `AddNexusAi` no
+> longer exists, so `AddNexusPlatform` resolves no model gateway, catalog or meter. The accepted W9
+> Delivery implementation and the W8B/W9 hardening were re-homed into the layered layout in the same
+> change. **`samples/Nexus.Platform.SmokeHost` and `tests/Nexus.Platform.SmokeTests` were retired**
+> (`SUPERSEDED_BY_ARCHITECTURE` — their premise was that Platform owns a provider), and
+> `tests/Nexus.Platform.Tests` was retired after F-01 left it with zero test files. Full record:
+> `CANONICAL_INTEGRATION.md`; physical layout: `PHYSICAL_LAYER_MAP.md`. The 2026-08-23 narrative
+> below is left as written and read as history.
+>
 > **SUPERSEDED-FACTS NOTICE (2026-09-09):** Everything below predates Gate A's closure and the
 > canonical-root migration. In particular: **Gate A ("Development Ready") has since closed** —
 > `GATE_A_FINAL_ACCEPTED = YES` — with `M-08-1.1` through `M-08-1.4` implemented (see

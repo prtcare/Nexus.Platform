@@ -1,12 +1,25 @@
 <Solution>
+  <!-- W10.0A OWNER DECISION (canonical Platform reconciliation): the LAYERED physical layout
+       below is canonical, and this solution is now EXACTLY the set of projects that exist on
+       disk. That equality is asserted by
+       tests\Nexus.Platform.Architecture.Tests\ProjectCoverageTests.cs, so a project can no
+       longer be parked off-solution where nothing builds it and a dangling ProjectReference in
+       it is never surfaced. There is deliberately NO exclusion list: bringing a project into
+       this file, or removing it from the tree, are the only two ways to satisfy the check, and
+       both are visible in review. -->
   <Folder Name="/src/01-Core/">
     <Project Path="src\01-Core\Nexus.Platform.Contracts\Nexus.Platform.Contracts.csproj" />
     <Project Path="src\01-Core\Nexus.Platform.Core\Nexus.Platform.Core.csproj" />
-    <Project Path="src\01-Core\Nexus.Platform.Providers.OpenAI\Nexus.Platform.Providers.OpenAI.csproj" />
-    <Project Path="src\01-Core\Nexus.Platform.Providers.Anthropic\Nexus.Platform.Providers.Anthropic.csproj" />
-    <Project Path="src\01-Core\Nexus.Platform.Tools\Nexus.Platform.Tools.csproj" />
     <Project Path="src\01-Core\Nexus.Platform.Identity\Nexus.Platform.Identity.csproj" />
+    <Project Path="src\01-Core\Nexus.Platform.Tools\Nexus.Platform.Tools.csproj" />
     <Project Path="src\01-Core\Nexus.Platform.Persistence\Nexus.Platform.Persistence.csproj" />
+    <!-- W10.0A OWNER DECISION / W5G F-01: Nexus.Platform.Providers.OpenAI and
+         Nexus.Platform.Providers.Anthropic were listed here. Both were removed. The provider
+         implementation is owned by the AI Head; Platform reaches AI only through the governed
+         V3 capability/contract boundary. The model domain (IModelCatalog, AggregatingModelCatalog,
+         IModelCatalogSource, INamedModelGateway, InMemoryUsageMeter, RoutingModelGateway) went
+         with it, so AddNexusAi no longer exists and Platform's composition root resolves no model
+         gateway at all. See docs\CANONICAL_INTEGRATION.md. -->
   </Folder>
   <Folder Name="/src/03-Governance/">
     <Project Path="src\03-Governance\Nexus.Governance.Contracts\Nexus.Governance.Contracts.csproj" />
@@ -15,27 +28,87 @@
   <Folder Name="/src/06-SharedPlatform/">
     <Project Path="src\06-SharedPlatform\Nexus.ProductCore.Contracts\Nexus.ProductCore.Contracts.csproj" />
     <Project Path="src\06-SharedPlatform\Nexus.ProductCore.Scope\Nexus.ProductCore.Scope.csproj" />
+    <!-- W8D-R4 TASK 2 (Owner decision R4-01): the canonical DevelopmentControl
+         reader/writer/locking implementation. Layer 06's implementation assembly, named in
+         docs/LAYER_MODEL.md as a TARGET project; created to give the lineage moved out of Forge
+         one neutral home. Zero references by construction - see its csproj.
+         Re-homed here in the W10.0A canonical integration; it lived at src\Nexus.ProductCore.Core\
+         on the historical W9 line. -->
+    <Project Path="src\06-SharedPlatform\Nexus.ProductCore.Core\Nexus.ProductCore.Core.csproj" />
   </Folder>
   <Folder Name="/src/07-Delivery/">
     <Project Path="src\07-Delivery\Nexus.Delivery.Contracts\Nexus.Delivery.Contracts.csproj" />
+    <!-- W10.0A canonical integration: the deterministic Delivery implementation. Contract and
+         implementation were both re-homed into the canonical Delivery layer from the historical
+         flat src\Nexus.Delivery.* layout on w9.5/test-promotion. -->
+    <Project Path="src\07-Delivery\Nexus.Delivery.Core\Nexus.Delivery.Core.csproj" />
   </Folder>
   <Folder Name="/src/08-Assurance/">
     <Project Path="src\08-Assurance\Nexus.Assurance.Contracts\Nexus.Assurance.Contracts.csproj" />
-  </Folder>
-  <Folder Name="/tests/01-Core/">
-    <Project Path="tests\01-Core\Nexus.Platform.Tests\Nexus.Platform.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/03-Governance/">
     <Project Path="tests\03-Governance\Nexus.Governance.Tests\Nexus.Governance.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/06-SharedPlatform/">
     <Project Path="tests\06-SharedPlatform\Nexus.ProductCore.Scope.Tests\Nexus.ProductCore.Scope.Tests.csproj" />
+    <!-- W8D TASK 3: the shared DevelopmentControl writer's governed-append safety suite. Listed
+         here for the same reason every project is: a suite reachable only by naming its csproj by
+         hand is a suite the estate build does not run. 16 tests over the nine refusals TASK 3
+         names, each with a positive twin so a refusal cannot pass for the wrong reason. -->
+    <Project Path="tests\06-SharedPlatform\Nexus.ProductCore.DevelopmentControl.Tests\Nexus.ProductCore.DevelopmentControl.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/07-Delivery/">
+    <!-- W9.1-W9.6: the Delivery acceptance suite. Re-homed into the canonical Delivery layer in
+         the W10.0A integration; it lived at tests\Nexus.Delivery.Tests\ on w9.5/test-promotion. -->
+    <Project Path="tests\07-Delivery\Nexus.Delivery.Tests\Nexus.Delivery.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/08-Assurance/">
     <Project Path="tests\08-Assurance\Nexus.Assurance.Tests\Nexus.Assurance.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <!-- Cross-cutting; deliberately not nested under one layer - see PHYSICAL_LAYER_MAP.md -->
+    <!-- Cross-cutting; deliberately not nested under one layer - see PHYSICAL_LAYER_MAP.md.
+         The repository's hard boundary gate: it is what ProjectCoverageTests runs in, and what
+         makes the secret scan a build failure rather than an optional pipeline step. -->
     <Project Path="tests\Nexus.Platform.Architecture.Tests\Nexus.Platform.Architecture.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <!-- W9.2: the build-and-certify driver. In the solution deliberately: a driver kept outside it
+         is a driver nothing builds, and this estate has already recorded the cost of that pattern
+         twice (a sample host that stopped compiling, and a test project that vanished from the
+         solution and could no longer fail). Being in the solution makes it subject to Platform's
+         boundary suites, which is correct - it reads source trees, so it is among the last
+         components that should be trusted on its own word to stay provider-neutral. -->
+    <Project Path="tools\Nexus.Delivery.Build\Nexus.Delivery.Build.csproj" />
+    <!-- W9.3: the release-bundle driver. In the solution for the same reason as the build driver,
+         and subject to the same boundary suites. Its dependency graph is itself a control: it
+         references Nexus.Delivery.Core and nothing else, so no packager, compiler or test runner
+         is in scope and the no-rebuild rule is a property of the build rather than a promise in a
+         comment. A driver kept out of the solution would not be checked for that. -->
+    <Project Path="tools\Nexus.Delivery.Release\Nexus.Delivery.Release.csproj" />
+    <!-- W9.4: the governed release-plan writer. In the solution for the same reason as the two
+         drivers above. It exists because the W9.4 finding was not that a JSON file held the C-1/C-2
+         state but that the file had NO WRITER, so hand-editing was the only way to change the
+         authority controlling a deployment; a store with no operable writer would leave that true
+         and merely move the file. Its dependency graph is the same control the release driver
+         carries: Nexus.Delivery.Core and nothing else, so no packager or compiler is in scope. -->
+    <Project Path="tools\Nexus.Delivery.ReleasePlan\Nexus.Delivery.ReleasePlan.csproj" />
+    <!-- W9.4: the ENV-DEV/TEST deployment driver. In the solution for the same reason as the three
+         above - a driver kept out of it would not be checked for the dependency control it claims.
+         It references Nexus.Delivery.Core and the release driver's run-plan reader, and deliberately
+         references no build, packaging or database-client capability: 'deploy the certified
+         artifact' therefore cannot become 'build something similar', and the driver holds no
+         connection-string handling of its own. -->
+    <Project Path="tools\Nexus.Delivery.Deploy\Nexus.Delivery.Deploy.csproj" />
+    <!-- The W8D/W9 closure drivers. These are the governed instruments that produced the lineage,
+         identity and reconciliation evidence for W8D-R4 and W9.4-W9.6; they are in the solution
+         for the same reason as the drivers above. They were NOT listed on the historical W9 line,
+         which is exactly the gap ProjectCoverageTests now closes: a closure driver that builds
+         nowhere cannot be re-run, and its evidence then cannot be re-derived on the canonical
+         tree. -->
+    <Project Path="tools\W8dFinalReconcile\W8dFinalReconcile.csproj" />
+    <Project Path="tools\W94DeploymentLineage\W94DeploymentLineage.csproj" />
+    <Project Path="tools\W95PromotionLineage\W95PromotionLineage.csproj" />
+    <Project Path="tools\W96IdentityBackfill\W96IdentityBackfill.csproj" />
+    <Project Path="tools\W9LineageClosure\W9LineageClosure.csproj" />
   </Folder>
 </Solution>

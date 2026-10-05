@@ -15,11 +15,18 @@ public static class GovernanceServiceCollectionExtensions
     /// its composition shape stays stable and which may not reference this assembly
     /// (DEPENDENCY_RULES.md row 01 CORE has no "may reference" cell for column 03
     /// GOVERNANCE). A host composes both at the composition root. Not yet wired into any
-    /// host (SmokeHost is outside the solution and is untouched).
+    /// host: the only host that ever composed Platform was Nexus.Platform.SmokeHost, retired
+    /// in the W10.0A canonical integration once the provider it exercised left Platform.
     /// </summary>
     public static IServiceCollection AddGovernance(this IServiceCollection services)
     {
         services.AddSingleton<IProductRegistry>(_ => new ProductRegistryService(new InMemoryProductStore()));
+
+        // W8B. The deterministic governance evaluator is the Contract Plane's only implementation.
+        // Registered as the INTERFACE so a consuming host programs against IGovernanceEvaluator and
+        // never against this assembly's concrete type -- Forge depends on Contracts, and resolves
+        // the implementation here at its composition root rather than referencing it directly.
+        services.AddSingleton<IGovernanceEvaluator>(_ => new DeterministicGovernanceEvaluator());
 
         return services;
     }

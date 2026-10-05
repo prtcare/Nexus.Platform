@@ -38,12 +38,32 @@ jobs:
       - name: Build
         run: dotnet build Nexus.Platform.slnx -c Release --no-restore
 
-      # M-08-1.4: the whole slnx is tested with no --filter, so
-      # tests/Nexus.Platform.Architecture.Tests (NetArchTest boundary rules) runs
-      # in this same step. Do not add a filter that could silently drop the
-      # architecture-test project - it is the hard boundary gate for this repo.
+      # M-08-1.4: tests/Nexus.Platform.Architecture.Tests (NetArchTest boundary rules)
+      # runs in this same step - it is the hard boundary gate for this repo.
+      #
+      # W10.0A FINAL - THE PORTABLE LANE. The suite is split by an explicit lane trait,
+      # never by weakening a test:
+      #
+      #   Lane=WindowsOnly - exercises DevelopmentControlStoreIdentity's path
+      #     canonicalisation, which is Windows-shaped by construction (drive-root anchor,
+      #     `X:\` qualification). A host without drive-rooted paths cannot express it.
+      #   Lane=EstateHost  - asserts properties of the LIVE estate workbooks. Runs on the
+      #     host that has them.
+      #
+      # The filter is a NEGATION, so a test carrying NO lane trait is INCLUDED by default.
+      # That direction matters: the architecture tests carry no trait, so they cannot be
+      # dropped by this line, and a new test added without a trait cannot fall out of CI by
+      # omission. Adding a lane trait is an explicit act that removes a test from this lane.
+      #
+      # The two excluded lanes are not "not run": Nexus.Platform.DevelopmentControl.Tests
+      # runs its Windows lane on the estate host, and both lanes are required green before
+      # a canonical merge (see W10.0A PORTABLE_TEST_ARCHITECTURE.md). 0 skipped is still
+      # required in this lane - excluded tests are not selected, not skipped.
       - name: Test
-        run: dotnet test Nexus.Platform.slnx -c Release --no-build --logger trx --results-directory ./artifacts/test-results
+        run: >
+          dotnet test Nexus.Platform.slnx -c Release --no-build
+          --filter "Lane!=WindowsOnly&Lane!=EstateHost"
+          --logger trx --results-directory ./artifacts/test-results
 
       - name: Upload test results
         uses: actions/upload-artifact@v4

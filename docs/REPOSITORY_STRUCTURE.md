@@ -20,6 +20,17 @@
 > `07-Delivery`, `08-Assurance`). See `PHYSICAL_LAYER_MAP.md` for the current, authoritative
 > physical map — the `src\Nexus.Platform.Contracts\...`-style paths in §3.1 and elsewhere below are
 > pre-reorganization and historical.
+>
+> **CANONICAL-INTEGRATION ADDENDUM (2026-10-05):** §1 line 75, §3.1's project list and the open
+> questions at the foot of this document name three things this change settled. **Removed:**
+> `Nexus.Platform.Providers.OpenAI` and `.Providers.Anthropic` (§1 line 75, §3.1, and the
+> "A vendor adapter" row) — both moved to the AI Head, so `Nexus.Platform` ships no vendor adapter
+> today. **Removed:** `Nexus.Platform.Tests` — the "`.csproj` with ZERO `.cs` files" noted in §3.1
+> and in the test-project table at line 337, and the open question at line 481 about whether it
+> keeps its name; it was retired rather than named, and the coverage gap it represented is W5G's
+> `D-13`, still open. **Removed:** `samples/Nexus.Platform.SmokeHost` — a vendor-adapter consumer
+> whose premise no longer holds. See `CANONICAL_INTEGRATION.md` for the decision and
+> `PHYSICAL_LAYER_MAP.md` §4a for the retirement rationale. Nothing else in this document changed.
 
 **Status:** TRANSITION — three repositories exist; five are the target; the three-repo rename is **DONE** (2026-08-24)
 **Owner:** DELIVERY (Layer 08), with GOVERNANCE (03) recording the repository set

@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    W9.4 ENV-DEV DEPLOYMENT driver.
+
+    A CONSOLE DRIVER, not product code. It performs the deployment of an already-certified release into
+    an isolated ENV-DEV and emits the evidence; the DECISIONS it makes along the way are all taken by
+    contract types in Nexus.Delivery.Contracts / Nexus.Delivery.Core, which this project calls and does
+    not reimplement.
+
+    Deliberately NOT referenced: any build, packaging, MSBuild or npm capability. The no-rebuild rule is
+    therefore a property of the dependency graph rather than a promise in a comment — there is no API in
+    scope that could produce application bytes, so 'deploy the certified artifact' cannot quietly become
+    'build something similar'.
+
+    Deliberately NOT referenced: Npgsql or any database client. The target is inspected through the
+    database image's own psql, so this driver holds no database credential parsing and no SQL client of
+    its own — one fewer place a connection string could be logged.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Nexus.Delivery.Deploy</AssemblyName>
+    <RootNamespace>Nexus.Delivery.Deploy</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\07-Delivery\Nexus.Delivery.Core\Nexus.Delivery.Core.csproj" />
+    <!--
+      The release driver's run-plan reader, by reference rather than by copy. A second reader of the same
+      document would be a second set of strictness rules for it, and the unknown-member refusal that W9.4
+      added to that reader would not apply to the copy. One document, one reader.
+    -->
+    <ProjectReference Include="..\Nexus.Delivery.Release\Nexus.Delivery.Release.csproj" />
+  </ItemGroup>
+
+</Project>

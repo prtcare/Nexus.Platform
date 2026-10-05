@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Nexus.Delivery.Tests</RootNamespace>
+    <AssemblyName>Nexus.Delivery.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\07-Delivery\Nexus.Delivery.Core\Nexus.Delivery.Core.csproj" />
+    <!-- W9.4: the release driver, referenced so that the plan→gate-evidence WIRING can be tested rather
+         than restated. The driver is an Exe whose dependency graph is Delivery.Core and nothing else, so
+         referencing it adds no capability to this suite; and the alternative — re-expressing the mapping
+         here — would test the suite's copy of the rule instead of the one the gates actually use. -->
+    <ProjectReference Include="..\..\..\tools\Nexus.Delivery.Release\Nexus.Delivery.Release.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
+  </ItemGroup>
+
+</Project>

@@ -1,5 +1,20 @@
 # Code Conventions
 
+> **PROVIDER-RELOCATION NOTICE (2026-10-05):** This document places
+> `Nexus.Platform.Providers.OpenAI` and/or `Nexus.Platform.Providers.Anthropic` inside Platform.
+> **Both moved to the AI Head** (W5G / F-01 and W5 / W4L-202), and the model domain
+> (`IModelCatalog`, `AggregatingModelCatalog`, `IModelCatalogSource`, `INamedModelGateway`,
+> `InMemoryUsageMeter`, `RoutingModelGateway`) moved with them, so `AddNexusAi` no longer exists and
+> `AddNexusPlatform` resolves no model gateway, catalog or meter. The canonical Platform tree contains
+> **no provider/model-specific AI implementation** — the project `src/Nexus.Platform.Providers.<Vendor>\`
+> is no longer the pattern for a vendor adapter, and re-creating it would reintroduce the dependency
+> the AI-Head boundary exists to prevent. See `CANONICAL_INTEGRATION.md` for the record and
+> `PHYSICAL_LAYER_MAP.md` for the current physical map. Everything below that locates a vendor
+> adapter inside Platform is historical. The *principles* stated here — one project owns the SDK, the
+> adapter resolves through the neutral `ISecretResolver` boundary, a credential is never a value on a
+> Platform type — survive unchanged; only the owning layer changed.
+
+
 > **SUPERSEDED NUMBERING NOTICE (2026-09-05):** This document's own header
 > (`**Owner:** Layer 07 DEVELOPER (definition) / Layer 09 ASSURANCE
 > (conformance)`) reflects the v2.1 twelve-layer model, in which 07 DEVELOPER

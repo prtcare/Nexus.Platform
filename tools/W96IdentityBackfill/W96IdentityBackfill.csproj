@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    W9.6 IDENTITY-BINDING BACKFILL driver.
+
+    A CONSOLE DRIVER, not product code. It materialises an ArtifactIdentity binding for every artifact a
+    store already holds, so that artifacts published BEFORE W9.6 are protected against the W9.5 incident
+    rather than only artifacts published after it.
+
+    It cannot change what an id means: each binding's digest is read from the artifact's own entry.json, so a
+    binding can only ever describe the payload that is actually there. An existing binding is never rewritten.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>W96IdentityBackfill</AssemblyName>
+    <RootNamespace>Nexus.W96IdentityBackfill</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\07-Delivery\Nexus.Delivery.Core\Nexus.Delivery.Core.csproj" />
+  </ItemGroup>
+
+</Project>
