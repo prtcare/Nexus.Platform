@@ -83,8 +83,17 @@
       in the PDB's SourceLink mapping. The two consumers would have diverged again, byte for
       byte, exactly as before, and this time the remedy would have been sitting right here
       looking correct. Both shared projects are at the same depth for the same reason.
+
+      THE SEPARATORS BELOW ARE "/" ON PURPOSE. System.IO.Path.GetFullPath treats a backslash as a
+      separator on Windows and as an ordinary filename character on Unix, so the same "..\..\..\"
+      that normalises correctly on a developer's machine resolves to a LITERAL directory called
+      "..\..\..\" on the Linux CI runner — no error, just a PathMap key that never matches and a
+      SourceRoot that does not exist. F-23 would then be silently un-remedied in the very build the
+      estate treats as the gate. "/" is accepted by GetFullPath on both platforms and normalises to
+      the same absolute path, so the value — and therefore the compiled output — is unchanged on
+      Windows. Measured: the assembly hash is identical either way.
     -->
-    <_NexusSharedRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\..\'))</_NexusSharedRoot>
+    <_NexusSharedRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../../'))</_NexusSharedRoot>
     <PathMap Condition="'$(PathMap)' == ''">$(_NexusSharedRoot)=/_/nexus/</PathMap>
   </PropertyGroup>
 

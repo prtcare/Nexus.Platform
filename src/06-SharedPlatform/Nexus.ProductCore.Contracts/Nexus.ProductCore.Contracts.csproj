@@ -26,7 +26,10 @@
   <PropertyGroup>
     <Deterministic>true</Deterministic>
     <DeterministicSourcePaths>true</DeterministicSourcePaths>
-    <_NexusSharedRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\..\'))</_NexusSharedRoot>
+    <!-- Separators are "/" on purpose - see the long note in Nexus.ProductCore.Core.csproj. A
+         backslash is a separator on Windows and an ordinary filename character on Unix, so "..\..\..\"
+         would work here and resolve to a literal directory name on the Linux CI runner. -->
+    <_NexusSharedRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../../'))</_NexusSharedRoot>
     <PathMap Condition="'$(PathMap)' == ''">$(_NexusSharedRoot)=/_/nexus/</PathMap>
   </PropertyGroup>
 
