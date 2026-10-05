@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    W9.4 GOVERNED DEPLOYMENT-LINEAGE CLOSURE driver.
+
+    A CONSOLE DRIVER, not product code. It records the W9.4 ENV-DEV deployment lineage into the
+    authoritative DevelopmentControl workbook, by CALLING the shared DevelopmentControl component under
+    the canonical shared lock. It adds ONE row to 13_GitLineage.
+
+    WHY A NEW TOOL RATHER THAN REUSING W9LineageClosure: that driver hard-codes the W9.3 identities and
+    writes L-W9-1. Its transcript is W9.3 acceptance evidence. Editing it to write a different row would
+    have destroyed the evidence for the row it already wrote, and would have made one program claim to be
+    two closures. This one reads its facts from the governed deployment ledger instead of from constants.
+
+    Deliberately NOT referenced: any XML, ZIP or OOXML package - same reasoning as W9LineageClosure. A
+    driver that could open the workbook itself would be able to do something the governed writer cannot.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>W94DeploymentLineage</AssemblyName>
+    <RootNamespace>Nexus.W94DeploymentLineage</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\06-SharedPlatform\Nexus.ProductCore.Core\Nexus.ProductCore.Core.csproj" />
+    <ProjectReference Include="..\..\src\06-SharedPlatform\Nexus.ProductCore.Contracts\Nexus.ProductCore.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\07-Delivery\Nexus.Delivery.Core\Nexus.Delivery.Core.csproj" />
+  </ItemGroup>
+
+</Project>

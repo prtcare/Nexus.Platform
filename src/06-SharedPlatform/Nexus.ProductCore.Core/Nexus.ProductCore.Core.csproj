@@ -1,0 +1,151 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Nexus.ProductCore.Core</RootNamespace>
+    <AssemblyName>Nexus.ProductCore.Core</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>Nexus.ProductCore.Core</PackageId>
+    <Authors>PRT</Authors>
+    <Description>Nexus V2 - Layer 06 Product Core - Nexus.ProductCore.Core</Description>
+  </PropertyGroup>
+
+  <!--
+    W8B / F-23 — CROSS-CONSUMER BINARY REPRODUCIBILITY.
+
+    THE DEFECT. Forge and Nexus.Developer both compile this project from source, through their
+    own build graphs (DevBridge/src/SharedDevelopmentControl.props and src/SharedDevelopmentControl.props
+    respectively). The Developer cross-host proofs compare the two consumers' copies of this
+    assembly BYTE FOR BYTE, and on 2026-09-17 a mismatch was reported as "STALE FORGE HARNESS, not a
+    host divergence" — the guard working, but the cause unlocated. W8D carried it as F-23.
+
+    THE CAUSE, measured rather than inferred. The compiler inputs are identical for an identical
+    property set: dumping csc's own command line via -p:ProvideCommandLineArgs=true and diffing the
+    two consumer builds yields ZERO differences across 234 arguments. What differs is the PROPERTY
+    SET — and the one that bites is $(NexusPlatformRoot), whose spelling each consumer supplies. A
+    build with D:\NEXUS\... and a build with D:\Nexus\... are the same tree to the file system and
+    two different strings to the compiler, and the path is embedded (the assembly's source
+    documents and its debug-directory linkage follow it). That is why the two consumers diverged
+    while each was internally reproducible: the same property set always produced the same bytes.
+
+    THE FIX IS HERE, NOT IN THE CONSUMERS. Owner direction: "Do not solve it by making each
+    consumer independently compensate." A PathMap set in a CONSUMER's props would not work in any
+    case — a <PropertyGroup> there sets the property on the importing project and does not flow into
+    this referenced one; only command-line globals do. Setting it in this project maps the paths
+    where the compilation actually happens, so the remedy cannot be applied to one consumer and not
+    the other, and cannot drift.
+
+    WHAT THIS DOES. /pathmap rewrites the absolute prefix of every source document the compiler
+    records to /_/nexus/, so the output no longer depends on where the tree is checked out or how
+    the path is spelled. Deterministic is already on by default in the SDK and is set explicitly
+    here so the property's absence can never be mistaken for its being satisfied.
+
+    Conditioned on PathMap being empty so an explicit -p:PathMap=... from a command line still wins;
+    a hard assignment would silently override a caller who knows better.
+  -->
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+
+    <!--
+      DeterministicSourcePaths is the half that PathMap does NOT cover, and finding that out was
+      the point of this task. PathMap rewrites the compiler's source DOCUMENTS; it does not touch
+      the SourceLink mapping, which the SDK derives separately from the repository root and embeds
+      in the PDB as {"documents":{"<absolute repo path>/*":"<url>/*"}}. Measured: with PathMap alone
+      but DeterministicSourcePaths off, the two consumers still produced different PDBs — and
+      therefore different DLLs, because the debug directory carries the PDB identity — because one
+      spelled the root D:\NEXUS\... and the other D:\Nexus\.... Roslyn's deterministic timestamp is
+      a hash of the whole compilation, options included, so a one-character difference anywhere in
+      those inputs changes the output.
+
+      With DeterministicSourcePaths on, the SDK maps repository paths to the fixed /_/ root instead
+      of the machine's absolute path, so the SourceLink mapping stops depending on where the tree
+      is or how its path is spelled. This is set HERE, in the shared project, and not in either
+      consumer's props: a <PropertyGroup> in a consumer cannot reach this project's compilation in
+      any case (only command-line globals flow down a ProjectReference), and even if it could, the
+      Owner's direction is explicit — "Do not solve it by making each consumer independently
+      compensate."
+    -->
+    <DeterministicSourcePaths>true</DeterministicSourcePaths>
+
+    <!--
+      W10.0A CANONICAL INTEGRATION — THE DEPTH HERE IS LOAD-BEARING, NOT COSMETIC.
+
+      _NexusSharedRoot is the absolute prefix that PathMap rewrites to /_/nexus/, so it MUST be
+      the directory whose spelling varies between consumers. That directory is the repository
+      root, and this project sat at src/Nexus.ProductCore.Core/ (two levels) on the historical
+      flat line — hence "..\..\". The canonical layout moves it to
+      src/06-SharedPlatform/Nexus.ProductCore.Core/ (three levels), so the same repository root
+      is now "..\..\..\".
+
+      Leaving the old depth would have been a SILENT regression of F-23 rather than a build
+      error: PathMap would have mapped D:\Nexus\Platform\src\ to /_/nexus/, leaving the actual
+      repository root — the string the consumers disagree about — in every source document and
+      in the PDB's SourceLink mapping. The two consumers would have diverged again, byte for
+      byte, exactly as before, and this time the remedy would have been sitting right here
+      looking correct. Both shared projects are at the same depth for the same reason.
+    -->
+    <_NexusSharedRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\..\'))</_NexusSharedRoot>
+    <PathMap Condition="'$(PathMap)' == ''">$(_NexusSharedRoot)=/_/nexus/</PathMap>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- SourceRoot is what DeterministicSourcePaths maps FROM; without it the SDK cannot produce
+         the deterministic mapping and leaves the absolute path in place. -->
+    <SourceRoot Include="$(_NexusSharedRoot)" />
+  </ItemGroup>
+
+  <!--
+    W8D-R4 TASK 2 + TASK 3. Layer 06 SHARED PLATFORM - the canonical DevelopmentControl
+    reader/writer/locking implementation, moved here from Forge per Owner decision R4-01,
+    and exposed through the shared contract surface in Nexus.ProductCore.Contracts.
+
+    DEPENDENCY POSTURE, stated exactly rather than aspirationally.
+
+    TASK 2 committed this project with zero references of any kind and it built clean; that
+    state is recorded in git. TASK 3 added the single ProjectReference below, because the
+    contract interfaces a caller consumes live in the contracts assembly and this assembly
+    implements them. The dependency is one-way and points at the contract.
+
+    What that costs: Nexus.ProductCore.Contracts carries a PackageReference on
+    Microsoft.Extensions.DependencyInjection.Abstractions, so this project now inherits it
+    transitively. Measured, that package IS present in the local NuGet cache (10.0.11), so
+    the restore resolves offline.
+
+    What that does NOT cost: the BOOTSTRAP_SAFE property LAYER_MODEL.md section 06 requires -
+    "zero-IO, no dependency on this layer's own product-specific types - Forge may consume it
+    even when Nexus's runtime/Shared Platform is down". DependencyInjection.Abstractions is a
+    compile-time abstraction with no runtime service behind it; nothing here contacts a host,
+    a database or a feed at run time. There is still NO ClosedXML reference and no OOXML SDK
+    reference: the workbook reading is ZipArchive + XDocument over the BCL. The moved sources
+    use only BCL namespaces.
+
+    Adding any FURTHER reference to this file is an architectural change, not a build tweak:
+    it is the difference between an assembly Forge can always consume and one it cannot. See
+    W8DR4_COMPONENT_OWNERSHIP.md and W8DR4_SHARED_CONTRACT.md.
+  -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\Nexus.ProductCore.Contracts\Nexus.ProductCore.Contracts.csproj" />
+  </ItemGroup>
+
+  <!--
+    W10.0A CANONICAL INTEGRATION — FORWARD OBLIGATION, recorded here because this is the file a
+    consumer reads.
+
+    Forge's and Nexus.Developer's shared-control import builds its ProjectReferences from
+    $(NexusPlatformRoot)\src\<Project>\..., which is the FLAT layout. On this canonical line the
+    projects are one level deeper, so when those consumer adaptations are merged their paths must
+    be re-pointed:
+        $(NexusPlatformRoot)\src\Nexus.ProductCore.Core\      -> ...\src\06-SharedPlatform\Nexus.ProductCore.Core\
+        $(NexusPlatformRoot)\src\Nexus.ProductCore.Contracts\ -> ...\src\06-SharedPlatform\Nexus.ProductCore.Contracts\
+        $(NexusPlatformRoot)\src\Nexus.Governance.Core\       -> ...\src\03-Governance\Nexus.Governance.Core\
+        $(NexusPlatformRoot)\src\Nexus.Governance.Contracts\  -> ...\src\03-Governance\Nexus.Governance.Contracts\
+
+    MEASURED, not assumed: as of this integration the live Forge and Developer working trees contain
+    no SharedDevelopmentControl.props and no occurrence of NexusPlatformRoot — the W8B/W8C/W8D
+    adaptation exists only on unmerged lane branches. So this is a forward obligation for whoever
+    merges those lanes, not a live breakage. It is recorded rather than fixed because changing
+    another repository is outside this milestone's scope.
+  -->
+
+</Project>

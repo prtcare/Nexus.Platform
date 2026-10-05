@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    W9.3 GOVERNED LINEAGE CLOSURE driver.
+
+    A CONSOLE DRIVER, not product code: it records the W9.3 release lineage by CALLING the shared
+    DevelopmentControl component, so the operation it performs is the same operation both hosts
+    perform. It exists so the closure is a reproducible program rather than a sequence of hand-run
+    steps.
+
+    Deliberately NOT referenced: any XML, ZIP or OOXML package — same reasoning as
+    W8dFinalReconcile. A driver that could open the workbook itself would be able to do something
+    the governed writer cannot, and the point of the exercise is that no such path exists.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>W9LineageClosure</AssemblyName>
+    <RootNamespace>Nexus.W9LineageClosure</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\06-SharedPlatform\Nexus.ProductCore.Core\Nexus.ProductCore.Core.csproj" />
+    <ProjectReference Include="..\..\src\06-SharedPlatform\Nexus.ProductCore.Contracts\Nexus.ProductCore.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

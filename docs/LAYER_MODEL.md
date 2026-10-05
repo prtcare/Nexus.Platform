@@ -16,6 +16,19 @@ named entity (`DATA_OWNERSHIP.md`), or the physical database layout (`DATABASE_A
 
 ---
 
+## 0. Heads and Layers — the relationship, stated once
+
+**Layers are subdivisions of the Platform Head.** Nexus has three Heads — **Platform**, **AI** and
+**Products** — which are top-level ownership and architectural boundaries. The ten numbered layers
+described in this document are the **Platform Head's internal subdivision**, not Heads themselves.
+An estate-wide view names Heads; a Platform-internal view names Layers; a component may carry both.
+
+*Recorded 2026-10-05 under the W10.0A Owner decision on canonical Platform reconciliation (Owner
+Decision B). It closes W10.0's `G-12`: there was nothing to decide, and no competing vocabulary.
+This document describes one Head from the inside, which is why "Head" does not appear in it below.*
+
+---
+
 ## 1. The memorability test
 
 A layer model that has to be looked up has failed. This is the test:
@@ -143,15 +156,35 @@ product ever re-implements identity, tenancy, authorization, audit, secrets or m
 |---|---|
 | **Repository** | `Nexus.Platform` (renamed from `NexusAI`, 2026-08-24) |
 | **Schema** | `core` — **TARGET, `M-02-1.5`** |
-| **Projects (TARGET)** | `Nexus.Platform.Contracts`, `.Core`, `.Identity`, `.Authorization`, `.Persistence`, `.Providers.OpenAI`, `.Providers.Anthropic`, `.Tools` |
-| **Today** | Contracts and Core are **real**. `Identity` (240 B), `Persistence` (308 B), `Tools` (231 B) and `Providers.Anthropic` (306 B) are **stubs**. `Authorization` does not exist. Governance primitives are in-memory or console only |
+| **Projects (TARGET)** | `Nexus.Platform.Contracts`, `.Core`, `.Identity`, `.Authorization`, `.Persistence`, `.Tools`. **`.Providers.OpenAI` and `.Providers.Anthropic` are no longer CORE targets** — see the correction below |
+| **Today** | Contracts and Core are **real**. `Identity` (240 B), `Persistence` (308 B) and `Tools` (231 B) are **stubs**. `Authorization` does not exist. Governance primitives are in-memory or console only |
 | **Owns** | Identity, authentication, sessions, organisations, tenancy, roles, permissions, policy evaluation, audit, secrets resolution, usage metering, model gateway and routing, tool gateway, notification transport, the API and event foundations |
 | **Does NOT own** | Any product concept · any development concept · documents · workflow definitions · domain rules · conversation content. **If a CORE type mentions `Workspace` or `Milestone`, the boundary is broken** |
 | **Minimum before the gate** | Real identity (user, credential, session, sign-in, token issue and validate) · organisation and tenant with **enforced** isolation · roles, permissions and a working authorization service · durable `IAuditLog` replacing `ConsoleAuditLog` · durable `IUsageMeter` replacing `InMemoryUsageMeter` · `ISecretResolver` backed by real configuration · `Nexus.Platform.Persistence` real enough to host all of it |
 | **Deferred** | SSO and federation, MFA, attribute-based policy, notification transport, event bus, multi-region tenancy, the tool gateway implementation, any second model provider |
 
-**The security position.** CORE *is* the security layer. Provider credentials never leave it — AI
-asks CORE to invoke a model and never sees a key. `SECURITY_STANDARDS.md` owns the detail.
+**CORRECTION — the model gateway and the provider implementations are NOT CORE (2026-10-05).**
+This block previously listed model gateway, routing, usage metering and the two
+`Nexus.Platform.Providers.*` projects as CORE-owned. **OWNER DECISION F-01** (W5G) relocated the
+whole model-catalog domain to the AI Head, and the provider implementations followed
+(`Nexus.Platform.Providers.OpenAI` with F-01; `Nexus.Platform.Providers.Anthropic` with
+W5/W4L-202). The canonical Platform tree — reconciled into the layered layout by the W10.0A Owner
+decision — therefore contains **no provider/model-specific AI implementation**, and
+`AddNexusAi` no longer exists: `AddNexusPlatform` resolves no model gateway, catalog or meter. A
+host that needs the model domain composes the AI Head at its own composition root, exactly as it
+already composes GOVERNANCE.
+
+**What CORE kept, and it is the part this layer number is actually about:** the *contracts* — the
+neutral `IUsageMeter`/`UsageRecord`, `IQuotaPolicy`/`QuotaVerdict`, `IAuditLog` and
+`ISecretResolver` — plus the neutral secret-access implementation
+(`Nexus.Platform.Core.Secrets.EnvironmentSecretResolver`, W5E). Provider-neutral boundaries are
+CORE's; the code behind them is not. The `Minimum before the gate` row's durable
+`IUsageMeter replacing InMemoryUsageMeter` reference is superseded: the in-memory implementation
+left with the model domain, and the durable one is an AI-Head deliverable.
+
+**The security position.** CORE *is* the security layer. The provider credential is held by the AI
+Head and resolved through CORE's neutral `ISecretResolver` boundary; no neutral Platform assembly
+may name a provider secret token, and `SecretBoundaryTests` fails the build if one does.
 
 ---
 

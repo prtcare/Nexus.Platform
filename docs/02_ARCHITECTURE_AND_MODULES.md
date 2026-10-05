@@ -1,5 +1,20 @@
 # Architecture and Modules
 
+> **PROVIDER-RELOCATION NOTICE (2026-10-05):** This document places
+> `Nexus.Platform.Providers.OpenAI` and/or `Nexus.Platform.Providers.Anthropic` inside Platform.
+> **Both moved to the AI Head** (W5G / F-01 and W5 / W4L-202), and the model domain
+> (`IModelCatalog`, `AggregatingModelCatalog`, `IModelCatalogSource`, `INamedModelGateway`,
+> `InMemoryUsageMeter`, `RoutingModelGateway`) moved with them, so `AddNexusAi` no longer exists and
+> `AddNexusPlatform` resolves no model gateway, catalog or meter. The canonical Platform tree contains
+> **no provider/model-specific AI implementation** — the project `src/Nexus.Platform.Providers.<Vendor>\`
+> is no longer the pattern for a vendor adapter, and re-creating it would reintroduce the dependency
+> the AI-Head boundary exists to prevent. See `CANONICAL_INTEGRATION.md` for the record and
+> `PHYSICAL_LAYER_MAP.md` for the current physical map. Everything below that locates a vendor
+> adapter inside Platform is historical. The *principles* stated here — one project owns the SDK, the
+> adapter resolves through the neutral `ISecretResolver` boundary, a credential is never a value on a
+> Platform type — survive unchanged; only the owning layer changed.
+
+
 *Rewritten for V2.1. Source of truth: `NEXUS_ARCHITECTURE_V2.md`, which supersedes the
 single-repo layer description this document previously contained — see ADR-011, ADR-012 and
 ADR-013 in `08_DECISIONS_AND_TECHNICAL_DEBT.md`. Do not reintroduce a single-solution
