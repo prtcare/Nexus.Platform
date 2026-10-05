@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Nexus.Delivery.PublishTool</RootNamespace>
+    <AssemblyName>Nexus.Delivery.Publish</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <Description>Nexus V2 - Layer 07 Delivery - the governed Delivery read-model publisher (W10.1)</Description>
+  </PropertyGroup>
+
+  <!--
+    W10.1. The dependency graph is the control, as with the other Delivery drivers: this project
+    references Nexus.Delivery.Core and nothing else. It therefore cannot package, build, deploy or
+    reach a database - "publish a projection of authority" cannot quietly become "read the authority
+    and also change it". The projection reads the store; nothing here writes to it.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\07-Delivery\Nexus.Delivery.Core\Nexus.Delivery.Core.csproj" />
+  </ItemGroup>
+
+</Project>
