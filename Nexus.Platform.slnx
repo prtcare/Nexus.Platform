@@ -110,5 +110,10 @@
     <Project Path="tools\W95PromotionLineage\W95PromotionLineage.csproj" />
     <Project Path="tools\W96IdentityBackfill\W96IdentityBackfill.csproj" />
     <Project Path="tools\W9LineageClosure\W9LineageClosure.csproj" />
+    <!-- W10.1: the governed Delivery read-model publisher. In the solution for the same reason as the
+         drivers above - a driver kept out of it is a driver nothing builds. Its dependency graph is the
+         control: Nexus.Delivery.Core and nothing else, so it cannot package, build, deploy or reach a
+         database, and "publish a projection of authority" cannot quietly become "change the authority". -->
+    <Project Path="tools\Nexus.Delivery.Publish\Nexus.Delivery.Publish.csproj" />
   </Folder>
 </Solution>
