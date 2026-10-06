@@ -202,6 +202,20 @@ public sealed class DeliveryAtomicCommitConcurrencyTests : IDisposable
             $"a reader observed {torn.Count} incomplete snapshot(s). First three: {string.Join(" | ", torn.Take(3))}");
     }
 
+    // W10.4 REMEDIATION — LANE: WindowsOnly, and the justification is a filesystem property, not
+    // convenience.
+    //
+    // This test's premise is that a consumer holding the published file open with deny-delete sharing
+    // prevents a rename over it. That is a WINDOWS property. POSIX rename(2) is a DIRECTORY operation:
+    // it atomically replaces the name regardless of open handles, so on Linux the commit SUCCEEDS and
+    // this test fails — MEASURED on CI run 37360639313, where it failed with exactly that.
+    //
+    // A host without Windows sharing semantics cannot express the condition under test, which is the
+    // same reason the append suites carry this trait. What is deliberately NOT tagged: the three tests
+    // in this class that verify the FIX itself — ConcurrentPublishersToTheSameDestination,
+    // NoStagingResidueSurvivesASuccessfulPublication, and AReaderSeesOnlyCompleteSnapshots — all ran
+    // and PASSED on Linux in that same CI run, so the remediation is Linux-verified.
+    [Trait("Lane", "WindowsOnly")]
     [Fact]
     public void DenyDeleteReader_BlocksPublication_ButNeverCorruptsOrLoses_theSnapshot()
     {

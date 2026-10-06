@@ -195,6 +195,19 @@ public sealed class DevelopmentControlReadPublisher
                         return false;
                     }
 
+                    // W10.4 REMEDIATION, second pass. A destination that is a DIRECTORY can never be moved
+                    // over, on any filesystem, so it is permanent — and Windows raises the SAME
+                    // ERROR_ACCESS_DENIED for it as for a transient open handle. Retrying on the exception
+                    // type alone therefore retried a condition that could not change: MEASURED at 20 attempts
+                    // over 2054 ms before this guard existed. The exception type is a hint; the filesystem
+                    // state is the evidence.
+                    if (Directory.Exists(finalPath))
+                    {
+                        reason = $"publication refused: '{finalPath}' is a directory. A file cannot be moved over "
+                               + "a directory on any filesystem, so this is a permanent condition and is not retried.";
+                        return false;
+                    }
+
                     var transient = IsTransientCommitContention(ex);
                     if (!transient || attempt >= MaxCommitAttempts || clock.Elapsed >= CommitBudget)
                     {

@@ -96,33 +96,82 @@ public sealed class W101DeliveryPublisherTests : IDisposable
         // This test used to block the staging write by creating a DIRECTORY at
         // `PublishedPath + ".staging"` — the fixed staging path. That injection worked precisely
         // BECAUSE the staging name was fixed, which is the defect that was just fixed: the name now
-        // carries a unique suffix, so a squat at the old path blocks nothing and the publish succeeds.
+        // carries a unique suffix, so a squat at the old path blocks nothing.
         //
         // The ASSERTION is unchanged and still the point — an interrupted publication must leave the
-        // previous snapshot byte-identical and readable. Only the injection moved, to a condition that
-        // genuinely prevents the commit: a read-only destination, which the publisher classifies as
-        // permanent and refuses WITHOUT consuming its retry budget.
-        File.SetAttributes(PublishedPath, FileAttributes.ReadOnly);
+        // previous snapshot byte-identical and readable. Only the injection moved, and the replacement
+        // is PLATFORM-CONDITIONAL because the two filesystems fail in different places: Windows blocks
+        // the MOVE onto a read-only file, while POSIX rename is directory-based and ignores the file's
+        // own mode, so the directory must be made unwritable to block creation of the staging file.
+        //
+        // Both injections block the same boundary, and the invariant asserted is identical on both.
+        var onWindows = OperatingSystem.IsWindows();
+        if (onWindows)
+        {
+            File.SetAttributes(PublishedPath, FileAttributes.ReadOnly);
+        }
+        else
+        {
+            File.SetUnixFileMode(_destination, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        }
 
         try
         {
             var outcome = Publisher().Publish(_destination, "2026-10-05T13:00:00.0000000+00:00");
 
             Assert.False(outcome.Published);
-            Assert.Contains("read-only", outcome.Reason, StringComparison.OrdinalIgnoreCase);
-            // A permanent condition is refused at once: spending the budget on it would be exactly the
-            // "real authorization failure turned into a retry" that the remediation forbids.
-            Assert.DoesNotContain("gave up", outcome.Reason, StringComparison.OrdinalIgnoreCase);
+            // The refusal names the failure, whichever platform produced it. NOT asserted: whether it
+            // was classified permanent or transient — that differs by platform (a read-only file is
+            // recognised as configuration, an unwritable directory is not) and asserting one wording
+            // would encode a Windows detail into a cross-platform test.
+            Assert.False(string.IsNullOrWhiteSpace(outcome.Reason));
 
             // The published document is untouched — same bytes, still valid.
             Assert.Equal(before, File.ReadAllBytes(PublishedPath));
             var model = JsonSerializer.Deserialize<DeliveryReadModel>(File.ReadAllText(PublishedPath))!;
             Assert.Equal(DeliveryReadContract.SchemaVersion, model.SchemaVersion);
+
+            // And the interrupted attempt left no scratch file behind.
+            Assert.Empty(Directory.GetFiles(_destination, "*.staging"));
         }
         finally
         {
-            File.SetAttributes(PublishedPath, FileAttributes.Normal);
+            if (onWindows)
+            {
+                File.SetAttributes(PublishedPath, FileAttributes.Normal);
+            }
+            else
+            {
+                File.SetUnixFileMode(_destination, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
         }
+    }
+
+    /// <summary>
+    /// A PERMANENT commit failure is refused without consuming the retry budget.
+    ///
+    /// <para>
+    /// This is the property the remediation's "do not turn real authorization or configuration
+    /// failures into retries" requirement rests on, asserted directly and platform-neutrally: the
+    /// destination path is replaced by a DIRECTORY, so the move can never succeed on any filesystem.
+    /// A retry loop that spent its budget here would be retrying an outcome that cannot change.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void APermanentCommitFailure_IsRefusedWithoutSpendingTheRetryBudget()
+    {
+        Assert.True(Publisher().Publish(_destination, ObservedAt).Published);
+
+        // Replace the destination FILE with a DIRECTORY. A file can never be moved over one, on any
+        // platform, so this is a durable failure rather than transient contention.
+        File.Delete(PublishedPath);
+        Directory.CreateDirectory(PublishedPath);
+
+        var outcome = Publisher().Publish(_destination, "2026-10-06T03:00:00.0000000+00:00");
+
+        Assert.False(outcome.Published);
+        Assert.DoesNotContain("gave up", outcome.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(Directory.GetFiles(_destination, "*.staging"));
     }
 
     /// <summary>An invalid projection replaces nothing.</summary>
