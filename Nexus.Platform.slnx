@@ -115,5 +115,10 @@
          control: Nexus.Delivery.Core and nothing else, so it cannot package, build, deploy or reach a
          database, and "publish a projection of authority" cannot quietly become "change the authority". -->
     <Project Path="tools\Nexus.Delivery.Publish\Nexus.Delivery.Publish.csproj" />
+    <!-- W10.4: the governed DevelopmentControl read-model publisher. In the solution so it is built and
+         subject to the boundary suites, like every other driver here. Its dependency graph is the
+         control: Nexus.ProductCore.Core and nothing else - it takes no lock and acquires no
+         reservation, because publishing is a READ of the authority. -->
+    <Project Path="tools\Nexus.DevelopmentControl.Publish\Nexus.DevelopmentControl.Publish.csproj" />
   </Folder>
 </Solution>

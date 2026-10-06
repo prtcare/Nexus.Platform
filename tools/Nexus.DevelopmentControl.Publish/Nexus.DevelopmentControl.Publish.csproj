@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Nexus.DevelopmentControl.PublishTool</RootNamespace>
+    <AssemblyName>Nexus.DevelopmentControl.Publish</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <Description>Nexus V2 - Layer 06 Shared Platform - the governed DevelopmentControl read-model publisher (W10.4)</Description>
+  </PropertyGroup>
+
+  <!--
+    W10.4. The dependency graph is the control: Nexus.ProductCore.Core and nothing else. The publisher
+    therefore cannot write to the workbook - the writer types are in the same assembly, but this tool
+    references only the reader path, and it takes no lock and acquires no reservation. Publishing is a
+    READ of the authority.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\06-SharedPlatform\Nexus.ProductCore.Core\Nexus.ProductCore.Core.csproj" />
+  </ItemGroup>
+
+</Project>
