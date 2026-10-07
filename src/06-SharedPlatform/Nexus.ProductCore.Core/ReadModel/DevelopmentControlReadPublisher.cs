@@ -91,6 +91,15 @@ public sealed class DevelopmentControlReadPublisher
         {
             return DevelopmentControlPublishOutcome.Refused($"AUTHORITY_UNAVAILABLE — {ex.Message}");
         }
+        catch (DevelopmentControlGovernanceRegistryInvalidException ex)
+        {
+            // W10.5B. The authority was reached; what it returned cannot be published. A refusal
+            // rather than a repaired document, and deliberately NOT a silent skip of the offending
+            // row: every repair available here — dropping the record, keeping the first duplicate,
+            // synthesising an id from the row number — produces a valid-looking document whose gate
+            // count is wrong, and the count is the thing a consumer acts on.
+            return DevelopmentControlPublishOutcome.Refused($"GOVERNANCE_REGISTRY_INVALID — {ex.Message}");
+        }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
             return DevelopmentControlPublishOutcome.Refused($"the DevelopmentControl authority could not be read: {ex.Message}");
@@ -310,6 +319,59 @@ public sealed class DevelopmentControlReadPublisher
                 System.Globalization.DateTimeStyles.RoundtripKind, out _))
         {
             return $"the observation instant '{model.Source.ObservedAt}' is not a parseable timestamp.";
+        }
+
+        // W10.5B. The registry's availability and its rows are checked AGAINST EACH OTHER, because
+        // the pairing is the entire safety property and a pairing that is only asserted upstream is
+        // one refactor away from being asserted nowhere.
+        //
+        // The two documents this refuses are the two that would look correct to a reader:
+        //   UNAVAILABLE carrying gates      — the source could not be read, yet rows are published.
+        //                                      Whatever those rows are, they are not this reading.
+        //   AVAILABLE, and nothing else    — the shape of a legitimate zero AND the shape of an
+        //                                      unread source. Only the State distinguishes them, so
+        //                                      the State must be one of the two known values; an
+        //                                      unrecognised state is refused rather than rendered.
+        var registry = model.Payload.Governance;
+        if (registry is null)
+        {
+            return "the payload carries no Governance registry. It is a REQUIRED section: a document "
+                 + "silent about governance is indistinguishable from one whose governance source was "
+                 + "never consulted.";
+        }
+
+        if (registry.State is not (DevelopmentControlReadGovernanceRegistry.Available
+                                or DevelopmentControlReadGovernanceRegistry.Unavailable))
+        {
+            return $"the Governance registry declares state '{registry.State}', which is neither "
+                 + $"'{DevelopmentControlReadGovernanceRegistry.Available}' nor "
+                 + $"'{DevelopmentControlReadGovernanceRegistry.Unavailable}'. An unrecognised state "
+                 + "cannot be rendered as either an answer or an absence.";
+        }
+
+        if (registry.State == DevelopmentControlReadGovernanceRegistry.Unavailable && registry.Gates.Count != 0)
+        {
+            return $"the Governance registry declares '{DevelopmentControlReadGovernanceRegistry.Unavailable}' "
+                 + $"and carries {registry.Gates.Count} gate(s). An unread source asserts nothing about gates, "
+                 + "so publishing rows beside it would present a reading that was never taken.";
+        }
+
+        var blankId = registry.Gates.FirstOrDefault(g => string.IsNullOrWhiteSpace(g.GovernanceId));
+        if (blankId is not null)
+        {
+            return "the Governance registry carries a gate with a blank GovernanceId.";
+        }
+
+        var duplicates = registry.Gates
+            .GroupBy(g => g.GovernanceId, StringComparer.Ordinal)
+            .Where(grp => grp.Count() > 1)
+            .Select(grp => grp.Key)
+            .OrderBy(k => k, StringComparer.Ordinal)
+            .ToArray();
+
+        if (duplicates.Length != 0)
+        {
+            return $"the Governance registry declares duplicate GovernanceId(s): {string.Join(", ", duplicates)}.";
         }
 
         return null;

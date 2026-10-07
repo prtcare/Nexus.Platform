@@ -59,6 +59,31 @@ public sealed class DevelopmentControlReadProjection
         }
 
         var read = WorkbookCompatibilityReader.Read(_workbookPath);
+
+        // W10.5B. A workbook the reader could not RECOGNISE is not a control with nothing in it.
+        //
+        // WHY THIS BELONGS HERE AND NOT ONLY IN THE READER. The reader already refuses to call an
+        // unrecognised workbook Supported, and it names the reason — but `Project()` still built a
+        // payload from whatever sheets happened to resolve, and the publisher published it. The
+        // result was a document that looked entirely valid and reported a control assembled from a
+        // read the reader had explicitly failed. This is the same failure the reader's own comment
+        // calls out one layer down ("recognised, read the wrong thing, returned nothing, called it
+        // success"), one layer up and one step worse: not recognised, and published anyway.
+        //
+        // NARROW ON PURPOSE. Only UnsupportedSchema and Corrupt refuse. EmptyValid is a recognised,
+        // well-formed workbook that governs nothing — a legitimate thing to publish — and
+        // PartiallySupported carries named, reported gaps that the payload already describes.
+        // Refusing those would replace an honest document with no document, which is the trade this
+        // milestone exists to avoid making.
+        if (read.Result is ReaderResult.UnsupportedSchema or ReaderResult.Corrupt)
+        {
+            throw new DevelopmentControlAuthorityUnavailableException(
+                $"the workbook at '{_workbookPath}' was not recognised by the canonical reader "
+                + $"(result={read.Result}). Publishing a read model from a read that failed would produce a "
+                + "document that is structurally valid and describes a control nobody could identify. "
+                + string.Join(" ", read.Diagnostics));
+        }
+
         var gaps = new List<DevelopmentControlReadGap>();
 
         var workItems = ReadWorkItems(read);
@@ -66,6 +91,7 @@ public sealed class DevelopmentControlReadProjection
         var changeRequests = ReadChangeRequests(read);
         var dependencies = ReadDependencies(read);
         var lineageEdges = ReadLineageEdges(read, workItems, gaps);
+        var governance = ReadGovernanceRegistry(read, gaps);
 
         // `00_Control` binds exactly two logical columns, `ControlItem` and `Value`. SchemaId and
         // SchemaVersion are ROWS in that sheet, not columns — read through the projection the reader
@@ -110,9 +136,67 @@ public sealed class DevelopmentControlReadProjection
             }
         }
 
+        // W10.5B. Emitted unconditionally, and it is the one gap here that is a fact about the
+        // Component rather than about this workbook: `Nexus.Governance` computes a verdict and
+        // returns it, and nothing persists it. There is no file I/O anywhere in `src/03-Governance`.
+        //
+        // WHY UNCONDITIONAL IS THE HONEST CHOICE. It is tempting to emit this only when the registry
+        // is populated, on the reasoning that an empty registry has no history to be missing. That
+        // reasoning is wrong in the direction that matters: the absence is not a property of these
+        // rows, it is a property of the estate. A consumer asking "what did governance decide about
+        // this gate?" gets the same answer — nothing is recorded — whether the registry holds 91
+        // gates or none, and suppressing the statement for the empty case would let a view render
+        // "no decisions" for a source that has no decision history at all.
+        gaps.Add(new DevelopmentControlReadGap(
+            DevelopmentControlReadGapKinds.GovernanceRegistrySubject,
+            DevelopmentControlReadGapKinds.GovernanceEvaluationHistorySourceGap,
+            "Governance evaluates a request and returns a verdict; nothing durably records it, so no "
+            + "historical governance decision exists to publish. This is an ABSENCE, not a zero: the "
+            + "registry below records WHICH GATES EXIST and their planning status, and it does not "
+            + "record any approval, refusal or deferral. A runtime evaluation result must not be "
+            + "presented as historical governance authority."));
+
+        // W10.5B TASK 10. Measured from the records rather than asserted, and emitted only when the
+        // registry was actually read: a workbook whose governance sheet is missing has no rows whose
+        // identifiers could be inspected, and reporting "no shared identifier exists" for a surface
+        // that could not be read would be a measurement nobody took.
+        if (governance.State == DevelopmentControlReadGovernanceRegistry.Available
+            && governance.Gates.Count > 0
+            && !governance.Gates.Any(HasCrossSourceIdentifier))
+        {
+            gaps.Add(new DevelopmentControlReadGap(
+                DevelopmentControlReadGapKinds.GovernanceRegistrySubject,
+                DevelopmentControlReadGapKinds.GovernanceCrossSourceJoinGap,
+                $"None of the {governance.Gates.Count} registry record(s) carries an identifier any other "
+                + "contract also publishes: GateId, ChangeId (envelope) and SupersedesVersion are blank on "
+                + "every record. Governance therefore cannot be related to a work item, change scope, "
+                + "release or deployment. BlocksScope and Notes are free text and are NOT keys; nor are "
+                + "name, timestamp, row position or any fuzzy match, and none is substituted here."));
+        }
+
         return new DevelopmentControlReadPayload(
-            control, workItems, changeScopes, changeRequests, dependencies, lineageEdges, gaps);
+            control, workItems, changeScopes, changeRequests, dependencies, lineageEdges, governance, gaps);
     }
+
+    /// <summary>
+    /// W10.5B TASK 10's measurement, in one place. <b>The three fields that could carry a shared
+    /// identifier, and only those three.</b>
+    ///
+    /// <para>
+    /// Deliberately not extended to <c>Name</c>, <c>Notes</c>, <c>BlocksScope</c>,
+    /// <c>SourceRecordId</c> or <c>EffectiveFrom</c>. Each of those has a plausible-looking
+    /// relationship to something else in the estate and none of them is one: <c>Name</c> is not
+    /// unique (six names recur), <c>BlocksScope</c> is free text such as <c>M-15..M-19</c> whose
+    /// milestone ranges would have to be parsed out of prose, and <c>SourceRecordId</c> identifies a
+    /// row in a LEGACY workbook's own sheet rather than anything this contract publishes. Treating
+    /// any of them as a key is the forbidden inference, so the measurement is written narrowly and a
+    /// future reader can see exactly what was and was not counted.
+    /// </para>
+    /// </summary>
+    private static bool HasCrossSourceIdentifier(DevelopmentControlReadGovernanceGate gate) =>
+        gate.GateId.Length != 0
+        || gate.EnvelopeChangeId.Length != 0
+        || gate.SupersedesVersion.Length != 0;
 
     /// <summary>
     /// The semantic digest: SHA-256 over the canonical payload <b>only</b>, so timestamps cannot
@@ -248,6 +332,111 @@ public sealed class DevelopmentControlReadProjection
             .ToList();
     }
 
+    /// <summary>
+    /// W10.5B — reads <c>18_Governance</c> through the binding this milestone added, and carries the
+    /// registry's own availability beside its rows.
+    ///
+    /// <para>
+    /// <b>A missing sheet is not an empty registry.</b> The binding DECLARES <c>18_Governance</c>, so
+    /// a V3 workbook without it produces <see cref="SheetPresence.DeclaredButMissing"/> — a named,
+    /// reported outcome — and this method turns that into <c>UNAVAILABLE</c> with the reason attached.
+    /// The alternative, returning an empty list, would publish a valid document asserting that the
+    /// control governs nothing, which is an answer to a question the authority was never asked.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>A blank or duplicated <c>GovernanceId</c> refuses the publication.</b> This is the one
+    /// refusal here that is not about reachability. <c>GovernanceId</c> is the registry's declared
+    /// immutable identity and the collection is keyed by it; a row without one cannot be addressed,
+    /// and two rows sharing one make every "this gate" question ambiguous. Both are refused rather
+    /// than repaired, dropped or de-duplicated, because each repair would produce a document whose
+    /// gate count is confidently wrong — the failure this whole milestone exists to make impossible.
+    /// The refusal is loud and names the offending row, so the malformed record is findable.
+    /// </para>
+    /// </summary>
+    private static DevelopmentControlReadGovernanceRegistry ReadGovernanceRegistry(
+        WorkbookReadResult read, List<DevelopmentControlReadGap> gaps)
+    {
+        var sheet = read.Sheet("GovernanceGates");
+
+        if (sheet is null || sheet.Presence != SheetPresence.Bound)
+        {
+            var why = sheet is null
+                ? "no logical sheet named 'GovernanceGates' resolves on this form"
+                : $"the sheet is {sheet.Presence}";
+
+            return new DevelopmentControlReadGovernanceRegistry(
+                DevelopmentControlReadGovernanceRegistry.Unavailable,
+                $"The Governance Gate Registry could not be read: {why}"
+                + (sheet?.PhysicalName is null ? "" : $" (physical sheet '{sheet.PhysicalName}')")
+                + ". This is an ABSENT SOURCE, not a registry holding no gates, and the empty list below "
+                + "asserts nothing. The two must not be rendered the same way.",
+                []);
+        }
+
+        var gates = new List<DevelopmentControlReadGovernanceGate>();
+        var seen = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (var record in sheet.Records)
+        {
+            var governanceId = (record.Get("GovernanceId") ?? string.Empty).Trim();
+
+            if (governanceId.Length == 0)
+            {
+                throw new DevelopmentControlGovernanceRegistryInvalidException(
+                    $"The Governance Gate Registry carries a record at row {record.Row} of '{sheet.PhysicalName}' "
+                    + "with no GovernanceId. That column is the registry's immutable identity and the collection "
+                    + "is keyed by it, so a record without one cannot be addressed. It is NOT skipped: dropping it "
+                    + "would publish a gate count that is confidently wrong, and the count is what a consumer would "
+                    + "act on. The record must be corrected in the authority.");
+            }
+
+            if (seen.TryGetValue(governanceId, out var firstRow))
+            {
+                throw new DevelopmentControlGovernanceRegistryInvalidException(
+                    $"The Governance Gate Registry declares GovernanceId '{governanceId}' at rows {firstRow} and "
+                    + $"{record.Row} of '{sheet.PhysicalName}'. A duplicated identity makes every question about "
+                    + "'this gate' ambiguous, so neither record is published and neither is preferred. The "
+                    + "duplicate must be resolved in the authority.");
+            }
+
+            seen[governanceId] = record.Row;
+
+            gates.Add(new DevelopmentControlReadGovernanceGate(
+                governanceId,
+                record.Get("GateId") ?? string.Empty,
+                record.Get("Name") ?? string.Empty,
+                record.Get("AuthorityProfile") ?? string.Empty,
+                record.Get("RequiredEvidence") ?? string.Empty,
+                // RAW. Published exactly as the authority spells it — see the record's own doc for why
+                // normalising the fourteen measured planning states would be a false claim.
+                record.Get("RegistryStatus") ?? string.Empty,
+                record.Get("BlocksScope") ?? string.Empty,
+                record.Get("Notes") ?? string.Empty,
+                record.Get("IsCurrent") ?? string.Empty,
+                record.Get("EffectiveFrom") ?? string.Empty,
+                record.Get("EnvelopeChangeId") ?? string.Empty,
+                record.Get("SupersedesVersion") ?? string.Empty,
+                new DevelopmentControlReadGovernanceSource(
+                    record.Get("SourceForm") ?? string.Empty,
+                    record.Get("SourceWorkbook") ?? string.Empty,
+                    record.Get("SourceWorkbookHash") ?? string.Empty,
+                    record.Get("SourceSheet") ?? string.Empty,
+                    record.Get("SourceRecordId") ?? string.Empty,
+                    record.Get("SourceRevision") ?? string.Empty,
+                    record.Get("SourceArchitectureVersion") ?? string.Empty,
+                    record.Get("MigrationTimestamp") ?? string.Empty,
+                    record.Get("MigrationTransformation") ?? string.Empty),
+                DeliveryAuthorityClass.Authoritative));
+        }
+
+        return new DevelopmentControlReadGovernanceRegistry(
+            DevelopmentControlReadGovernanceRegistry.Available,
+            $"read from '{sheet.PhysicalName}', header row {sheet.HeaderRow}, "
+            + $"{gates.Count} registry record(s). The sheet is bound READ-ONLY and is not an append target.",
+            gates.OrderBy(g => g.GovernanceId, StringComparer.Ordinal).ToList());
+    }
+
     private static void Add(List<DevelopmentControlReadLineageEdge> edges, string from, string to, string kind)
     {
         // Both endpoints must be present. An edge with an empty endpoint is not an edge — it is the
@@ -282,4 +471,17 @@ public sealed class DevelopmentControlReadProjection
 public sealed class DevelopmentControlAuthorityUnavailableException : Exception
 {
     public DevelopmentControlAuthorityUnavailableException(string message) : base(message) { }
+}
+
+/// <summary>
+/// W10.5B. The authority was reached and read, and the Governance Gate Registry it returned cannot
+/// be published. <b>Kept distinct from <see cref="DevelopmentControlAuthorityUnavailableException"/>
+/// on purpose:</b> "I could not reach the authority" and "the authority answered and its answer is
+/// unusable" are different facts with different remedies, and collapsing them would send whoever
+/// reads the failure to the wrong place. This one is always a defect in the registry itself — a
+/// missing or duplicated immutable identity — and the message names the row.
+/// </summary>
+public sealed class DevelopmentControlGovernanceRegistryInvalidException : Exception
+{
+    public DevelopmentControlGovernanceRegistryInvalidException(string message) : base(message) { }
 }

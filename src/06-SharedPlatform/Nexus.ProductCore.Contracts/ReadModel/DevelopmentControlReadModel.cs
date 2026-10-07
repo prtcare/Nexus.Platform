@@ -57,6 +57,7 @@ public sealed record DevelopmentControlReadPayload(
     IReadOnlyList<DevelopmentControlReadChangeRequest> ChangeRequests,
     IReadOnlyList<DevelopmentControlReadDependency> Dependencies,
     IReadOnlyList<DevelopmentControlReadLineageEdge> LineageEdges,
+    DevelopmentControlReadGovernanceRegistry Governance,
     IReadOnlyList<DevelopmentControlReadGap> Gaps);
 
 /// <summary>
@@ -166,6 +167,156 @@ public sealed record DevelopmentControlReadGap(
     string Subject,
     string Kind,
     string Detail);
+
+/// <summary>
+/// W10.5B — <b>the Governance Gate Registry, with its own availability carried beside it.</b>
+///
+/// <para>
+/// <b>A registry that could not be read is not a registry with no gates.</b> That sentence is the
+/// whole reason this is a record and not a bare collection. A consumer handed
+/// <c>GovernanceGates: []</c> cannot tell "this control governs nothing" from "the governance sheet
+/// was not in the workbook" or "its identity column had moved", and only one of those is safe to
+/// render as a zero. <see cref="State"/> is that distinction, stated in the document rather than
+/// inferred from a field's absence — the same shape Delivery uses for
+/// <c>Backup.Authority = Unavailable</c>, whose own detail line reads "an absent source, not a
+/// failure, and not a reported zero".
+/// </para>
+///
+/// <para>
+/// <b>An empty <see cref="Gates"/> list is only meaningful when <see cref="State"/> is
+/// <see cref="Available"/>.</b> The publisher enforces that pairing rather than trusting it: a
+/// document claiming AVAILABLE with no gates is a legitimate zero, and a document claiming
+/// UNAVAILABLE asserts nothing about gates at all.
+/// </para>
+/// </summary>
+public sealed record DevelopmentControlReadGovernanceRegistry(
+    string State,
+    string Detail,
+    IReadOnlyList<DevelopmentControlReadGovernanceGate> Gates)
+{
+    /// <summary>The registry was read from the authority. Its gate list, empty or not, is a reading.</summary>
+    public const string Available = "AVAILABLE";
+
+    /// <summary>The registry could not be read. <b>Nothing</b> is being asserted about gates.</summary>
+    public const string Unavailable = "UNAVAILABLE";
+}
+
+/// <summary>
+/// W10.5B — <b>one Row of the Governance Gate Registry, as the authority records it.</b>
+///
+/// <para>
+/// <b>This is a REGISTRY ENTRY, not a governance decision.</b> The distinction is the finding that
+/// shaped this milestone, and it is structural here rather than documented: there is no member named
+/// <c>Verdict</c>, no <c>Decision</c>, no <c>Approved</c>, <c>Refused</c>, <c>Deferred</c>,
+/// <c>Passed</c> or <c>Failed</c>, and there is no way to add one to this record without deleting a
+/// member first. A view built over this type therefore cannot claim an approval the authority never
+/// recorded — not because it is told not to, but because the fact is not in the document.
+/// </para>
+///
+/// <para>
+/// <b>Why <c>RegistryStatus</c> and not <c>Status</c>.</b> The workbook's header is <c>Status</c> and
+/// stays <c>Status</c> — the authority is not renamed. What this contract refuses is exposing it
+/// under a name that invites a decision reading. Measured, the column carries PLANNING states:
+/// <c>Proposed</c>, <c>Not Started</c>, <c>Planned</c>, <c>Superseded</c> and ten further values,
+/// and it carries no <c>APPROVED</c>, no <c>REFUSED</c> and no <c>DEFERRED_BY_OWNER</c> at all.
+/// The values are published RAW and un-normalized: mapping fourteen measured states onto an invented
+/// canonical vocabulary would replace what the authority says with what this contract wished it said.
+/// </para>
+///
+/// <para>
+/// <b>Every field name was measured on row 4 of <c>18_Governance</c>, re-measured in this milestone
+/// rather than transcribed</b>, including the ones that turned out to be constants. Three are worth
+/// naming because a consumer will otherwise misread them: <see cref="AuthorityProfile"/> is the
+/// single value <c>PLATFORM_AUTHORITY</c> on every row, so it identifies the owning profile and
+/// <b>not</b> a per-record authority; <see cref="IsCurrent"/> is <c>Yes</c> on every row, so no
+/// supersession exists and <see cref="SupersedesVersion"/> has nothing to describe.
+/// </para>
+///
+/// <para>
+/// <b>The three join-candidate fields are published precisely because they are blank.</b>
+/// <see cref="GateId"/>, <see cref="EnvelopeChangeId"/> and <see cref="SupersedesVersion"/> are the
+/// only members that could carry an identifier another contract also publishes, and all three are
+/// empty on every measured row. Publishing them is what lets a consumer <b>check</b>
+/// <c>GOVERNANCE_CROSS_SOURCE_JOIN_GAP</c> instead of taking it on trust — a gap asserted in prose
+/// is a claim, and a gap a reader can re-measure from the document is evidence.
+/// </para>
+/// </summary>
+public sealed record DevelopmentControlReadGovernanceGate(
+    string GovernanceId,
+    string GateId,
+    string Name,
+    string AuthorityProfile,
+    string RequiredEvidence,
+    string RegistryStatus,
+    string BlocksScope,
+    string Notes,
+    string IsCurrent,
+    string EffectiveFrom,
+    string EnvelopeChangeId,
+    string SupersedesVersion,
+    DevelopmentControlReadGovernanceSource Source,
+    DeliveryAuthorityClass Authority);
+
+/// <summary>
+/// The migration envelope as this registry carries it. <b>Provenance, not a gate fact.</b>
+///
+/// <para>
+/// Kept as its own record rather than flattened into the gate so that a consumer cannot mistake a
+/// migration column for something the governance authority decided. These nine columns appear with
+/// these header names on every V3 sheet; here they record which legacy workbook, sheet and record
+/// each governance entry was migrated from.
+/// </para>
+///
+/// <para>
+/// <see cref="SourceRevision"/> and <see cref="SourceArchitectureVersion"/> read <c>UNKNOWN</c> on
+/// every row — the authority's own declared provenance for those two is "unknown", which is a
+/// recorded value and not a missing one. <see cref="SourceRecordId"/> is populated on every row and
+/// is the row's identity <b>in the sheet it came from</b>; it is not a key in this registry and it
+/// does not join to anything the contract publishes.
+/// </para>
+/// </summary>
+public sealed record DevelopmentControlReadGovernanceSource(
+    string SourceForm,
+    string SourceWorkbook,
+    string SourceWorkbookHash,
+    string SourceSheet,
+    string SourceRecordId,
+    string SourceRevision,
+    string SourceArchitectureVersion,
+    string MigrationTimestamp,
+    string MigrationTransformation);
+
+/// <summary>
+/// <b>The gap kinds W10.5B carries, named once so a producer and a consumer cannot disagree.</b>
+///
+/// <para>
+/// Both are EXPECTED and non-blocking: they are gaps in what the authority records, not defects in
+/// this projection. Both must render as explicit absences. Neither may be rendered as a zero, an
+/// empty list, or a blank cell — a consumer shown "0" has been told the opposite of the truth.
+/// </para>
+/// </summary>
+public static class DevelopmentControlReadGapKinds
+{
+    /// <summary>
+    /// Governance computes a verdict at runtime and discards it. There is no durable store of
+    /// evaluation history, so <b>no historical governance decision exists to read</b>. A view that
+    /// rendered its own runtime evaluation as history would be presenting a computed result as a
+    /// recorded fact.
+    /// </summary>
+    public const string GovernanceEvaluationHistorySourceGap = "GOVERNANCE_EVALUATION_HISTORY_SOURCE_GAP";
+
+    /// <summary>
+    /// No stable identifier in the Gate Registry is shared with any other contract:
+    /// <c>GateId</c>, <c>ChangeId</c> and <c>SupersedesVersion</c> are blank on every row, and
+    /// <c>BlocksScope</c> is free text on the minority of rows that carry it. Governance therefore
+    /// <b>cannot</b> be joined to a work item, change scope, release or deployment. Names, prose,
+    /// timestamps and row position are all explicitly not substitutes.
+    /// </summary>
+    public const string GovernanceCrossSourceJoinGap = "GOVERNANCE_CROSS_SOURCE_JOIN_GAP";
+
+    /// <summary>The sheet the registry is read from, named once for gap subjects and for consumers.</summary>
+    public const string GovernanceRegistrySubject = "GovernanceGates";
+}
 
 /// <summary>
 /// How a DevelopmentControl fact came to be known.

@@ -75,6 +75,46 @@ internal static class WorkbookFixtureBuilder
     public static string Authoritative(string path) => BuildV3(path, DevelopmentControlAuthoritySites.Authoritative);
 
     /// <summary>
+    /// A V3 workbook carrying a populated <c>18_Governance</c> — the Governance Gate Registry.
+    ///
+    /// <para>
+    /// <b>A builder variant rather than a committed workbook</b>, for the reason the whole builder
+    /// exists: the real registry holds 91 live governance records and committing one would move estate
+    /// data into a public repository to satisfy a test. What these tests need is the <i>shape</i> —
+    /// rows with identities, planning statuses and blanks in the join-candidate columns.
+    /// </para>
+    ///
+    /// <para>
+    /// The three flags exist because the failure controls this milestone must prove are not variations
+    /// of a valid workbook: each produces a workbook that is wrong in a different way, and a fixture
+    /// that could only build the good case would let every refusal assertion pass vacuously.
+    /// </para>
+    /// </summary>
+    public static string AuthoritativeWithGovernance(
+        string path,
+        IReadOnlyList<GovernanceRow> rows,
+        bool omitGovernanceSheet = false,
+        bool renameGovernanceIdentityColumn = false) =>
+        BuildV3(path, DevelopmentControlAuthoritySites.Authoritative, rows, omitGovernanceSheet,
+            renameGovernanceIdentityColumn);
+
+    /// <summary>
+    /// One registry row, given by HEADER NAME rather than by column letter.
+    ///
+    /// <para>
+    /// Taking the fields by name is deliberate: a fixture that addressed <c>A5</c> would keep passing
+    /// after the binding moved <c>GovernanceId</c>, and would be measuring the fixture's own column
+    /// arithmetic rather than the reader's resolution. Every value here is written into the column the
+    /// READER will resolve, because the fixture derives its headers from the same binding table.
+    /// </para>
+    /// </summary>
+    public sealed record GovernanceRow(
+        string GovernanceId,
+        string RegistryStatus = "",
+        string Name = "",
+        string GateId = "");
+
+    /// <summary>
     /// A workbook in the legacy form. <b>The form is identified by sheet NAMES alone</b> —
     /// <c>Control Center</c> and <c>Master Roadmap</c> — and never by a sheet count, so the legacy
     /// fixture carries exactly those two and an append against it is refused with a schema mismatch.
@@ -94,7 +134,12 @@ internal static class WorkbookFixtureBuilder
 
     private sealed record Sheet(string Name, IReadOnlyList<string> Headers, SortedDictionary<int, string> Cells);
 
-    private static string BuildV3(string path, string state)
+    private static string BuildV3(
+        string path,
+        string state,
+        IReadOnlyList<GovernanceRow>? governance = null,
+        bool omitGovernanceSheet = false,
+        bool renameGovernanceIdentityColumn = false)
     {
         var sheets = new List<Sheet>();
         var covered = new HashSet<string>(StringComparer.Ordinal);
@@ -110,8 +155,45 @@ internal static class WorkbookFixtureBuilder
             var physical = binding.V3Name;
             covered.Add(physical);
 
+            // W10.5B. The one variant that removes a bound sheet from the container entirely, so the
+            // reader reports DECLARED_BUT_MISSING rather than an empty registry. Deleting the column
+            // from `covered` as well keeps the sheet list honest: it is genuinely not in the package.
+            if (omitGovernanceSheet && binding.LogicalName == "GovernanceGates")
+            {
+                covered.Remove(physical);
+                continue;
+            }
+
             var headers = HeadersFor(binding.LogicalName);
             var cells = new SortedDictionary<int, string>();
+
+            if (binding.LogicalName == "GovernanceGates")
+            {
+                // The identity column is renamed rather than deleted, and the distinction is the
+                // point: a DELETED column would leave the header row one shorter and could be read as
+                // a different sheet. A renamed one occupies the same position and holds the same kind
+                // of value, so a positional reader would find it and never notice — which is exactly
+                // the "plausible value from the adjacent column" failure that resolving by name
+                // exists to prevent, and exactly what the required-column rule must refuse.
+                //
+                // The rows are still populated, under the DRIFTED spelling. A workbook whose header
+                // moved is one that already holds data; leaving the sheet empty would make the test
+                // prove only that an empty sheet with a strange header is refused.
+                const string Renamed = "GovernanceIdentifier";
+                var identityHeader = "GovernanceId";
+
+                if (renameGovernanceIdentityColumn)
+                {
+                    var at = headers.FindIndex(h => string.Equals(h, "GovernanceId", StringComparison.Ordinal));
+                    if (at >= 0)
+                    {
+                        headers[at] = Renamed;
+                        identityHeader = Renamed;
+                    }
+                }
+
+                WriteGovernanceCells(cells, headers, governance ?? [], identityHeader);
+            }
 
             if (binding.LogicalName == "Control")
             {
@@ -199,6 +281,82 @@ internal static class WorkbookFixtureBuilder
         }
 
         return Write(path, sheets);
+    }
+
+    /// <summary>
+    /// W10.5B. Lays the Governance rows under the header list the binding produced, addressing each
+    /// value by its HEADER NAME rather than by a column letter.
+    ///
+    /// <para>
+    /// <b>A blank <c>GovernanceId</c> still emits its row</b>, provided some other field carries a
+    /// value. That is not a convenience: <c>ReadSheet</c> drops a row whose cells are ALL empty, so a
+    /// row left entirely blank would never reach the projection and the blank-identity refusal would
+    /// be tested by a fixture that produced no record at all. Giving the row a Name is what makes the
+    /// record exist and the identity blank — which is the malformed record under test.
+    /// </para>
+    /// </summary>
+    private static void WriteGovernanceCells(
+        SortedDictionary<int, string> cells, List<string> headers, IReadOnlyList<GovernanceRow> rows,
+        string identityHeader)
+    {
+        // Addressed by LOGICAL name and resolved to the header text the binding declares, never by the
+        // sheet's own spelling. That indirection is load-bearing here rather than tidy: `RegistryStatus`
+        // is bound to the physical header `Status`, so a fixture that looked for the literal it was
+        // handed would find nothing — and the failure it would produce is a fixture that writes no rows
+        // at all, which every assertion below would then satisfy vacuously.
+        //
+        // `GovernanceId` is the one exception, and deliberately so: in the drifted-header variant the
+        // identity column's spelling IS the thing under test, so it is supplied rather than resolved.
+        var headerFor = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["GovernanceId"] = identityHeader,
+            ["RegistryStatus"] = Physical("RegistryStatus"),
+            ["Name"] = Physical("Name"),
+            ["GateId"] = Physical("GateId"),
+        };
+
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var row = rows[i];
+            var rowNumber = HeaderRow + 1 + i;
+
+            Write("GovernanceId", row.GovernanceId);
+            Write("RegistryStatus", row.RegistryStatus);
+            Write("Name", row.Name);
+            Write("GateId", row.GateId);
+
+            void Write(string logical, string value)
+            {
+                if (string.IsNullOrEmpty(value))
+                {
+                    return;
+                }
+
+                var at = headers.FindIndex(h =>
+                    string.Equals(h, headerFor[logical], StringComparison.Ordinal));
+
+                if (at < 0)
+                {
+                    throw new InvalidOperationException(
+                        $"the Governance fixture cannot write '{logical}' (header '{headerFor[logical]}'): "
+                        + "the binding did not emit that header. The fixture addresses columns through the "
+                        + "binding precisely so this fails here rather than producing a workbook whose rows "
+                        + "land in the wrong places.");
+                }
+
+                Set(cells, ColumnLetter(at + 1) + rowNumber, value);
+            }
+        }
+
+        static string Physical(string logical)
+        {
+            var declared = WorkbookCompatibilityMap.ColumnsFor("GovernanceGates")
+                .FirstOrDefault(c => string.Equals(c.LogicalName, logical, StringComparison.Ordinal));
+
+            return declared?.V3 ?? throw new InvalidOperationException(
+                $"the Governance fixture addresses logical column '{logical}', which the binding does not "
+                + "declare for 'GovernanceGates'.");
+        }
     }
 
     /// <summary>
