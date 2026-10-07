@@ -120,5 +120,10 @@
          control: Nexus.ProductCore.Core and nothing else - it takes no lock and acquires no
          reservation, because publishing is a READ of the authority. -->
     <Project Path="tools\Nexus.DevelopmentControl.Publish\Nexus.DevelopmentControl.Publish.csproj" />
+    <!-- W10.6: the runtime observer. In the solution for the same reason the drivers above are:
+         a tool kept outside it is a tool nothing builds, and the classification this one
+         publishes is DERIVED from this file, so a component that could hide from the solution
+         would hide from its own applicability map. -->
+    <Project Path="tools\Nexus.Platform.RuntimeObserver\Nexus.Platform.RuntimeObserver.csproj" />
   </Folder>
 </Solution>
