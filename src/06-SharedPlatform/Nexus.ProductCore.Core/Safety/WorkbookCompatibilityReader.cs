@@ -399,6 +399,38 @@ public static class WorkbookCompatibilityMap
         // would again be inventing a sheet.
         new("MigrationMap",       null, null, null, null, null, null) { V3Name = "24_V3MigrationMap", V3ImmutableIdentity = ["MapId"] },
         new("NexusEvolution",     null, null, null, null, null, null) { V3Name = "23_NexusEvolution", V3ImmutableIdentity = ["EvolutionId"] },
+
+        // ---------------------------------------------------------------- W10.5B
+        //
+        // THE GOVERNANCE GATE REGISTRY. `18_Governance` was measured by W10.5B TASK 2 as a POPULATED
+        // authority that no contract could name: it sits in `KnownUnboundV3Sheets` below, beside
+        // `21_Risks` and `22_Exceptions`, and the reader's own comment states what that costs — an
+        // unbound sheet "cannot be read through the contract nor appended to through it". The sheet's
+        // authority was never in doubt; its reachability was. This row is that reachability, and the
+        // same move W8D-R5 TASK 1 made for `13_GitLineage`, `09_ChangeScopes` and `19_ChangeRequests`.
+        //
+        // V3-ONLY, and the nulls above are a claim rather than an omission: the three frozen forms
+        // carry governance as prose inside other sheets, with no gate registry of this shape, so a
+        // Legacy/Foundation/Products name here would be inventing a sheet. On those forms this row is
+        // AbsentInForm — named and reported — and the frozen three stay bit-for-bit unaffected.
+        //
+        // WHAT IT IS. Measured six independent ways and ratified by the Owner, `18_Governance` is a
+        // GOVERNANCE GATE REGISTRY, not a decision ledger: `Status` carries a PLANNING vocabulary
+        // (`Proposed`, `Not Started`, `Planned`, `Superseded` — fourteen values, and no `APPROVED`,
+        // `REFUSED` or `DEFERRED_BY_OWNER`); `AuthorityProfile` is the single constant
+        // `PLATFORM_AUTHORITY` on every row; `IsCurrent` is `Yes` on every row, so no supersession
+        // exists; and `MigrationTransformation` is `MAPPED` on every row with `SourceForm` drawn from
+        // the migrated forms. A consumer must not read a row's planning status as a decision about it.
+        //
+        // V3ImmutableIdentity is DELIBERATELY NULL, and unlike `06_Repositories` that is not a
+        // statement about the schema — it is a statement about this binding. `GovernanceId` IS the
+        // registry's immutable identity, populated and unique on every measured row. What the null
+        // records is that this change binds the sheet for READING ONLY: declaring an identity would
+        // make `18_Governance` an append target and thereby hand every host a write path into a
+        // governance surface as a side effect of being able to display it. The Owner's decision binds
+        // the registry so a projection can publish it; it does not authorise appending to it, and the
+        // append path's own rule turns the absence into a refusal rather than a guess.
+        new("GovernanceGates",    null, null, null, null, null, null) { V3Name = "18_Governance" },
     };
 
     /// <summary>
@@ -794,6 +826,56 @@ public static class WorkbookCompatibilityMap
         new("MigrationMap", "EffectiveFrom",        false, null, null, null) { V3 = "EffectiveFrom" },
         new("MigrationMap", "EnvelopeChangeId",     false, null, null, null) { V3 = "ChangeId" },
         new("MigrationMap", "SupersedesVersion",    false, null, null, null) { V3 = "SupersedesVersion" },
+
+        // ---------------------------------------------------------------- W10.5B
+        //
+        // `18_Governance` — the Governance Gate Registry. Every header below was RE-MEASURED on row 4
+        // of the live authority's sheet part rather than transcribed from the discovery notes, because
+        // the acceptance number for this milestone is a measurement and not an assertion. The sheet
+        // carries exactly 22 columns, A..V, and the declaration order here reproduces that order
+        // one-for-one: thirteen bound explicitly, then the nine migration-envelope columns the
+        // cross-sheet projection supplies. That agreement is not decoration — the fixture builder
+        // emits headers in this same order, so a header measured wrong here would show up as a
+        // 22-column sheet that resolves to the wrong letters.
+        //
+        // `GovernanceId` is marked V3Required, and it is the only affirmative use of the override in
+        // this block. It is the registry's DECLARED IDENTITY (populated and unique on every measured
+        // row) and the whole registry is keyed by it, so a workbook whose `18_Governance` has lost
+        // that header is not the sheet this map expected, and reading it positionally would return a
+        // plausible name from the adjacent column and never fail. That is precisely what
+        // UNSUPPORTED_SCHEMA exists to refuse, and it is why the refusal is the whole-workbook
+        // UnsupportedSchema the reader already produces rather than a quiet empty collection.
+        //
+        // Everything else stays `Required=false`. These are READINGS of a surface, and the authority
+        // itself leaves several of them blank by design — `Status` is blank on 13 of 91 measured rows
+        // and `BlocksScope` on 74 of 91. Demanding them would reject the authority for being what it
+        // is. Their absence is reported as Found=true / empty value, which is a different answer from
+        // Found=false / column missing, and the two must not collapse.
+        //
+        // THE VERDICT RULE IS STRUCTURAL, NOT A COMMENT. `Status` is bound under the logical name
+        // `RegistryStatus`, not under `Status`, and that is the entire safety property: a name is
+        // what a consumer writes, and no consumer can write `gate.Status` into a field the UI renders
+        // as a decision if no such name exists. The workbook's own header stays `Status` — the
+        // binding is a contract-side rename of a READING, and the authority is neither renamed nor
+        // normalized. See `DevelopmentControlReadGovernanceGate`.
+        new("GovernanceGates", "GovernanceId",      false, null, null, null) { V3 = "GovernanceId", V3Required = true },
+        new("GovernanceGates", "GateId",            false, null, null, null) { V3 = "GateId" },
+        new("GovernanceGates", "Name",              false, null, null, null) { V3 = "Name" },
+        new("GovernanceGates", "AuthorityProfile",  false, null, null, null) { V3 = "AuthorityProfile" },
+        new("GovernanceGates", "RequiredEvidence",  false, null, null, null) { V3 = "RequiredEvidence" },
+        new("GovernanceGates", "RegistryStatus",    false, null, null, null) { V3 = "Status" },
+        new("GovernanceGates", "BlocksScope",       false, null, null, null) { V3 = "BlocksScope" },
+        new("GovernanceGates", "Notes",             false, null, null, null) { V3 = "Notes" },
+        new("GovernanceGates", "RecordVersion",     false, null, null, null) { V3 = "RecordVersion" },
+        new("GovernanceGates", "IsCurrent",         false, null, null, null) { V3 = "IsCurrent" },
+        new("GovernanceGates", "EffectiveFrom",     false, null, null, null) { V3 = "EffectiveFrom" },
+        // `L = ChangeId` on this sheet is the envelope's originating change, not a business key —
+        // measured blank on every row. Bound under the envelope name for the same reason
+        // `ChangeScopes`, `GitLineage`, `ChangeRequests`, `NexusEvolution` and `MigrationMap` bind it
+        // that way, and binding it explicitly is what keeps `ProjectEnvelope` from re-pointing the
+        // name at a different column.
+        new("GovernanceGates", "EnvelopeChangeId",  false, null, null, null) { V3 = "ChangeId" },
+        new("GovernanceGates", "SupersedesVersion", false, null, null, null) { V3 = "SupersedesVersion" },
     };
 
     /// <summary>
@@ -849,6 +931,17 @@ public static class WorkbookCompatibilityMap
     /// `24_V3MigrationMap` — because they carry the archival/history linkage and the reconciliation
     /// disposition that task names, and neither could be read or appended to while unbound.
     ///
+    /// W10.5B removed one more: `18_Governance`, now bound as the `GovernanceGates` logical sheet.
+    /// The same rule applies in the same direction — this list is a claim, and leaving a bound sheet
+    /// on it would make the claim false in the way that matters. It is removed in the SAME CHANGE as
+    /// the binding and never before it, because the removal is a statement that the contract can now
+    /// name the sheet, and a statement made ahead of the thing it describes is a false one.
+    ///
+    /// <b>`21_Risks` and `22_Exceptions` deliberately stay.</b> The Owner's decision binds only the
+    /// gate registry; the other two surfaces remain unprojected, and their presence here is what
+    /// keeps "this data is in the workbook and the contract cannot see it" a checkable fact rather
+    /// than a silence. Removing them would be a scope change disguised as bookkeeping.
+    ///
     /// The runtime `UnboundSheets` list is computed from the workbook (reader `:646`), not from
     /// here, so it corrects itself. This one does not, which is exactly why it needed the edit.
     ///
@@ -861,7 +954,7 @@ public static class WorkbookCompatibilityMap
         "01_Configuration", "03_Products", "04_Capabilities", "05_Contracts",
         "11_Reservations", "12_DevelopmentRuns",
         "14_Builds", "15_Releases", "16_Deployments", "17_Evidence",
-        "18_Governance", "21_Risks", "22_Exceptions",
+        "21_Risks", "22_Exceptions",
         "25_Dashboard",
     };
 
