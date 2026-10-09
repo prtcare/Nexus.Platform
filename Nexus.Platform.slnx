@@ -46,6 +46,14 @@
   <Folder Name="/src/08-Assurance/">
     <Project Path="src\08-Assurance\Nexus.Assurance.Contracts\Nexus.Assurance.Contracts.csproj" />
   </Folder>
+  <Folder Name="/tests/01-Core/">
+    <!-- W10.8A: the identity trust boundary. Listed in the solution for the reason the W8D entry under
+         06-SharedPlatform states — a suite reachable only by naming its csproj by hand is a suite the
+         estate build does not run. The assertions are architectural (an actor carries no roles; a caller
+         cannot assert a subject; an unknown actor fails closed), and every refusal has a positive twin so
+         it cannot pass for the wrong reason. -->
+    <Project Path="tests\01-Core\Nexus.Platform.Identity.Tests\Nexus.Platform.Identity.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/03-Governance/">
     <Project Path="tests\03-Governance\Nexus.Governance.Tests\Nexus.Governance.Tests.csproj" />
   </Folder>
